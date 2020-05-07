@@ -11,7 +11,7 @@ If you find this useful, please cite:
 ## Requirements
 This code leverages machine-learning for earthquake detection. You should have suitable hardward to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nVidia compute cards, but also runs well on a modest multi-core with gaming PC nVidia card. The event-mode can be run efficiently enough on a laptop.
 
-## Running ezQuake
+## Running easyQuake
 
 ```
 from easyQuake import download_mseed
