@@ -1,4 +1,4 @@
-# ezQuake
+# easyQuake
 
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
@@ -14,15 +14,15 @@ This code leverages machine-learning for earthquake detection. You should have s
 ## Running ezQuake
 
 ```
-from ezQuake import download_mseed
-from ezQuake import daterange
+from easyQuake import download_mseed
+from easyQuake import daterange
 from datetime import date
-from ezQuake import combine_associated
-from ezQuake import detection_continuous
-from ezQuake import association_continuous
+from easyQuake import combine_associated
+from easyQuake import detection_continuous
+from easyQuake import association_continuous
 
-from ezQuake import magnitude_quakeml
-from ezQuake import simple_cat_df
+from easyQuake import magnitude_quakeml
+from easyQuake import simple_cat_df
 
 import matplotlib.pyplot as plt
 maxkm = 300
