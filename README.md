@@ -5,7 +5,7 @@ Simplified machine-learning driven earthquake detection, location, and analysis 
 If you find this useful, please cite:
 
 ```
-
+Walter et al. (in prep) easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study
 ```
 
 ## Requirements
