@@ -5,9 +5,9 @@ set of functions to drive EasyQuake
 """
 import sys
 sys.path.append("/home/jwalter/syncpython")
-from phasepapy.phasepicker import fbpicker
-from phasepapy.associator import tables1D, assoc1D, assoc1Dice, assoc1Dice1
-from phasepapy.associator import tt_stations_1D
+from phasepapy import fbpicker
+from phasepapy import tables1D, assoc1D
+from phasepapy import tt_stations_1D
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
@@ -15,9 +15,6 @@ from obspy import read
 import datetime
 import numpy as np
 import glob
-import string
-import time
-import argparse as ap
 import sys
 import os
 import obspy.taup as taup
@@ -52,21 +49,21 @@ fmtS = "%12s%1sS%1s%1i\n"
 fmt = "%6s%02i%05.2f%1s%03i%05.2f%1s%4i\n"
 
 
-min_proba = 0.993 # Minimum softmax probability for phase detection
-# try 0.992 if you have the computing power
-freq_min = 3.0
-freq_max = 20.0
-filter_data = True
-decimate_data = True # If false, assumes data is already 100 Hz samprate
-n_shift = 10 # Number of samples to shift the sliding window at a time
-n_gpu = 1 # Number of GPUs to use (if any)
-#####################
-batch_size = 1000*3
-
-half_dur = 2.00
-only_dt = 0.01
-n_win = int(half_dur/only_dt)
-n_feat = 2*n_win
+#min_proba = 0.993 # Minimum softmax probability for phase detection
+## try 0.992 if you have the computing power
+#freq_min = 3.0
+#freq_max = 20.0
+#filter_data = True
+#decimate_data = True # If false, assumes data is already 100 Hz samprate
+#n_shift = 10 # Number of samples to shift the sliding window at a time
+#n_gpu = 1 # Number of GPUs to use (if any)
+######################
+#batch_size = 1000*3
+#
+#half_dur = 2.00
+#only_dt = 0.01
+#n_win = int(half_dur/only_dt)
+#n_feat = 2*n_win
 
 
 from datetime import timedelta, date
@@ -511,7 +508,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
     if machine:
-        os.system("/home/jwalter/seis/generalized-phase-detection/gpd_predict.py -V -P -I %s -O %s" % (infile, outfile))
+        os.system("gpd_predict.py -V -P -I %s -O %s" % (infile, outfile))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
