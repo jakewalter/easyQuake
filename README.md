@@ -35,7 +35,7 @@ lon_b = -111
 
 
 start_date = date(2020, 3, 31)
-end_date = date(2020, 4, 2)
+end_date = date(2020, 4, 1)
 
 project_code = 'idaho'
 project_folder = '/data/id'
