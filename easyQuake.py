@@ -5,9 +5,9 @@ set of functions to drive EasyQuake
 """
 import sys
 sys.path.append("/home/jwalter/syncpython")
-from phasepapy import fbpicker
-from phasepapy import tables1D, assoc1D
-from phasepapy import tt_stations_1D
+from .phasepapy import fbpicker
+from .phasepapy import tables1D, assoc1D
+from .phasepapy import tt_stations_1D
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
@@ -508,7 +508,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
     if machine:
-        os.system("gpd_predict.py -V -P -I %s -O %s" % (infile, outfile))
+        fullpath1 = os.path.realpath('gpd_predict.py')
+        os.system(fullpath1+" -V -P -I %s -O %s" % (infile, outfile))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
@@ -703,7 +704,9 @@ def detection_assocation_event(dirname=None, project_folder=None, project_code=N
     outfile = dir1+'/gpd_picks.out'
     #gpd_predict.py -V -P -I infile -O outflie
     #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
-    os.system("/home/jwalter/seis/generalized-phase-detection/gpd_predict_ice.py -V -P -I %s -O %s" % (infile, outfile))
+    fullpath1 = os.path.realpath('gpd_predict.py')
+
+    os.system(fullpath1+" -V -P -I %s -O %s" % (infile, outfile))
     #gpd_predict(inputfile=infile,outputfile=outfile)
     fileinassociate = outfile
     print(outfile)
