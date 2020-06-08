@@ -5,9 +5,9 @@ set of functions to drive EasyQuake
 """
 import sys
 sys.path.append("/home/jwalter/syncpython")
-from .phasepapy import fbpicker
-from .phasepapy import tables1D, assoc1D
-from .phasepapy import tt_stations_1D
+from phasepapy import fbpicker
+from phasepapy import tables1D, assoc1D
+from phasepapy import tt_stations_1D
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
@@ -547,6 +547,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+    inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
 #    engine_assoc=create_engine(db_assoc, echo=False)
 #    tables1D.Base.metadata.create_all(engine_assoc)
 #    Session=sessionmaker(bind=engine_assoc)
@@ -1105,11 +1106,15 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False):
                         if len(inventory_local)>0:
                             inv = read_inventory(inventory_local[0])
                         else:
-                            print('Getting response from DMC')
-                            starttime = UTCDateTime(origin.time-10)
-                            endtime = UTCDateTime(origin.time+10)
-                            inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                            #                    paz = [x for x in pazs if tr.stats.channel in x]
+                            if len(glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml'))>0:
+                                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                            else:
+                                print('Getting response from DMC')
+                                starttime = UTCDateTime(origin.time-10)
+                                endtime = UTCDateTime(origin.time+10)
+                                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                                #                    paz = [x for x in pazs if tr.stats.channel in x]
     #                    attach_paz(tr, paz[0])
                         #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                         tr.stats.network = inv[0].code
@@ -1245,13 +1250,17 @@ def simple_cat_df(cat=None):
     magnitudestype = []
     resourceid = []
     for event in cat:
-        if len(event.origins) != 0 and len(event.magnitudes) != 0:
+        if len(event.origins) != 0:
             times.append(event.origins[0].time.datetime)
             lats.append(event.origins[0].latitude)
             lons.append(event.origins[0].longitude)
             deps.append(event.origins[0].depth)
-            magnitudes.append(event.magnitudes[0].mag)
-            magnitudestype.append(event.magnitudes[0].magnitude_type)
+            if len(event.magnitudes) != 0:
+                magnitudes.append(event.magnitudes[0].mag)
+                magnitudestype.append(event.magnitudes[0].magnitude_type)
+            else:
+                magnitudes.append(np.nan)
+                magnitudestype.append(np.nan)
             resourceid.append(event.resource_id)
     catdf1 = pd.DataFrame({'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid}, index = times)
     return catdf1
@@ -1349,7 +1358,13 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
         with open(phase_dat_file, "w") as open_file:
             open_file.write(event_string)
             
-            
+def single_event_xml(catalog=None,project_folder=None):
+    xmlspath = project_folder+'/xmls'
+    if not os.path.exists(xmlspath):
+        os.makedirs(xmlspath)
+    for ev in catalog:
+        filename = str(ev.resource_id).split('/')[-1] + ".xml"
+        ev.write(xmlspath+'/'+filename, format="QUAKEML")            
             
     
 #    station_dat_file = project_folder+'/'+'station.dat'
