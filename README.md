@@ -2,6 +2,17 @@
 
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
+On most systems you should be able to simply:
+```
+pip install easyQuake
+```
+Or you could:
+```
+git clone https://github.com/jakewalter/easyQuake.git
+cd easyQuake
+pip install .
+```
+
 If you find this useful, please cite:
 
 ```
