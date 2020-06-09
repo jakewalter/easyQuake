@@ -27,7 +27,7 @@ from keras.models import model_from_json
 import tensorflow as tf
 import matplotlib as mpl
 import pylab as plt
-mpl.rcParams['pdf.fonttype'] = 42
+#mpl.rcParams['pdf.fonttype'] = 42
 
 #####################
 # Hyperparameters
@@ -144,6 +144,11 @@ if __name__ == "__main__":
         default=False,
         action='store_true',
         help='verbose')
+    parser.add_argument(
+        '-F',
+        type=str,
+        default=None,
+        help='path where GPD lives')
     args = parser.parse_args()
 
     plot = args.P
@@ -159,13 +164,14 @@ if __name__ == "__main__":
     nsta = len(fdir)
 
     # load json and create model
-    json_file = open('./model_pol.json', 'r')
+    pathjson = args.F+'/model_pol.json'
+    json_file = open(pathjson, 'r')
     loaded_model_json = json_file.read()
     json_file.close()
     model = model_from_json(loaded_model_json, custom_objects={'tf':tf})
 
     # load weights into new model
-    model.load_weights("./model_pol_best.hdf5")
+    model.load_weights(args.F+"/model_pol_best.hdf5")
     print("Loaded model from disk")
 
     if n_gpu > 1:
