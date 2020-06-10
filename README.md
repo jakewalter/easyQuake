@@ -6,7 +6,7 @@ On most systems you should be able to simply:
 ```
 pip install easyQuake
 ```
-Or you could:
+Or if you need to tweak something, like the number of GPUs in gpd_predict, you could:
 ```
 git clone https://github.com/jakewalter/easyQuake.git
 cd easyQuake
