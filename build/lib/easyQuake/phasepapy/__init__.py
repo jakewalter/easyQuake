@@ -1,1 +1,0 @@
-from easyQuake.phasepapy import *
