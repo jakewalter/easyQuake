@@ -20,9 +20,9 @@ Walter et al. (in prep) easyQuake: Putting machine learning to work for your reg
 ```
 
 ## Requirements
-This code leverages machine-learning for earthquake detection. You should have suitable hardward to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nVidia compute cards, but also runs well on a modest multi-core with gaming PC nVidia card. The event-mode can be run efficiently enough on a laptop.
+This code leverages machine-learning for earthquake detection. You should have suitable hardware to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nvidia compute cards and modest multi-core desktop with consumer gaming nvidia card (e.g. Geforce 1050 Ti). The event-mode can be run efficiently enough on a laptop.
 
-* Requires obspy, keras, tensorflow-gpu, basemap,
+* Requires obspy, keras, tensorflow-gpu, basemap
 * Easiest installation path includes installing Anaconda python, "conda install tensorflow-gpu" installs cudatookkit and tensorflow
 
 ## Running easyQuake
@@ -76,7 +76,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* code was used from obspyck, gpd, hashpy, and others
-* would not be possible without obspy
+* code was reused from obspy (https://github.com/obspy/obspy/wiki), gpd (https://github.com/interseismic/generalized-phase-detection), PhasePApy (https://github.com/austinholland/PhasePApy), and others
+* would not be possible without the robust documentation in the obspy project
 * this work was developed at the Oklahoma Geological Survey
 
