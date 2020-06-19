@@ -16,7 +16,7 @@ pip install .
 If you find this useful, please cite:
 
 ```
-Walter et al. (in prep) easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study
+Walter et al. (in review), easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study
 ```
 
 ## Requirements
