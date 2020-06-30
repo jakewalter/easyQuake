@@ -28,10 +28,17 @@ import tensorflow as tf
 import matplotlib as mpl
 import pylab as plt
 #mpl.rcParams['pdf.fonttype'] = 42
-physical_devices = tf.config.list_physical_devices('GPU')
+#physical_devices = tf.config.list_physical_devices('GPU')
 try:
-  tf.config.experimental.set_memory_growth(physical_devices[0], True)
+  physical_devices = tf.config.experimental.list_physical_devices('GPU')
+  #tf.config.experimental.set_memory_growth(physical_devices[0], True)
+  [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
 except:
+  tf_config=tf.ConfigProto()
+  tf_config.gpu_options.allow_growth=True
+  sess = tf.Session(config=tf_config)
+#  physical_devices = tf.config.experimental.list_physical_devices('GPU')
+#  tf.config.experimental.set_memory_growth(physical_devices[0], True)
   # Invalid device or cannot modify virtual devices once initialized.
   pass
 #####################
@@ -206,9 +213,6 @@ if __name__ == "__main__":
             if isinstance(tr.data, np.ma.masked_array):
                 tr.data = tr.data.filled()
 
-        latest_start = np.max([x.stats.starttime for x in st])
-        earliest_stop = np.min([x.stats.endtime for x in st])
-        st.trim(latest_start, earliest_stop)
 
         st.detrend(type='linear')
         if filter_data:
@@ -224,73 +228,75 @@ if __name__ == "__main__":
         chan = st[0].stats.channel
         latest_start = np.max([x.stats.starttime for x in st])
         earliest_stop = np.min([x.stats.endtime for x in st])
-        st.trim(latest_start, earliest_stop)
-        if args.V:
-            print("Reshaping data matrix for sliding window")
-        tt = (np.arange(0, st[0].data.size, n_shift) + n_win) * dt
-        tt_i = np.arange(0, st[0].data.size, n_shift) + n_feat
-        #tr_win = np.zeros((tt.size, n_feat, 3))
-        sliding_N = sliding_window(st[0].data, n_feat, stepsize=n_shift)
-        sliding_E = sliding_window(st[1].data, n_feat, stepsize=n_shift)
-        sliding_Z = sliding_window(st[2].data, n_feat, stepsize=n_shift)
-        tr_win = np.zeros((sliding_N.shape[0], n_feat, 3))
-        tr_win[:,:,0] = sliding_N
-        tr_win[:,:,1] = sliding_E
-        tr_win[:,:,2] = sliding_Z
-        tr_win = tr_win / np.max(np.abs(tr_win), axis=(1,2))[:,None,None]
-        tt = tt[:tr_win.shape[0]]
-        tt_i = tt_i[:tr_win.shape[0]]
-
-        if args.V:
-            ts = model.predict(tr_win, verbose=True, batch_size=batch_size)
-        else:
-            ts = model.predict(tr_win, verbose=False, batch_size=batch_size)
-
-        prob_S = ts[:,1]
-        prob_P = ts[:,0]
-        prob_N = ts[:,2]
-
-        from obspy.signal.trigger import trigger_onset
-        trigs = trigger_onset(prob_P, min_proba, 0.1)
-        p_picks = []
-        s_picks = []
-        for trig in trigs:
-            if trig[1] == trig[0]:
-                continue
-            pick = np.argmax(ts[trig[0]:trig[1], 0])+trig[0]
-            stamp_pick = st[0].stats.starttime + tt[pick]
-            #chan_pick = st[0].stats.channel
-            p_picks.append(stamp_pick)
-            ofile.write("%s %s HHZ P %s\n" % (net, sta, stamp_pick.isoformat()))
-
-        trigs = trigger_onset(prob_S, min_proba, 0.1)
-        for trig in trigs:
-            if trig[1] == trig[0]:
-                continue
-            pick = np.argmax(ts[trig[0]:trig[1], 1])+trig[0]
-            stamp_pick = st[0].stats.starttime + tt[pick]
-            chan_pick = st[0].stats.channel
-            s_picks.append(stamp_pick)
-            ofile.write("%s %s HHE S %s\n" % (net, sta, stamp_pick.isoformat()))
-
-        if plot:
-            fig = plt.figure(figsize=(8, 12))
-            ax = []
-            ax.append(fig.add_subplot(4,1,1))
-            ax.append(fig.add_subplot(4,1,2,sharex=ax[0],sharey=ax[0]))
-            ax.append(fig.add_subplot(4,1,3,sharex=ax[0],sharey=ax[0]))
-            ax.append(fig.add_subplot(4,1,4,sharex=ax[0]))
-            for i in range(3):
-                ax[i].plot(np.arange(st[i].data.size)*dt, st[i].data, c='k', \
-                           lw=0.5)
-            ax[3].plot(tt, ts[:,0], c='r', lw=0.5)
-            ax[3].plot(tt, ts[:,1], c='b', lw=0.5)
-            for p_pick in p_picks:
+        if (earliest_stop>latest_start):
+            
+            st.trim(latest_start, earliest_stop)
+            if args.V:
+                print("Reshaping data matrix for sliding window")
+            tt = (np.arange(0, st[0].data.size, n_shift) + n_win) * dt
+            tt_i = np.arange(0, st[0].data.size, n_shift) + n_feat
+            #tr_win = np.zeros((tt.size, n_feat, 3))
+            sliding_N = sliding_window(st[0].data, n_feat, stepsize=n_shift)
+            sliding_E = sliding_window(st[1].data, n_feat, stepsize=n_shift)
+            sliding_Z = sliding_window(st[2].data, n_feat, stepsize=n_shift)
+            tr_win = np.zeros((sliding_N.shape[0], n_feat, 3))
+            tr_win[:,:,0] = sliding_N
+            tr_win[:,:,1] = sliding_E
+            tr_win[:,:,2] = sliding_Z
+            tr_win = tr_win / np.max(np.abs(tr_win), axis=(1,2))[:,None,None]
+            tt = tt[:tr_win.shape[0]]
+            tt_i = tt_i[:tr_win.shape[0]]
+    
+            if args.V:
+                ts = model.predict(tr_win, verbose=True, batch_size=batch_size)
+            else:
+                ts = model.predict(tr_win, verbose=False, batch_size=batch_size)
+    
+            prob_S = ts[:,1]
+            prob_P = ts[:,0]
+            prob_N = ts[:,2]
+    
+            from obspy.signal.trigger import trigger_onset
+            trigs = trigger_onset(prob_P, min_proba, 0.1)
+            p_picks = []
+            s_picks = []
+            for trig in trigs:
+                if trig[1] == trig[0]:
+                    continue
+                pick = np.argmax(ts[trig[0]:trig[1], 0])+trig[0]
+                stamp_pick = st[0].stats.starttime + tt[pick]
+                #chan_pick = st[0].stats.channel
+                p_picks.append(stamp_pick)
+                ofile.write("%s %s HHZ P %s\n" % (net, sta, stamp_pick.isoformat()))
+    
+            trigs = trigger_onset(prob_S, min_proba, 0.1)
+            for trig in trigs:
+                if trig[1] == trig[0]:
+                    continue
+                pick = np.argmax(ts[trig[0]:trig[1], 1])+trig[0]
+                stamp_pick = st[0].stats.starttime + tt[pick]
+                chan_pick = st[0].stats.channel
+                s_picks.append(stamp_pick)
+                ofile.write("%s %s HHE S %s\n" % (net, sta, stamp_pick.isoformat()))
+    
+            if plot:
+                fig = plt.figure(figsize=(8, 12))
+                ax = []
+                ax.append(fig.add_subplot(4,1,1))
+                ax.append(fig.add_subplot(4,1,2,sharex=ax[0],sharey=ax[0]))
+                ax.append(fig.add_subplot(4,1,3,sharex=ax[0],sharey=ax[0]))
+                ax.append(fig.add_subplot(4,1,4,sharex=ax[0]))
                 for i in range(3):
-                    ax[i].axvline(p_pick-st[0].stats.starttime, c='r', lw=0.5)
-            for s_pick in s_picks:
-                for i in range(3):
-                    ax[i].axvline(s_pick-st[0].stats.starttime, c='b', lw=0.5)
-            plt.tight_layout()
-            plt.show()
+                    ax[i].plot(np.arange(st[i].data.size)*dt, st[i].data, c='k', \
+                               lw=0.5)
+                ax[3].plot(tt, ts[:,0], c='r', lw=0.5)
+                ax[3].plot(tt, ts[:,1], c='b', lw=0.5)
+                for p_pick in p_picks:
+                    for i in range(3):
+                        ax[i].axvline(p_pick-st[0].stats.starttime, c='r', lw=0.5)
+                for s_pick in s_picks:
+                    for i in range(3):
+                        ax[i].axvline(s_pick-st[0].stats.starttime, c='b', lw=0.5)
+                plt.tight_layout()
+                plt.show()
     ofile.close()
