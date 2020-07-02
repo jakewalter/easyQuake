@@ -22,8 +22,7 @@ Walter et al. (in review), easyQuake: Putting machine learning to work for your 
 ## Requirements
 This code leverages machine-learning for earthquake detection. You should have suitable hardware to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nvidia compute cards and modest multi-core desktop with consumer gaming nvidia card (e.g. Geforce 1050 Ti). The event-mode can be run efficiently enough on a laptop.
 
-* Requires obspy, keras, tensorflow-gpu, basemap
-* Easiest installation path includes installing Anaconda python, "conda install tensorflow-gpu" installs cudatookkit and tensorflow
+* Requires nvidia-cuda-toolkit, obspy, keras==2.3.1, tensorflow-gpu==1.15, basemap
 
 ## Running easyQuake
 The example runs easyQuake for a recent M6.5 earthquake in Idaho
