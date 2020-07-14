@@ -460,7 +460,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         station3a = [None,None,None]
         if len(station3)>3:
             #print(station3)
-            ind1 = np.empty((6,1))
+            ind1 = np.empty((len(station3),1))
             ind1[:] = np.nan
             for idxs, station1 in enumerate(station3):
                 if get_chan3(station1) == 'HHZ':
