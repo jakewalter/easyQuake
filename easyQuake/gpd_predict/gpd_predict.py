@@ -207,6 +207,7 @@ if __name__ == "__main__":
         st += oc.read(fdir[i][0])
         st += oc.read(fdir[i][1])
         st += oc.read(fdir[i][2])
+        st.resample(100)
         st.merge()
         print(st)
         for tr in st:
