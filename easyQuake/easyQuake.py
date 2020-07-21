@@ -838,7 +838,7 @@ def select_all_associated(conn,f0):
         origin = Origin()
         origin.latitude = row[3]
         origin.longitude = row[4]
-        origin.depth = row[5]
+        origin.depth = 5000
         origin.time = row[1]
         origin.arrivals = []
         strday = row[1][0:4]+row[1][5:7]+row[1][8:10]
