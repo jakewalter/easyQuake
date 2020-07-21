@@ -846,6 +846,8 @@ def select_all_associated(conn,f0):
         picks1a = sorted(cur1.fetchall())
         stas = []
         event = Event()
+        event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
+        origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
         for pick1 in picks1a:
             
             #print(pick1)
