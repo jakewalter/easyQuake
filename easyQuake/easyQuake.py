@@ -829,7 +829,7 @@ def select_all_associated(conn,f0):
     rows = cur1.fetchall()
     dfs1 = pd.DataFrame()
     cat1 = Catalog()
-    for row in rows:
+    for rownum, row in enumerate(rows):
         #print(row)
         #(row[0])
         df4 = pd.DataFrame()
