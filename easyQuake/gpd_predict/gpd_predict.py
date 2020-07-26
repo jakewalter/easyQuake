@@ -193,44 +193,44 @@ if __name__ == "__main__":
     ofile = open(args.O, 'w')
 
     for i in range(nsta):
-        fname = fdir[i][0].split("/")
-        if not os.path.isfile(fdir[i][0]):
-            print("%s doesn't exist, skipping" % fdir[i][0])
-            continue
-        if not os.path.isfile(fdir[i][1]):
-            print("%s doesn't exist, skipping" % fdir[i][1])
-            continue
-        if not os.path.isfile(fdir[i][2]):
-            print("%s doesn't exist, skipping" % fdir[i][2])
-            continue
-        st = oc.Stream()
-        st += oc.read(fdir[i][0])
-        st += oc.read(fdir[i][1])
-        st += oc.read(fdir[i][2])
-        st.resample(100)
-        st.merge()
-        print(st)
-        for tr in st:
-            if isinstance(tr.data, np.ma.masked_array):
-                tr.data = tr.data.filled()
-
-
-        st.detrend(type='linear')
-        if filter_data:
-            st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
-        if decimate_data:
-            st.interpolate(100.0)
-        chan = st[0].stats.channel
-        sr = st[0].stats.sampling_rate
-
-        dt = st[0].stats.delta
-        net = st[0].stats.network
-        sta = st[0].stats.station
-        chan = st[0].stats.channel
-        latest_start = np.max([x.stats.starttime for x in st])
-        earliest_stop = np.min([x.stats.endtime for x in st])
-        if (earliest_stop>latest_start):
-            try:
+        try:
+            fname = fdir[i][0].split("/")
+            if not os.path.isfile(fdir[i][0]):
+                print("%s doesn't exist, skipping" % fdir[i][0])
+                continue
+            if not os.path.isfile(fdir[i][1]):
+                print("%s doesn't exist, skipping" % fdir[i][1])
+                continue
+            if not os.path.isfile(fdir[i][2]):
+                print("%s doesn't exist, skipping" % fdir[i][2])
+                continue
+            st = oc.Stream()
+            st += oc.read(fdir[i][0])
+            st += oc.read(fdir[i][1])
+            st += oc.read(fdir[i][2])
+            st.resample(100)
+            st.merge()
+            print(st)
+            for tr in st:
+                if isinstance(tr.data, np.ma.masked_array):
+                    tr.data = tr.data.filled()
+    
+    
+            st.detrend(type='linear')
+            if filter_data:
+                st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
+            if decimate_data:
+                st.interpolate(100.0)
+            chan = st[0].stats.channel
+            sr = st[0].stats.sampling_rate
+    
+            dt = st[0].stats.delta
+            net = st[0].stats.network
+            sta = st[0].stats.station
+            chan = st[0].stats.channel
+            latest_start = np.max([x.stats.starttime for x in st])
+            earliest_stop = np.min([x.stats.endtime for x in st])
+            if (earliest_stop>latest_start):
                 st.trim(latest_start, earliest_stop)
                 if args.V:
                     print("Reshaping data matrix for sliding window")
@@ -300,6 +300,6 @@ if __name__ == "__main__":
                             ax[i].axvline(s_pick-st[0].stats.starttime, c='b', lw=0.5)
                     plt.tight_layout()
                     plt.show()
-            except:
-                pass
+        except:
+            pass
     ofile.close()
