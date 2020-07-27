@@ -553,6 +553,13 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
+    if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
+        db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+        engine_assoc=create_engine(db_assoc, echo=False)
+        tables1D.Base.metadata.create_all(engine_assoc)
+        Session=sessionmaker(bind=engine_assoc)
+        session=Session()
+        gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
 #    engine_assoc=create_engine(db_assoc, echo=False)
 #    tables1D.Base.metadata.create_all(engine_assoc)
 #    Session=sessionmaker(bind=engine_assoc)
