@@ -1372,14 +1372,13 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
         with open(phase_dat_file, "w") as open_file:
             open_file.write(event_string)
             
-def single_event_xml(catalog=None,project_folder=None):
+def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
     xmlspath = project_folder+'/xmls'
     if not os.path.exists(xmlspath):
         os.makedirs(xmlspath)
     for ev in catalog:
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
-        ev.write(xmlspath+'/'+filename, format="QUAKEML")            
-            
+        ev.write(xmlspath+'/'+filename, format=format)
     
 #    station_dat_file = project_folder+'/'+'station.dat'
 #    
