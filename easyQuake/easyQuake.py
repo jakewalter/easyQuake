@@ -853,6 +853,11 @@ def select_all_associated(conn,f0):
         picks1a = sorted(cur1.fetchall())
         stas = []
         event = Event()
+        evid = 'smi:local/Event/'+strday+str(rownum+1).zfill(3)
+        orid = 'smi:local/Origin/'+strday+str(rownum+1).zfill(3)
+        event.resource_id = ResourceIdentifier(id=evid)
+        origin.resource_id = ResourceIdentifier(id=orid)
+
         event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
         origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
         for pick1 in picks1a:
@@ -878,6 +883,7 @@ def select_all_associated(conn,f0):
             #res_id = ResourceIdentifier(prefix='Pick')
             #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
             a.resource_id = ResourceIdentifier(id=ares_id)
+            a.time_weight = 1.0
             #print(a)
             
             #origin.picks.append(p)
