@@ -1373,7 +1373,7 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
             open_file.write(event_string)
             
 def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
-    xmlspath = project_folder+'/'+lower(format)
+    xmlspath = project_folder+'/'+format.lower()
     if not os.path.exists(xmlspath):
         os.makedirs(xmlspath)
     for ev in catalog:
