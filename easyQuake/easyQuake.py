@@ -39,7 +39,7 @@ from obspy.geodetics import gps2dist_azimuth
 import pylab as plt
 import re
 from datetime import datetime
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
 
 
 from sqlalchemy import create_engine
