@@ -208,7 +208,12 @@ if __name__ == "__main__":
             st += oc.read(fdir[i][0])
             st += oc.read(fdir[i][1])
             st += oc.read(fdir[i][2])
-            st.resample(100)
+            #st.resample(100)
+            st.detrend(type='linear')
+            if filter_data:
+                st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
+            if decimate_data:
+                st.interpolate(100.0)
             st.merge()
             print(st)
             for tr in st:
@@ -216,11 +221,7 @@ if __name__ == "__main__":
                     tr.data = tr.data.filled()
     
     
-            st.detrend(type='linear')
-            if filter_data:
-                st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
-            if decimate_data:
-                st.interpolate(100.0)
+
             chan = st[0].stats.channel
             sr = st[0].stats.sampling_rate
     
