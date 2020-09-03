@@ -6,6 +6,11 @@ On most systems you should be able to simply:
 ```
 pip install easyQuake
 ```
+To stay on the bleeding edge of updates:
+```
+pip install easyQuake -- upgrade
+```
+
 Or if you need to tweak something, like the number of GPUs in gpd_predict, you could:
 ```
 git clone https://github.com/jakewalter/easyQuake.git
@@ -69,6 +74,10 @@ catdf = simple_cat_df(cat)
 plt.figure()
 plt.plot(catdf.index,catdf.magnitude,'.')
 ```
+
+## Tips for successful outputs
+
+Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
 
 ## License
 
