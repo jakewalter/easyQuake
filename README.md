@@ -29,6 +29,15 @@ This code leverages machine-learning for earthquake detection. You should have s
 
 * Requires nvidia-cuda-toolkit, obspy, keras==2.3.1, tensorflow-gpu==2.1 (if using multiple GPUs only tensorflow 1.15 is tested), basemap
 * I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.1```
+* Because tensorflow-gpu 2.1 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
+```
+conda create -n easyquake python=3.7 anaconda
+conda activate easyquake
+conda install tensorflow-gpu==2.1
+conda install keras
+conda install obspy -c conda-forge
+pip install easyQuake
+```
 
 ## Running easyQuake
 The example runs easyQuake for a recent M6.5 earthquake in Idaho
