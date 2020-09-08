@@ -40,7 +40,7 @@ pip install easyQuake
 ```
 
 ## Running easyQuake
-The example runs easyQuake for a recent M6.5 earthquake in Idaho
+The example runs easyQuake for a recent M6.5 earthquake in Idaho for the 2 days around the earthquake (foreshocks and aftershocks). The catalog from running the example is in the examples folder: https://github.com/jakewalter/easyQuake/blob/master/examples/catalog_idaho_2days.xml
 
 ```
 from easyQuake import download_mseed
