@@ -21,7 +21,8 @@ pip install .
 If you find this useful, please cite:
 
 ```
-Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (in press), easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study, Seismological Research Letters
+Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (in press), easyQuake: Putting machine learning 
+to work for your regional seismic network or local earthquake study, Seismological Research Letters
 ```
 
 ## Requirements
