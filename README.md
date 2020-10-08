@@ -90,6 +90,29 @@ plt.plot(catdf.index,catdf.magnitude,'.')
 
 Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
 
+## Running easyQuake with SLURM
+
+If you have access to shared computing resources that utilize SLURM, you can drive easyQuake by making a bash script to run the example code or any code (thanks to Xiaowei Chen at OU). Save the following to a drive_easyQuake.sh and then run it
+```
+#!/bin/bash
+#
+#SBATCH --partition=gpu_cluster
+#SBATCH --ntasks=1
+#SBATCH --mem=1024
+#SBATCH --output=easyquake_%J_stdout.txt
+#SBATCH --error=easyquake_%J_stderr.txt
+#SBATCH --time=24:00:00
+#SBATCH --job-name=easyquake
+#SBATCH --mail-user=user@school.edu
+#SBATCH --mail-type=ALL
+#SBATCH --chdir=/drive/group/user/folder
+conda init bash
+bash
+conda activate easyquake
+python idaho_example.py
+```
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
