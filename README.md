@@ -8,7 +8,7 @@ pip install easyQuake
 ```
 To stay on the bleeding edge of updates:
 ```
-pip install easyQuake -- upgrade
+pip install easyQuake --upgrade
 ```
 
 Or if you need to tweak something, like the number of GPUs in gpd_predict, you could:
