@@ -319,7 +319,7 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
             st += read(fdir[i][0])
             st += read(fdir[i][1])
             st += read(fdir[i][2])
-            st.merge()
+            st.merge(fill_value='interpolate')
             #print(st)
             for tr in st:
                 if isinstance(tr.data, np.ma.masked_array):
@@ -1116,7 +1116,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False):
     #            pazs = glob.glob('/data/tx/ContWaveform/'+strday+'/SACPZ.'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]')
                 #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
                 try:
-                    st3.merge()
+                    st3.merge(fill_value='interpolate')
                     for tr in st3:
                         if isinstance(tr.data, np.ma.masked_array):
                             tr.data = tr.data.filled()

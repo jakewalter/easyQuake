@@ -214,7 +214,7 @@ if __name__ == "__main__":
                 st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
             if decimate_data:
                 st.interpolate(100.0)
-            st.merge()
+            st.merge(fill_value='interpolate')
             print(st)
             for tr in st:
                 if isinstance(tr.data, np.ma.masked_array):
