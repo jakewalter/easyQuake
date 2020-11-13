@@ -976,13 +976,15 @@ def select_all_associated(conn,f0):
             
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None):
     #files = sorted(glob.glob('/data/tx/ContWaveform/*/1dass*'++'.db'))
     #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
     #dir1 = project_folder+'/'+dirname
     
     hypo_station(project_folder, project_code)
     files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
+    if catalog_year:
+        files = sorted(glob.glob(project_folder+'/'+year+'*/1dass*'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
