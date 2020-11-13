@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="easyQuake",
-    version="0.2.7",
+    version="0.2.8",
     author="Jake Walter",
     author_email="jakeiwalter@gmail.com",
     description="Simplified machine-learning driven earthquake detection, location, and analysis",

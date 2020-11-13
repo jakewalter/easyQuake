@@ -984,7 +984,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     hypo_station(project_folder, project_code)
     files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+year+'*/1dass*'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dass*'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
@@ -1010,7 +1010,10 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 #            except:
 #                pass
     f0.close()
-    cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
+    if catalog_year:
+        cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
+    else:
+        cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
 
 
