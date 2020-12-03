@@ -102,7 +102,7 @@ def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=N
     #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
     domain = RectangularDomain(minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon)
     #domain = RectangularDomain(minlatitude=-90, maxlatitude=-60,minlongitude=-180, maxlongitude=180)
-    restrictions = Restrictions(starttime=starttime, endtime=endtime,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["[BHSE]H[NE12Z]"])
+    restrictions = Restrictions(starttime=starttime, endtime=endtime,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
     mseed1 = project_folder+'/'+dirname
     if not os.path.exists(mseed1):
         os.makedirs(mseed1) #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
@@ -117,7 +117,7 @@ def download_mseed_event(dirname=None, project_folder=None, starting=None, stopp
     #domain = CircularDomain(lat1,lon1,minradius=0.0, maxradius=maxrad)
     domain = RectangularDomain(minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon)
     #domain = RectangularDomain(minlatitude=-90, maxlatitude=-60,minlongitude=-180, maxlongitude=180)
-    restrictions = Restrictions(starttime=starttime, endtime=endtime,chunklength_in_sec=86400,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["[BHSE]H[NE12Z]"])
+    restrictions = Restrictions(starttime=starttime, endtime=endtime,chunklength_in_sec=86400,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
     mseed1 = project_folder+'/'+dirname
     if not os.path.exists(mseed1):
         os.makedirs(mseed1) #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
@@ -132,7 +132,7 @@ def download_mseed_event_radial(dirname=None, project_folder=None, starting=None
     domain = CircularDomain(lat1,lon1,minradius=0.0, maxradius=maxrad)
     #domain = RectangularDomain(minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon)
     #domain = RectangularDomain(minlatitude=-90, maxlatitude=-60,minlongitude=-180, maxlongitude=180)
-    restrictions = Restrictions(starttime=starttime, endtime=endtime,chunklength_in_sec=86400,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["[BHSE]H[NE12Z]"])
+    restrictions = Restrictions(starttime=starttime, endtime=endtime,chunklength_in_sec=86400,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1000, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
     mseed1 = project_folder+'/'+dirname
     if not os.path.exists(mseed1):
         os.makedirs(mseed1) #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
@@ -146,7 +146,7 @@ def process_local_sac():
 
 
                 
-def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH'],db=None,maxdist=500.,source_depth=5.):
+def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5.):
     """ 
     """
     # Create a connection to an sqlalchemy database
@@ -195,7 +195,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     tt_session.close()
     return inv
 
-def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH'],db=None,maxdist=800.,source_depth=5.):
+def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.):
     """ 
     """
     # Create a connection to an sqlalchemy database
