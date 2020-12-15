@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # Automatic picking of seismic waves using Generalized Phase Detection 
 # See http://scedc.caltech.edu/research-tools/deeplearning.html for more info
