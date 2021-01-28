@@ -945,8 +945,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         event_lon = origin.longitude
         strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
         if eventmode:
-            strday = project_folder.split('/')[-1]
+            strday = str(project_folder.split('/')[-1])
         #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        print(strday)
         strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
         mags = []
         mags_iaspei = []
