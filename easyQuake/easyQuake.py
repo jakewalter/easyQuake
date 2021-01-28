@@ -1258,7 +1258,10 @@ def detection_assocation_event(project_folder=None, project_code=None, maxdist =
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, event=True)
     cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
-    single_event_xml(cat,dir1,"QUAKEML")
+    #single_event_xml(cat,dir1,"QUAKEML")
+    for idx1, ev in enumerate(cat):
+        filename = dirname+'_'+str(idx1) + ".xml"
+        ev.write(project_folder+'/'+filename, format='QUAKEML')
     
     
 def simple_cat_df(cat=None):
