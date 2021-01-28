@@ -923,9 +923,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
     client = Client()
 #    starttime = UTCDateTime(start)
 #    endtime = UTCDateTime(end)
-    
-    fminbp = .1 # lower bandpass limit
-    fmaxbp = 20 # upper bandpass limit
+
     ##import datetime
     #inva = client.get_stations(latitude=36.5,longitude=-98.9,minradius=0.0, maxradius=5,starttime=starttime,endtime=endtime,level="station")
     #invsta = client.get_stations(latitude=31.699,longitude=-104.053, maxradius=4,starttime=starttime,endtime=endtime,includeavailability=True,includerestricted=False,level="response")
@@ -962,7 +960,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     try:
                         st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
                     except:
-                        st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                        #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                        st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
 #                    try:
 #                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
 #                    except:
