@@ -560,69 +560,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
         gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
-#    engine_assoc=create_engine(db_assoc, echo=False)
-#    tables1D.Base.metadata.create_all(engine_assoc)
-#    Session=sessionmaker(bind=engine_assoc)
-#    session=Session()
-#    filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
-#    stations = set()
-#    for file1 in filelist:
-#        station = file1.split('.')[1]
-#        net = file1.split('.')[0].split('/')[-1]
-#        netsta = net+'.'+station
-#        print(file1.split('.')[1])
-#        stations.add(netsta)
-#    #### create infile
-#    day_strings = []
-#    for stationin in stations:
-#        station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-#        station3a = [None,None,None]
-#        if len(station3)>3:
-#            #print(station3)
-#            ind1 = np.empty((6,1))
-#            ind1[:] = np.nan
-#            for idxs, station1 in enumerate(station3):
-#                if list(filter(None, station1.split('/')[-1].split('.')))[2][0:3] == 'HHZ':
-#                    ind1[idxs] = 2
-#                elif list(filter(None, station1.split('/')[-1].split('.')))[2][0:3] == 'HHN' or list(filter(None, station1.split('/')[-1].split('.')))[2][0:3] == 'HH1':
-#                    ind1[idxs] = 0
-#                elif list(filter(None, station1.split('/')[-1].split('.')))[2][0:3] == 'HHE' or list(filter(None, station1.split('/')[-1].split('.')))[2][0:3] == 'HH2':
-#                    ind1[idxs] = 1
-#                #print(idxs)
-#                #if ind1:
-#                #    station3a[ind1] = station1
-#            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
-#            for idxsa, ind2a in enumerate(ind1):
-#                if ~np.isnan(ind2a[0]):
-#                    #print(ind2a)
-#                    #print(station3a)
-#                    station3a[int(ind2a[0])] = station3[idxsa]
-#        else:
-#            for station1 in station3:
-#                if list(filter(None, station1.split('/')[-1].split('.')))[2][2]  == 'Z':
-#                    ind1 = 2
-#                elif list(filter(None, station1.split('/')[-1].split('.')))[2][2]  == 'N' or list(filter(None, station1.split('/')[-1].split('.')))[2][2] == '1':
-#                    ind1 = 0
-#                elif list(filter(None, station1.split('/')[-1].split('.')))[2][2]  == 'E' or list(filter(None, station1.split('/')[-1].split('.')))[2][2] == '2':
-#                    ind1 = 1
-#                #print(ind1)
-#                station3a[ind1] = station1
-#        if any(elem is None for elem in station3a):
-#            continue
-#        day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
-#        
-#    day_string = "\n".join(day_strings)
-#    
-#    with open(dir1+'/dayfile.in', "w") as open_file:
-#        open_file.write(day_string)
-#    infile = dir1+'/dayfile.in'
-#    outfile = dir1+'/gpd_picks.out'
-#    #gpd_predict.py -V -P -I infile -O outflie
-#    #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
-#    os.system("/home/jwalter/seis/generalized-phase-detection/gpd_predict.py -V -P -I %s -O %s" % (infile, outfile))
-#    #gpd_predict(inputfile=infile,outputfile=outfile)
-#    fileinassociate = outfile
-#    gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inventory)
+
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 4, loc_uncert_thresh = 0.2)
     print("aggregate")
@@ -643,26 +581,25 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         pass
     
     
-
-def detection_assocation_event(dirname=None, project_folder=None, project_code=None, maxdist=None, maxkm=None, starting=None, stopping=None):
-    # starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
-    # stopping = starting + 86430
-
+def detection_assocation_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, latitude=None, longitude=None, max_radius=None, approxorigintime=None,downloadwaveforms=True):
+    approxotime = UTCDateTime(approxorigintime)
+    dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
+    #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
+    starting = approxotime - 60
+    stopping = starting + 60
     dir1 = project_folder+'/'+dirname
+    if downloadwaveforms:
+        download_mseed_event_radial(dirname=dirname, project_folder=project_folder, starting=starting, stopping = stopping, lat1=latitude, lon1=longitude, maxrad=max_radius)
     #print(single_date.strftime("%Y%m%d"))
+    #print(dir1+'/1dassociator_'+project_code+'.db')
     if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         os.remove(dir1+'/1dassociator_'+project_code+'.db')
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'    
-    if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
-        os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
-    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
-    inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
-
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     engine_assoc=create_engine(db_assoc, echo=False)
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
-    filelist = glob.glob(dir1+'/*mseed')
+    filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
     stations = set()
     for file1 in filelist:
         station = file1.split('.')[1]
@@ -673,18 +610,18 @@ def detection_assocation_event(dirname=None, project_folder=None, project_code=N
     #### create infile
     day_strings = []
     for stationin in stations:
-        station3 = glob.glob(dir1+'/*'+stationin+'*mseed')
+        station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
         station3a = [None,None,None]
         if len(station3)>3:
-            print(station3)
-            ind1 = np.empty((6,1))
+            #print(station3)
+            ind1 = np.empty((len(station3),1))
             ind1[:] = np.nan
             for idxs, station1 in enumerate(station3):
-                if station1.split('.')[2] == 'HHZ':
+                if get_chan3(station1) == 'HHZ':
                     ind1[idxs] = 2
-                elif station1.split('.')[2] == 'HHN' or station1.split('.')[2] == 'HH1':
+                elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
                     ind1[idxs] = 0
-                elif station1.split('.')[2] == 'HHE' or station1.split('.')[2] == 'HH2':
+                elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
                     ind1[idxs] = 1
                 #print(idxs)
                 #if ind1:
@@ -697,11 +634,11 @@ def detection_assocation_event(dirname=None, project_folder=None, project_code=N
                     station3a[int(ind2a[0])] = station3[idxsa]
         else:
             for station1 in station3:
-                if station1.split('.')[3].split('__')[0][-1]  == 'Z':
+                if get_chan1(station1)  == 'Z':
                     ind1 = 2
-                elif station1.split('.')[3].split('__')[0][-1]  == 'N' or station1.split('.')[3].split('__')[0][-1] == '1':
+                elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
                     ind1 = 0
-                elif station1.split('.')[3].split('__')[0][-1]  == 'E' or station1.split('.')[3].split('__')[0][-1] == '2':
+                elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
                     ind1 = 1
                 #print(ind1)
                 station3a[ind1] = station1
@@ -715,17 +652,51 @@ def detection_assocation_event(dirname=None, project_folder=None, project_code=N
         open_file.write(day_string)
     infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
-    #gpd_predict.py -V -P -I infile -O outflie
-    #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
-    fullpath1 = pathgpd+'/gpd_predict.py'
-
-    os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-    #gpd_predict(inputfile=infile,outputfile=outfile)
     fileinassociate = outfile
-    print(outfile)
-    gpd_pick_add(dbsession=session,fileinput=fileinassociate)
-    print(str(maxkm)+' max km')
-    assocXX=assoc1Dice1.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 15, assoc_ot_uncert = 10, nsta_declare = 3, loc_uncert_thresh = 0.5)
+    
+    if local:
+        inv = Inventory()
+        dir1a = glob.glob(project_folder+'/'+dirname+'/*xml')
+        for file1 in dir1a:
+            inv1a = read_inventory(file1)
+            inv.networks.extend(inv1a)
+    else:
+        fdsnclient=Client()
+        inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
+    if machine:
+        fullpath1 = pathgpd+'/gpd_predict.py'
+        os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+    else:
+        picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
+        fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)    # starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
+    # stopping = starting + 86430
+
+
+    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
+    stopping = starting + 86430
+
+    dir1 = project_folder+'/'+dirname
+ 
+    if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
+        os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
+    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
+    print(db_tt)
+    if local:
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+    else:
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+    inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
+    if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
+        db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+        engine_assoc=create_engine(db_assoc, echo=False)
+        tables1D.Base.metadata.create_all(engine_assoc)
+        Session=sessionmaker(bind=engine_assoc)
+        session=Session()
+        gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
+
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 4, loc_uncert_thresh = 0.2)
     print("aggregate")
     t0=datetime.utcnow()
       # Identify candidate events (Pick Aggregation)
@@ -738,7 +709,12 @@ def detection_assocation_event(dirname=None, project_folder=None, project_code=N
     t2=datetime.utcnow()
     print('Took '+str(t2-t1))
       # Add singles stations to events
-    assocXX.single_phase()
+    try:
+        assocXX.single_phase()
+    except:
+        pass
+
+
 
 def create_connection(db_file):
     """ create a database connection to the SQLite database
@@ -1276,13 +1252,13 @@ def simple_cat_df(cat=None):
     resourceid = []
     for event in cat:
         if len(event.origins) != 0:
-            times.append(event.origins[0].time.datetime)
-            lats.append(event.origins[0].latitude)
-            lons.append(event.origins[0].longitude)
-            deps.append(event.origins[0].depth)
-            if len(event.magnitudes) != 0:
-                magnitudes.append(event.magnitudes[0].mag)
-                magnitudestype.append(event.magnitudes[0].magnitude_type)
+            times.append(event.preferred_origin().time.datetime)
+            lats.append(event.preferred_origin().latitude)
+            lons.append(event.preferred_origin().longitude)
+            deps.append(event.preferred_origin().depth)
+            if event.preferred_magnitude() is not None:
+                magnitudes.append(event.preferred_magnitude().mag)
+                magnitudestype.append(event.preferred_magnitude().magnitude_type)
             else:
                 magnitudes.append(np.nan)
                 magnitudestype.append(np.nan)
@@ -1423,8 +1399,8 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
 
 
 
-def plot_hypodd_catalog():    
-    catdfr = pd.read_csv('/Users/jwalter/Dropbox/python/tx/hypoDD.relocpanfixed',delimiter=r"\s+")
+def plot_hypodd_catalog(file=None):    
+    catdfr = pd.read_csv(file,delimiter=r"\s+")
     catdfr = catdfr.dropna()
     catdfr = catdfr.reset_index(drop=True)
     #rutc = np.zeros((len(catdfr.index),1))
@@ -1442,7 +1418,7 @@ def plot_hypodd_catalog():
     
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
-    fig = plt.figure(figsize=(8, 8))
+    #fig = plt.figure(figsize=(8, 8))
     m = Basemap(projection='lcc', resolution='h', 
                 lat_0=31.66, lon_0=-104,
                 width=1E6, height=.6E6)
@@ -1466,6 +1442,8 @@ def plot_hypodd_catalog():
     
     #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
     cbar.ax.set_yticklabels(indexes)
+    plt.show()
+    plt.savefig('hypoDDmap.png')
 
 if __name__ == "__main__":
     easyQuake()
