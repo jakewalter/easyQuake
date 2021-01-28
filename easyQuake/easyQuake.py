@@ -821,7 +821,7 @@ def select_all_associated(conn,f0):
             
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, event=False):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, eventmode=False):
     #files = sorted(glob.glob('/data/tx/ContWaveform/*/1dass*'++'.db'))
     #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
     #dir1 = project_folder+'/'+dirname
@@ -830,7 +830,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dass*'+project_code+'.db'))
-    if event:
+    if eventmode:
         files = sorted(glob.glob(project_folder+'/1dass*'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
@@ -860,7 +860,8 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     if catalog_year:
         cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
     else:
-        cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
+        if not eventmode:
+            cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
 
 
@@ -1113,6 +1114,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             pass
     cat.write(project_folder+'/cat.xml',format="QUAKEML")
     return cat
+
+
+
 def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
     xmlspath = project_folder+'/'+format.lower()
     if not os.path.exists(xmlspath):
@@ -1255,8 +1259,8 @@ def detection_assocation_event(project_folder=None, project_code=None, maxdist =
     except:
         pass
     
-    cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, event=True)
-    cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=True, event=True)
+    cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True)
+    cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=True, eventmode=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
