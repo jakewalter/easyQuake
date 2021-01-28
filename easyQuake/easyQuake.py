@@ -911,7 +911,7 @@ def polarity(tr,pickP=None):
     return polarity
     
         
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,event=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False):
 #    PAZ_WA = {'poles': [-6.283 + 4.7124j, -6.283 - 4.7124j],
 #          'zeros': [0 + 0j], 'gain': 1.0, 'sensitivity': 2080}
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
@@ -943,7 +943,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,event=False
         event_lat = origin.latitude
         event_lon = origin.longitude
         strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-        if event:
+        if eventmode:
             strday = project_folder.split('/')[-1]
         #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
         strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
