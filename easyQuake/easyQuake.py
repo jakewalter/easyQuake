@@ -586,8 +586,9 @@ def detection_assocation_event(project_folder=None, project_code=None, maxdist =
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
     starting = approxotime - 60
-    stopping = starting + 60
+    stopping = approxotime + 60
     dir1 = project_folder+'/'+dirname
+    
     if downloadwaveforms:
         download_mseed_event_radial(dirname=dirname, project_folder=project_folder, starting=starting, stopping = stopping, lat1=latitude, lon1=longitude, maxrad=max_radius)
     #print(single_date.strftime("%Y%m%d"))
@@ -673,8 +674,8 @@ def detection_assocation_event(project_folder=None, project_code=None, maxdist =
     # stopping = starting + 86430
 
 
-    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
-    stopping = starting + 86430
+#    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
+#    stopping = starting + 86430
 
     dir1 = project_folder+'/'+dirname
  
