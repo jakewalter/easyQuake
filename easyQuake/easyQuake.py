@@ -911,7 +911,7 @@ def polarity(tr,pickP=None):
     return polarity
     
         
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,event=False):
 #    PAZ_WA = {'poles': [-6.283 + 4.7124j, -6.283 - 4.7124j],
 #          'zeros': [0 + 0j], 'gain': 1.0, 'sensitivity': 2080}
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
@@ -943,6 +943,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False):
         event_lat = origin.latitude
         event_lon = origin.longitude
         strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        if event:
+            strday = project_folder.split('/')[-1]
         #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
         strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
         mags = []
@@ -1253,7 +1255,7 @@ def detection_assocation_event(project_folder=None, project_code=None, maxdist =
     except:
         pass
     
-    cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code, event=True)
+    cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, event=True)
     cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     single_event_xml(cat,dir1,"QUAKEML")
