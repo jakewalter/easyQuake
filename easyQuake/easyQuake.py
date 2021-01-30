@@ -972,6 +972,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
                 try:
                     st3.merge(fill_value='interpolate')
+                    print(st3)
                     for tr in st3:
                         if isinstance(tr.data, np.ma.masked_array):
                             tr.data = tr.data.filled()
@@ -995,7 +996,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                         tr.stats.network = inv[0].code
                         tr.stats.location = inv[0][0][0].location_code
                         pre_filt = (0.05, 0.06, 30.0, 35.0)
-                        tr.trim(pick.time-20,pick.time+120)
+                        tr.trim(pick.time-30, pick.time+120)
                         
     
                         #tr.demean()
@@ -1112,7 +1113,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 plt.close()
         except:
             pass
-    cat.write(project_folder+'/cat.xml',format="QUAKEML")
+    if not eventmode:
+        cat.write(project_folder+'/cat.xml',format="QUAKEML")
     return cat
 
 
