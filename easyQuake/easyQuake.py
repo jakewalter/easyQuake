@@ -1097,7 +1097,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             
             
             
-            
+            event.preferred_magnitude_id = event.magnitudes[0].resource_id
             event.preferred_origin_id = event.origins[0].resource_id
             
             
@@ -1290,8 +1290,12 @@ def simple_cat_df(cat=None):
                 magnitudes.append(event.preferred_magnitude().mag)
                 magnitudestype.append(event.preferred_magnitude().magnitude_type)
             else:
-                magnitudes.append(np.nan)
-                magnitudestype.append(np.nan)
+                if len(event.magnitudes)>0:
+                    magnitudes.append(event.magnitudes[0].mag)
+                    magnitudestype.append(event.magnitudes[0].magnitude_type)
+                else:
+                    magnitudes.append(np.nan)
+                    magnitudestype.append(np.nan)
             resourceid.append(event.resource_id)
     catdf1 = pd.DataFrame({'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid}, index = times)
     return catdf1
