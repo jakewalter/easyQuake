@@ -1112,6 +1112,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     outfile=filename,fig=fig)
                 plt.close()
         except:
+            print('Magnitude failed')
             pass
     if not eventmode:
         cat.write(project_folder+'/cat.xml',format="QUAKEML")
@@ -1280,10 +1281,11 @@ def simple_cat_df(cat=None):
     resourceid = []
     for event in cat:
         if len(event.origins) != 0:
-            times.append(event.preferred_origin().time.datetime)
-            lats.append(event.preferred_origin().latitude)
-            lons.append(event.preferred_origin().longitude)
-            deps.append(event.preferred_origin().depth)
+            origin1 = event.preferred_origin() or event.origins[0]
+            times.append(origin1.time.datetime)
+            lats.append(origin1.latitude)
+            lons.append(origin1.longitude)
+            deps.append(origin1.depth)
             if event.preferred_magnitude() is not None:
                 magnitudes.append(event.preferred_magnitude().mag)
                 magnitudestype.append(event.preferred_magnitude().magnitude_type)
