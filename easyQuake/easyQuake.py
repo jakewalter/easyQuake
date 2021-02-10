@@ -669,7 +669,7 @@ def hypo_station(project_folder=None, project_code=None):
 
 
  
-def select_all_associated(project_folder=None, project_code=None, conn,f0,hypoflag=False):
+def select_all_associated(project_folder=None, project_code=None, hypoflag=False, conn, f0):
     """
     Query all rows in the associated table
     :param conn: the Connection object
