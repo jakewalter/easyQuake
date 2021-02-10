@@ -44,7 +44,7 @@ from datetime import datetime
 
 from sqlalchemy import create_engine
 from obspy import Stream
-from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival
+from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality
 from obspy.signal.invsim import simulate_seismometer as seis_sim
 fmtP = "%4s%1sP%1s%1i %15s"
 fmtS = "%12s%1sS%1s%1i\n"
@@ -669,7 +669,7 @@ def hypo_station(project_folder=None, project_code=None):
 
 
  
-def select_all_associated(conn,f0):
+def select_all_associated(project_folder=None, project_code=None, conn,f0,hypoflag=False):
     """
     Query all rows in the associated table
     :param conn: the Connection object
@@ -738,6 +738,7 @@ def select_all_associated(conn,f0):
             origin.arrivals.append(a)
             event.picks.append(p)
         event.origins.append(origin)
+        event.preferred_origin_id = origin.resource_id
         cat1.append(event)
             #print(stalistall)
         stalist = list(set(stas))
@@ -814,6 +815,90 @@ def select_all_associated(conn,f0):
                     hypo71_string += "\n"
                     #f0.write("\n")
                 f0.write(str(hypo71_string))
+            if hypoflag:
+                fcur = open(project_folder+'/pha','w')
+                fcur.write(str(hypo71_string))
+                fcur.close()
+                frun = open(project_folder+'/run.hyp','w')
+                frun.write('crh 1 standard.crh')
+                frun.write('h71 3 2 2')
+                frun.write('sta '+project_folder+'/station.dat')
+                frun.write('phs '+project_folder+'/pha')
+                frun.write('pos 1.78')
+                frun.write('jun t')
+                frun.write('min 4')
+                frun.write('fil')
+                frun.write('sum out.sum')
+                frun.write('loc')
+                frun.write('stop')
+                frun.close()
+                if os.path.exists(project_folder+'/out.sum'):
+                    os.system('rm '+project_folder+'/out.sum')
+                os.system('cat '+project_folder+'/run.hyp'+' | hyp2000')
+                
+                lines = open(project_folder+'/out.sum').readlines() 
+                for line in lines: 
+                    if line.startswith("   DATE"): 
+                        print(' ') 
+                else: 
+#                
+#        
+#                # it seems the header line and the actual numbers with E/W N/S flags
+#                # can disagree and the flags trump
+#                lat_negative = {'N': False, 'S': True}.get(line[27].upper(),
+#                                                           lat_negative)
+#                lon_negative = {'E': False, 'W': True}.get(line[38].upper(),
+#                                                           lon_negative)
+                    model = 'standard'
+                    year = int('20'+line[2:4])
+                    month = int(line[5:7])
+                    day = int(line[8:10])
+                    hour = int(line[11:13])
+                    minute = int(line[14:16])
+                    seconds = float(line[17:22])
+                    time = UTCDateTime(year, month, day, hour, minute, seconds)
+                    lat = float(line[23:31])
+                    #lat_min = float(line[28:33])
+                    #lat = lat_deg + (lat_min / 60.)
+                    #if lat_negative:
+                    #    lat = -lat
+                    lon = float(line[33:41])
+                    #lon_min = float(line[39:44])
+                    #lon = lon_deg + (lon_min / 60.)
+                    #if lon_negative:
+                    #    lon = -lon
+                    
+                    depth = float(line[42:48]) # depth: negative down!
+                    rms = float(line[75:80])
+                    errXY = float(line[81:86])
+                    errZ = float(line[87:92])
+                    
+                    gap  = float(line[65:69])
+                    o = Origin()
+                    #self.catalog[0].set_creation_info_username(self.username)
+                    o.clear()
+                    o.method_id = "/".join(["smi:local", "location_method", "hyp2000"])
+                    o.origin_uncertainty = OriginUncertainty()
+                    o.quality = OriginQuality()
+                    ou = o.origin_uncertainty
+                    oq = o.quality
+                    o.longitude = lon
+                    o.latitude = lat
+                    o.depth = depth * (1e3)  # meters positive down!
+                    # all errors are given in km!
+                    ou.horizontal_uncertainty = errXY * 1e3
+                    ou.preferred_description = "horizontal uncertainty"
+                    o.depth_errors.uncertainty = errZ * 1e3
+                    oq.standard_error = rms
+                    oq.azimuthal_gap = gap
+                    o.depth_type = "from location"
+                    o.earth_model_id = "smi:local/earth_model/%s" % (model)
+                    o.time = time
+                    o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/'+strday+str(rownum).zfill(3)+'_1')
+                event.origins.append(o)
+                event.preferred_origin_id = o.resource_id
+                #os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+
             #cur1.execute('SELECT * FROM picks WHERE id IN (?)',[int(pick[0])])
             #extrapick = cur1.fetchall()
         f0.write("\n")
@@ -821,7 +906,7 @@ def select_all_associated(conn,f0):
             
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, eventmode=False):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False):
     #files = sorted(glob.glob('/data/tx/ContWaveform/*/1dass*'++'.db'))
     #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
     #dir1 = project_folder+'/'+dirname
@@ -848,7 +933,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             print('Day '+dfile[-6:-3])
             #try:
                 
-            dfs1,stalistall,cat1,f0 = select_all_associated(conn,f0)
+            dfs1,stalistall,cat1,f0 = select_all_associated(project_folder, conn, f0, hypoflag)
             cat.extend(cat1)
             for stas1 in stalistall:
                 if stas1 not in stalistall1:
@@ -1098,7 +1183,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             
             
             event.preferred_magnitude_id = event.magnitudes[0].resource_id
-            event.preferred_origin_id = event.origins[0].resource_id
+            
             
             
             
@@ -1128,7 +1213,7 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
         ev.write(xmlspath+'/'+filename, format=format)
         
-def detection_assocation_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, latitude=None, longitude=None, max_radius=None, approxorigintime=None,downloadwaveforms=True):
+def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, latitude=None, longitude=None, max_radius=None, approxorigintime=None,downloadwaveforms=True):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
