@@ -833,7 +833,7 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
             frun.write("\n")
             frun.write('h71 3 2 2')
             frun.write("\n")
-            frun.write('sta '+project_folder+'/station.dat')
+            frun.write('sta '+project_folder+'/sta')
             frun.write("\n")
             frun.write('phs '+project_folder+'/pha')
             frun.write("\n")
