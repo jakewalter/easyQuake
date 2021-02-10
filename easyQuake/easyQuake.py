@@ -817,10 +817,8 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
                     #f0.write("\n")
                 f0.write(str(hypo71_string))
                 f1.write(str(hypo71_string))
+                print(str(hypo71_string))
                 #os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-
-            #cur1.execute('SELECT * FROM picks WHERE id IN (?)',[int(pick[0])])
-            #extrapick = cur1.fetchall()
         f0.write("\n")
         #f1.write("\n")
         f1.close()
