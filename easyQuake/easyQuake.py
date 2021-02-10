@@ -669,7 +669,7 @@ def hypo_station(project_folder=None, project_code=None):
 
 
  
-def select_all_associated(project_folder=None, project_code=None, hypoflag=False, conn, f0):
+def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
     """
     Query all rows in the associated table
     :param conn: the Connection object
@@ -933,7 +933,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             print('Day '+dfile[-6:-3])
             #try:
                 
-            dfs1,stalistall,cat1,f0 = select_all_associated(project_folder, conn, f0, hypoflag)
+            dfs1,stalistall,cat1,f0 = select_all_associated(conn, f0, project_folder, hypoflag)
             cat.extend(cat1)
             for stas1 in stalistall:
                 if stas1 not in stalistall1:
