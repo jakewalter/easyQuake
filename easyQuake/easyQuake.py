@@ -851,71 +851,68 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
             frun.write("\n")
             frun.write('stop')
             frun.close()
-            if os.path.exists(project_folder+'/out.sum'):
-                os.system('rm '+project_folder+'/out.sum')
-            os.system('cat '+project_folder+'/run.hyp'+' | hyp2000')
-            
-            lines = open(project_folder+'/out.sum').readlines() 
-            for line in lines: 
-                if line.startswith("   DATE"): 
-                    print(' ') 
-            else: 
-    #                
-    #        
-    #                # it seems the header line and the actual numbers with E/W N/S flags
-    #                # can disagree and the flags trump
-    #                lat_negative = {'N': False, 'S': True}.get(line[27].upper(),
-    #                                                           lat_negative)
-    #                lon_negative = {'E': False, 'W': True}.get(line[38].upper(),
-    #                                                           lon_negative)
-                model = 'standard'
-                year = int('20'+line[2:4])
-                month = int(line[5:7])
-                day = int(line[8:10])
-                hour = int(line[11:13])
-                minute = int(line[14:16])
-                seconds = float(line[17:22])
-                time = UTCDateTime(year, month, day, hour, minute, seconds)
-                lat = float(line[23:31])
-                #lat_min = float(line[28:33])
-                #lat = lat_deg + (lat_min / 60.)
-                #if lat_negative:
-                #    lat = -lat
-                lon = float(line[33:41])
-                #lon_min = float(line[39:44])
-                #lon = lon_deg + (lon_min / 60.)
-                #if lon_negative:
-                #    lon = -lon
-                
-                depth = float(line[42:48]) # depth: negative down!
-                rms = float(line[75:80])
-                errXY = float(line[81:86])
-                errZ = float(line[87:92])
-                
-                gap  = float(line[65:69])
-                o = Origin()
-                #self.catalog[0].set_creation_info_username(self.username)
-                o.clear()
-                o.method_id = "/".join(["smi:local", "location_method", "hyp2000"])
-                o.origin_uncertainty = OriginUncertainty()
-                o.quality = OriginQuality()
-                ou = o.origin_uncertainty
-                oq = o.quality
-                o.longitude = lon
-                o.latitude = lat
-                o.depth = depth * (1e3)  # meters positive down!
-                # all errors are given in km!
-                ou.horizontal_uncertainty = errXY * 1e3
-                ou.preferred_description = "horizontal uncertainty"
-                o.depth_errors.uncertainty = errZ * 1e3
-                oq.standard_error = rms
-                oq.azimuthal_gap = gap
-                o.depth_type = "from location"
-                o.earth_model_id = "smi:local/earth_model/%s" % (model)
-                o.time = time
-                o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/'+strday+str(rownum).zfill(3)+'_1')
-            event.origins.append(o)
-            event.preferred_origin_id = o.resource_id
+            try:
+                if os.path.exists(project_folder+'/out.sum'):
+                    os.system('rm '+project_folder+'/out.sum')
+                os.system('cat '+project_folder+'/run.hyp'+' | hyp2000')
+            except:
+                pass
+            try:
+                lines = open(project_folder+'/out.sum').readlines() 
+                for line in lines: 
+                    if line.startswith("   DATE"): 
+                        print(' ') 
+                else:
+                    model = 'standard'
+                    year = int('20'+line[2:4])
+                    month = int(line[5:7])
+                    day = int(line[8:10])
+                    hour = int(line[11:13])
+                    minute = int(line[14:16])
+                    seconds = float(line[17:22])
+                    time = UTCDateTime(year, month, day, hour, minute, seconds)
+                    lat = float(line[23:31])
+                    #lat_min = float(line[28:33])
+                    #lat = lat_deg + (lat_min / 60.)
+                    #if lat_negative:
+                    #    lat = -lat
+                    lon = float(line[33:41])
+                    #lon_min = float(line[39:44])
+                    #lon = lon_deg + (lon_min / 60.)
+                    #if lon_negative:
+                    #    lon = -lon
+                    
+                    depth = float(line[42:48]) # depth: negative down!
+                    rms = float(line[75:80])
+                    errXY = float(line[81:86])
+                    errZ = float(line[87:92])
+                    
+                    gap  = float(line[65:69])
+                    o = Origin()
+                    #self.catalog[0].set_creation_info_username(self.username)
+                    o.clear()
+                    o.method_id = "/".join(["smi:local", "location_method", "hyp2000"])
+                    o.origin_uncertainty = OriginUncertainty()
+                    o.quality = OriginQuality()
+                    ou = o.origin_uncertainty
+                    oq = o.quality
+                    o.longitude = lon
+                    o.latitude = lat
+                    o.depth = depth * (1e3)  # meters positive down!
+                    # all errors are given in km!
+                    ou.horizontal_uncertainty = errXY * 1e3
+                    ou.preferred_description = "horizontal uncertainty"
+                    o.depth_errors.uncertainty = errZ * 1e3
+                    oq.standard_error = rms
+                    oq.azimuthal_gap = gap
+                    o.depth_type = "from location"
+                    o.earth_model_id = "smi:local/earth_model/%s" % (model)
+                    o.time = time
+                    o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/'+strday+str(rownum).zfill(3)+'_1')
+                event.origins.append(o)
+                event.preferred_origin_id = o.resource_id
+            except:
+                pass
       
             
     return dfs1, stalistall, cat1, f0
