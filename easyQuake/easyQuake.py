@@ -681,7 +681,6 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
     rows = cur1.fetchall()
     dfs1 = pd.DataFrame()
     cat1 = Catalog()
-    f1 = open(project_folder+'/pha','w')
     for rownum, row in enumerate(rows):
         #print(row)
         #(row[0])
@@ -703,7 +702,7 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
         orid = 'smi:local/Origin/'+strday+str(rownum+1).zfill(3)
         event.resource_id = ResourceIdentifier(id=evid)
         origin.resource_id = ResourceIdentifier(id=orid)
-
+        f1 = open(project_folder+'/pha','w')
         event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
         origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
         for pick1 in picks1a:
