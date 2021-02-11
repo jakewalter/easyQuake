@@ -681,6 +681,7 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
     rows = cur1.fetchall()
     dfs1 = pd.DataFrame()
     cat1 = Catalog()
+    f1 = open(project_folder+'/pha','w')
     for rownum, row in enumerate(rows):
         #print(row)
         #(row[0])
@@ -742,7 +743,6 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
         cat1.append(event)
             #print(stalistall)
         stalist = list(set(stas))
-        f1 = open(project_folder+'/pha','w')
         for states in stalist:
             hypo71_string = ""
             numP = -9
