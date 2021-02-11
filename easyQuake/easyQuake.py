@@ -10,6 +10,14 @@ pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
+import os
+st = os.stat(pathgpd+'/gpd_predict.py')
+import stat
+
+os.chmod(pathgpd+'/gpd_predict.py', st.st_mode | stat.S_IEXEC)
+
+
+import os
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
@@ -17,19 +25,14 @@ from obspy import read
 import datetime
 import numpy as np
 import glob
-import sys
-import os
-import stat
-st = os.stat(pathgpd+'/gpd_predict.py')
-os.chmod(pathgpd+'/gpd_predict.py', st.st_mode | stat.S_IEXEC)
+#import sys
+
 import obspy.taup as taup
 from obspy import geodetics
 from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
 from obspy.core.event.base import WaveformStreamID
 from sqlalchemy.orm import *
 from sqlalchemy import create_engine
-import numpy as np
-import obspy.core as oc
 import pandas as pd
 import sqlite3
 from sqlite3 import Error
@@ -41,10 +44,9 @@ from datetime import datetime
 #from mpl_toolkits.basemap import Basemap
 
 
-from sqlalchemy import create_engine
 from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier
-from obspy.signal.invsim import simulate_seismometer as seis_sim
+#from obspy.signal.invsim import simulate_seismometer as seis_sim
 fmtP = "%4s%1sP%1s%1i %15s"
 fmtS = "%12s%1sS%1s%1i\n"
 
@@ -913,29 +915,12 @@ def polarity(tr,pickP=None):
     
         
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False):
-#    PAZ_WA = {'poles': [-6.283 + 4.7124j, -6.283 - 4.7124j],
-#          'zeros': [0 + 0j], 'gain': 1.0, 'sensitivity': 2080}
+
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
     
     print('Computing magnitudes')
-#    
-#    #inventory = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
     client = Client()
-#    starttime = UTCDateTime(start)
-#    endtime = UTCDateTime(end)
 
-    ##import datetime
-    #inva = client.get_stations(latitude=36.5,longitude=-98.9,minradius=0.0, maxradius=5,starttime=starttime,endtime=endtime,level="station")
-    #invsta = client.get_stations(latitude=31.699,longitude=-104.053, maxradius=4,starttime=starttime,endtime=endtime,includeavailability=True,includerestricted=False,level="response")
-#    if download_inventory:
-#        invsta = client.get_stations(latitude=31.699,longitude=-104.053, maxradius=4,starttime=starttime,endtime=endtime,includeavailability=True,includerestricted=False,level="response")
-#    else:
-#        inv = Inventory()
-#        dir1a = glob.glob(project_folder+'/*/*xml')
-#        for file1 in dir1a:
-#            inv1a = read_inventory(file1)
-#            inv.networks.extend(inv1a)
-    #cat3 = cat.filter("time > 2020-03-25T03:10","time < 2020-03-25T03:50")
     for event in cat:
         origin = event.origins[0]
         print(origin)
