@@ -705,7 +705,6 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
 
         event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
         origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
-        f1 = open(project_folder+'/pha','w')
         for pick1 in picks1a:
             
             #print(pick1)
@@ -743,6 +742,7 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
         cat1.append(event)
             #print(stalistall)
         stalist = list(set(stas))
+        f1 = open(project_folder+'/pha','w')
         for states in stalist:
             hypo71_string = ""
             numP = -9
@@ -753,18 +753,13 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
                     numP = num
                 if states in line and 'S' in line:
                     numS = num
-#            if numP > -1 and numS < -1:
-#                #print('just P'+str(numP))
-#            if numP < -1 and numS > -1:
-#                #print('just S')
-#            if numP > -1 and numS > -1:
-#                print('both'+str(numP)+' '+str(numS))
-            if len(states)>4:
-                sta = states[1:]
-            else:
-                sta = states
-            if numP > -1:
-                pick = picks1a[numP]
+
+                if len(states)>4:
+                    sta = states[1:]
+                else:
+                    sta = states
+                if numP > -1:
+                    pick = picks1a[numP]
             
             
             
@@ -818,8 +813,8 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
                 f1.write(str(hypo71_string))
                 #print(str(hypo71_string))
                 #os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        f0.write("\n")
-        f1.close()
+            f0.write("\n")
+            f1.close()
         #f1.write("\n")
         if hypoflag:
             fcur = open(project_folder+'/pha','w')
