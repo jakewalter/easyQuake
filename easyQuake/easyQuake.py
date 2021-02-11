@@ -814,8 +814,8 @@ def select_all_associated(conn, f0, project_folder=None, hypoflag=False):
                     
                 else:
                     hypo71_string += "\n"
-            f0.write(str(hypo71_string))
-            f1.write(str(hypo71_string))
+        f0.write(str(hypo71_string))
+        f1.write(str(hypo71_string))
                 #print(str(hypo71_string))
                 #os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         f0.write("\n")
