@@ -26,7 +26,6 @@ import obspy.taup as taup
 from obspy import geodetics
 from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
 from obspy.core.event.base import WaveformStreamID
-from obspy.core.event import ResourceIdentifier
 from sqlalchemy.orm import *
 from sqlalchemy import create_engine
 import numpy as np
@@ -44,7 +43,7 @@ from datetime import datetime
 
 from sqlalchemy import create_engine
 from obspy import Stream
-from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality
+from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier
 from obspy.signal.invsim import simulate_seismometer as seis_sim
 fmtP = "%4s%1sP%1s%1i %15s"
 fmtS = "%12s%1sS%1s%1i\n"
@@ -1479,21 +1478,92 @@ def plot_hypodd_catalog(file=None):
 
 
 
-def locate_hyp2000(cat):
-    if hypoflag:
+def locate_hyp2000(cat=None, project_folder=None):
+    for idx1, event in enumerate(cat):
+        origin = event.preferred_origin() or event.origins[0]
+        stas = []
+        picks1a = []
+        for _i, arrv in enumerate(origin.arrivals):
+            pick = arrv.pick_id.get_referred_object()
+            stas.append(pick.waveform_id.station_code)
+            picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
+            #print(stalistall)
+        stalist = list(set(stas))
+        hypo71_string = ""
+        for states in stalist:
+
+            numP = -9
+            numS = -9
+            #print(states)
+            for num, line in enumerate(picks1a):
+                if states in line and 'P' in line:
+                    numP = num
+                if states in line and 'S' in line:
+                    numS = num
+            if len(states)>4:
+                sta = states[1:]
+            else:
+                sta = states
+            if numP > -1:
+                pick = picks1a[numP]
+                t = UTCDateTime(pick.split(' ')[-1])
+                hundredth = int(round(t.microsecond / 1e4))
+                if hundredth == 100:
+                    t_p = t + 1
+                    hundredth = 0
+                else:
+                    t_p = t
+                date1 = t_p.strftime("%y%m%d%H%M%S") + ".%02d" % hundredth
+                onset = 'I'
+                polarity = '?'
+                weight = 1
+                #print(sta,onset,polarity,weight,date)
+                hypo71_string += fmtP % (sta, onset, polarity, weight, date1)
+                #f0.write(str(hypo71_string))
+                
+                #print(hypo71_string)
+                if numP > -1 and numS > -1:
+                    pick = picks1a[numS]
+                    #t = UTCDateTime(pick[5])
+                    t2 = UTCDateTime(pick.split(' ')[-1])
+                    # if the S time's absolute minute is higher than that of the
+                    # P pick, we have to add 60 to the S second count for the
+                    # hypo 2000 output file
+                    # +60 %60 is necessary if t.min = 57, t2.min = 2 e.g.
+                    mindiff = (t2.minute - t.minute + 60) % 60
+                    abs_sec = t2.second + (mindiff * 60)
+                    hundredth = int(round(t2.microsecond / 1e4))
+                    if hundredth == 100:
+                        abs_sec += 1
+                        hundredth = 0
+                    date2 = "%s.%02d" % (abs_sec, hundredth)
+                    hundredth = int(round(t.microsecond / 1e4))
+                    if hundredth == 100:
+                        t_p = t + 1
+                        hundredth = 0
+                    else:
+                        t_p = t
+                    #date = t_p.strftime("%y%m%d%H%M%S") + ".%02d" % hundredth
+                    onset = 'I'
+                    polarity = '?'
+                    weight = 1
+                    #print(sta,onset,polarity,weight,date)
+                    hypo71_string += fmtS % (date2, onset, polarity,weight)
+                    
+                else:
+                    hypo71_string += "\n"
         fcur = open(project_folder+'/pha','w')
-#            lines = open(project_folder+'/pha').readlines() 
-#                print(lines)
-        #fcur.write(str(hypo71_string))
-        #fcur.close()
+        fcur.write(str(hypo71_string))
+        fcur.close()
+        
         frun = open(project_folder+'/run.hyp','w')
         frun.write('crh 1 standard.crh')
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
-        frun.write('sta '+project_folder+'/sta')
+        frun.write('sta sta')
         frun.write("\n")
-        frun.write('phs '+project_folder+'/pha')
+        frun.write('phs pha')
         frun.write("\n")
         frun.write('pos 1.78')
         frun.write("\n")
@@ -1512,7 +1582,8 @@ def locate_hyp2000(cat):
         try:
             if os.path.exists(project_folder+'/out.sum'):
                 os.system('rm '+project_folder+'/out.sum')
-            os.system('cat '+project_folder+'/run.hyp'+' | hyp2000')
+            os.system("cat run.hyp | hyp2000") % (project_folder)
+                #os.system("mv %s %s" % (original1,mseed1))
         except:
             pass
         try:
@@ -1566,11 +1637,12 @@ def locate_hyp2000(cat):
                 o.depth_type = "from location"
                 o.earth_model_id = "smi:local/earth_model/%s" % (model)
                 o.time = time
-                o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/'+strday+str(rownum).zfill(3)+'_1')
+                o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/1')
             event.origins.append(o)
             event.preferred_origin_id = o.resource_id
         except:
             pass
+    return cat
 
 
 
