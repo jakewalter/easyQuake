@@ -113,7 +113,7 @@ python idaho_example.py
 ```
 ## Version brief notes
 
-Version 0.5 includes embedded hypoinverse location functionality, rather than the simple location with the associator.
+Version 0.5 - includes embedded hypoinverse location functionality, rather than the simple location with the associator.
 
 ## License
 
