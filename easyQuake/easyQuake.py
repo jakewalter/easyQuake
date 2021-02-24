@@ -13,11 +13,11 @@ from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
 import os
 st = os.stat(pathgpd+'/gpd_predict.py')
-st1 = os.stat(pathgpd+'/mseed_predictor.py')
+st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
 os.chmod(pathgpd+'/gpd_predict.py', st.st_mode | stat.S_IEXEC)
-os.chmod(pathgpd+'/mseed_predictor.py', st1.st_mode | stat.S_IEXEC)
+os.chmod(pathEQT+'/mseed_predictor.py', st1.st_mode | stat.S_IEXEC)
 
 import os
 from obspy import UTCDateTime
