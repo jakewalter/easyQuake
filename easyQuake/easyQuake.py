@@ -7,6 +7,7 @@ set of functions to drive EasyQuake
 #sys.path.append("/home/jwalter/syncpython")
 from .phasepapy import fbpicker
 pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
+pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
@@ -423,7 +424,7 @@ def get_chan3(stationfile):
         comp3 = list(filter(None, stationfile.split('/')[-1].split('.')))[2][0:3]
     return comp3
            
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True,single_date=None, latitude=None, longitude=None, max_radius=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, latitude=None, longitude=None, max_radius=None):
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -513,27 +514,20 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     else:
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
-    if machine:
+    
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    if machine == True and machine_picker == 'GPD':
         fullpath1 = pathgpd+'/gpd_predict.py'
         os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+    elif machine == True and machine_picker == 'EQTransformer':
+        fullpath2 = pathEQT+'/mseed_predictor.py'
+        os.system(fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
-#    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 4, loc_uncert_thresh = 0.5)
-#    print("aggregate")
-#    t0=datetime.utcnow()
-#      # Identify candidate events (Pick Aggregation)
-#    assocXX.id_candidate_events()
-#    t1=datetime.utcnow()
-#    print('Took '+str(t1-t0))
-#    print("associate")
-#      # Associate events
-#    assocXX.associate_candidates()
-#    t2=datetime.utcnow()
-#    print('Took '+str(t2-t1))
-#      # Add singles stations to events
-#    assocXX.single_phase()
 
 def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, latitude=None, longitude=None, max_radius=None):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -961,7 +955,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     for tr in st3:
                         if isinstance(tr.data, np.ma.masked_array):
                             tr.data = tr.data.filled()
-                    st = st3.select(channel='[HB]H[EN12]')
+                    st = st3.select(channel='[EHB]H[EN12]')
                     for tr in st3:
                         inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
                         if len(inventory_local)>0:
@@ -1082,7 +1076,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             
             
             
-            event.preferred_magnitude_id = event.magnitudes[0].resource_id
+            event.preferred_magnitude_id = m.resource_id
             
             
             
@@ -1546,9 +1540,9 @@ def locate_hyp2000(cat=None, project_folder=None):
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
-        frun.write('sta sta')
+        frun.write("sta '"+project_folder+"/sta'")
         frun.write("\n")
-        frun.write('phs pha')
+        frun.write("phs '"+project_folder+"/pha'")
         frun.write("\n")
         frun.write('pos 1.78')
         frun.write("\n")
