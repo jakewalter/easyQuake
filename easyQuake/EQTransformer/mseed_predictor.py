@@ -804,7 +804,7 @@ if __name__ == "__main__":
         time_slots, comp_types = [], []
 
         meta, time_slots, comp_types, data_set = _mseed2nparry(args, fdir, ct, time_slots, comp_types)
-        print(meta["station_name"])
+        print(str(ct)+' of '+str(nsta)+' stations')
         params_pred = {'batch_size': args['batch_size'],
                        'norm_mode': args['normalization_mode']}  
             
