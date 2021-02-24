@@ -1,0 +1,1 @@
+from easyQuake.EQTransformer import mseed_predictor
