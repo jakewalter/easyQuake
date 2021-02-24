@@ -1,3 +1,4 @@
 include easyQuake/gpd_predict/*.json
 include easyQuake/gpd_predict/*hdf5
+include easyQuake/hyp2000/*crh
 include easyQuake/EQTransformer/*h5
