@@ -830,8 +830,8 @@ if __name__ == "__main__":
         delta -= minute * 60
         seconds = delta     
                         
-        dd = pd.read_csv('X_prediction_results.csv')
-        print(f'\n', flush=True)
+#        dd = pd.read_csv('X_prediction_results.csv')
+#        print(f'\n', flush=True)
         # print(' *** Finished the prediction in: {} hours and {} minutes and {} seconds.'.format(hour, minute, round(seconds, 2)), flush=True)         
         # print(' *** Detected: '+str(len(dd))+' events.', flush=True)
         # print(' *** Wrote the results into --> " ' + str(save_dir)+' "', flush=True)
