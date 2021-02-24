@@ -21,9 +21,9 @@ pip install .
 If you find this useful, please cite:
 
 ```
-Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (in press), easyQuake: Putting machine 
+Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (2021), easyQuake: Putting machine 
 learning to work for your regional seismic network or local earthquake study, Seismological Research 
-Letters
+Letters, 92(1): 555–563, https://doi.org/10.1785/0220200226
 ```
 
 ## Requirements
