@@ -8,6 +8,7 @@ set of functions to drive EasyQuake
 from .phasepapy import fbpicker
 pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
 pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
+pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
@@ -1562,7 +1563,8 @@ def locate_hyp2000(cat=None, project_folder=None):
         try:
             if os.path.exists(project_folder+'/out.sum'):
                 os.system('rm '+project_folder+'/out.sum')
-            os.system("cat run.hyp | hyp2000") % (project_folder)
+            os.system("cp %s %s") % (pathhyp/+'standard.crh',project_folder)
+            os.system("cat %s/run.hyp | hyp2000") % (project_folder)
                 #os.system("mv %s %s" % (original1,mseed1))
         except:
             pass
