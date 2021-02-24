@@ -1563,7 +1563,8 @@ def locate_hyp2000(cat=None, project_folder=None):
         try:
             if os.path.exists(project_folder+'/out.sum'):
                 os.system('rm '+project_folder+'/out.sum')
-            os.system("cp %s %s") % (pathhyp/+'standard.crh',project_folder)
+            velmodel = pathhyp+'/standard.crh'
+            os.system("cp %s %s") % (velmodel,project_folder)
             os.system("cat %s/run.hyp | hyp2000") % (project_folder)
                 #os.system("mv %s %s" % (original1,mseed1))
         except:
