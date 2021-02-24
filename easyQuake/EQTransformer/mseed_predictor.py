@@ -36,7 +36,7 @@ import logging
 import argparse as ap
 
 from obspy.signal.trigger import trigger_onset
-from .EqT_utils import f1, SeqSelfAttention, FeedForward, LayerNormalization
+from EqT_utils import f1, SeqSelfAttention, FeedForward, LayerNormalization
 warnings.filterwarnings("ignore")
 from tensorflow.python.util import deprecation
 deprecation._PRINT_DEPRECATION_WARNINGS = False
