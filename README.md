@@ -113,8 +113,6 @@ python idaho_example.py
 ```
 ## Version brief notes
 
-Version ? - Quasi realtime detection?
-
 Verson 0.6 (2/24/2021) - Implemented choice of GPD or EQTransformer pickers for the picking stage
 
 Version 0.5 (2/10/2021) - includes embedded hypoinverse location functionality, rather than the simple location with the associator.
