@@ -1620,7 +1620,7 @@ def locate_hyp2000(cat=None, project_folder=None):
                 o.depth_type = "from location"
                 o.earth_model_id = "smi:local/earth_model/%s" % (model)
                 o.time = time
-                o.resource_id = ResourceIdentifier(id='smi:local/hyp2000location/1')
+                o.resource_id = ResourceIdentifier(id='smi:local/Origin/hyp2000location_1')
             event.origins.append(o)
             event.preferred_origin_id = o.resource_id
         except:
