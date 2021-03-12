@@ -1245,9 +1245,9 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         assocXX.single_phase()
     except:
         pass
-    
+    assocXX.close()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True)
-    cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=True, eventmode=True)
+    cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=False, eventmode=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
