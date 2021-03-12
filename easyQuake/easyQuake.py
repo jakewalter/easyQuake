@@ -854,6 +854,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             dfs2 = dfs2.append(dfs1)
 #            except:
 #                pass
+        conn.close()
     f0.close()
     if catalog_year:
         cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
