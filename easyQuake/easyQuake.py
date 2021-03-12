@@ -1112,7 +1112,7 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
         ev.write(xmlspath+'/'+filename, format=format)
         
-def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, latitude=None, longitude=None, max_radius=None,downloadwaveforms=True):
+def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, latitude=None, longitude=None, max_radius=None):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
