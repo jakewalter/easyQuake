@@ -589,7 +589,7 @@ def create_connection(db_file):
     :return: Connection object or None
     """
     try:
-        conn = sqlite3.connect(db_file)
+        conn = sqlite3.connect(db_file, check_same_thread = False)
         return conn
     except Error as e:
         print(e)
