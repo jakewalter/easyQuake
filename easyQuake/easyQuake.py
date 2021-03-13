@@ -154,7 +154,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     """ 
     """
     # Create a connection to an sqlalchemy database
-    tt_engine=create_engine(db,echo=False)
+    tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
     tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
@@ -203,7 +203,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     """ 
     """
     # Create a connection to an sqlalchemy database
-    tt_engine=create_engine(db,echo=False)
+    tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
     tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
@@ -256,7 +256,7 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
     """ 
     """
     # Create a connection to an sqlalchemy database
-    tt_engine=create_engine(db,echo=False)
+    tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
     tt_stations_1D.BaseTT1D.metadata.create_all(tt_engine)
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
@@ -445,7 +445,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
 #        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
 #    else:
 #        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
-    engine_assoc=create_engine(db_assoc, echo=False)
+    engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
@@ -552,7 +552,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
-        engine_assoc=create_engine(db_assoc, echo=False)
+        engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
@@ -1128,7 +1128,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         os.remove(dir1+'/1dassociator_'+project_code+'.db')
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
-    engine_assoc=create_engine(db_assoc, echo=False)
+    engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
@@ -1222,7 +1222,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
-        engine_assoc=create_engine(db_assoc, echo=False)
+        engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
