@@ -621,6 +621,7 @@ def hypo_station(project_folder=None, project_code=None):
                 df4 = pd.DataFrame()
                 df4 = pd.DataFrame({'station': row[1], 'net':row[2],'latitude':row[4],'longitude':row[5],'elevation':row[6]}, index=[0])
                 stas1=stas1.append(df4)
+        conn1.close()
     stas1 = stas1.drop_duplicates()
     stas1 = stas1.reset_index(drop=True)
     print(stas1)
