@@ -1205,6 +1205,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)    # starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     # stopping = starting + 86430
+    session.close()
 
 
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -1228,6 +1229,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
         gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
+        session.close()
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 4, loc_uncert_thresh = 0.2)
