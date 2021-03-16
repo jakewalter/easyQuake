@@ -98,7 +98,7 @@ class SCNL():
                 self.station,self.channel,self.network=input
                 
 
-def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None):
+def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
     starttime = starting
@@ -106,7 +106,10 @@ def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=N
     #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
     domain = RectangularDomain(minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon)
     #domain = RectangularDomain(minlatitude=-90, maxlatitude=-60,minlongitude=-180, maxlongitude=180)
-    restrictions = Restrictions(starttime=starttime, endtime=endtime,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=5000, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
+    if dense:
+        restrictions = Restrictions(starttime=starttime, endtime=endtime,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=1, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
+    else:
+        restrictions = Restrictions(starttime=starttime, endtime=endtime,reject_channels_with_gaps=False,minimum_length=0,minimum_interstation_distance_in_m=5000, channel_priorities=["HH[ZNE12]", "BH[ZNE12]","EH[ZNE12]","SH[ZNE12]","HN[ZNE12]","EN[ZNE12]"])
     mseed1 = project_folder+'/'+dirname
     if not os.path.exists(mseed1):
         os.makedirs(mseed1) #domain = CircularDomain(-90,0,minradius=0.0, maxradius=30.0)
