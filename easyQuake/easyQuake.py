@@ -153,7 +153,7 @@ def process_local_sac():
 
 
                 
-def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5.):
+def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5., delta_distance=1):
     """ 
     """
     # Create a connection to an sqlalchemy database
@@ -182,7 +182,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations  
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -202,7 +202,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     tt_session.close()
     return inv
 
-def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.):
+def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1):
     """ 
     """
     # Create a connection to an sqlalchemy database
@@ -233,7 +233,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations  
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -255,7 +255,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
 
 
     
-def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel_codes=['EH','BH','HH'],db=None,maxdist=800.,source_depth=5.):
+def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel_codes=['EH','BH','HH'],db=None,maxdist=800.,source_depth=5.,delta_distance=1):
     """ 
     """
     # Create a connection to an sqlalchemy database
@@ -290,7 +290,7 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations  
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -534,7 +534,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, latitude=None, longitude=None, max_radius=None):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
 
@@ -549,9 +549,9 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     print(db_tt)
     if local:
-        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     else:
-        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
@@ -1117,7 +1117,7 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
         ev.write(xmlspath+'/'+filename, format=format)
         
-def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, latitude=None, longitude=None, max_radius=None):
+def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
@@ -1221,9 +1221,9 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     print(db_tt)
     if local:
-        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     else:
-        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5.)
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
