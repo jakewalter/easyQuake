@@ -943,6 +943,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 try:
                     try:
                         st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                        print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
                     except:
                         try:
                             st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
