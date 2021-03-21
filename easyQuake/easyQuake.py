@@ -970,14 +970,15 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             if len(inventory_local)>0:
                                 inv = read_inventory(inventory_local[0])
                             else:
-                                if len(glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml'))>0:
+                                try:
                                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                                     inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
-                                else:
+                                except:
                                     print('Getting response from DMC')
                                     starttime = UTCDateTime(origin.time-10)
                                     endtime = UTCDateTime(origin.time+10)
                                     inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                                    pass
                                     #                    paz = [x for x in pazs if tr.stats.channel in x]
         #                    attach_paz(tr, paz[0])
                             #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
