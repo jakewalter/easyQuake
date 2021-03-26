@@ -1595,7 +1595,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                 if line.startswith("   DATE"): 
                     print(' ') 
             else:
-                model = 'standard'
+                #model = 'standard'
+                model = vel_model[:-4]
                 year = int('20'+line[2:4])
                 month = int(line[5:7])
                 day = int(line[8:10])
