@@ -1471,7 +1471,7 @@ def plot_hypodd_catalog(file=None):
 
 
 
-def locate_hyp2000(cat=None, project_folder=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
         stas = []
@@ -1545,12 +1545,24 @@ def locate_hyp2000(cat=None, project_folder=None):
                     
                 else:
                     hypo71_string += "\n"
+
+        try:
+            if os.path.exists(project_folder+'/out.sum'):
+                os.system('rm '+project_folder+'/out.sum')
+            if vel_model is None:
+                velmodel = pathhyp+'/standard.crh'
+                os.system("cp %s %s" % (velmodel,project_folder))
+                os.system("cat %s/run.hyp | hyp2000" % (project_folder))
+                vel_model = 'standard.crh'
+                #os.system("mv %s %s" % (original1,mseed1))
+        except:
+            pass
         fcur = open(project_folder+'/pha','w')
         fcur.write(str(hypo71_string))
         fcur.close()
         
         frun = open(project_folder+'/run.hyp','w')
-        frun.write('crh 1 standard.crh')
+        frun.write("crh 1 "+vel_model)
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
@@ -1573,14 +1585,10 @@ def locate_hyp2000(cat=None, project_folder=None):
         frun.write('stop')
         frun.close()
         try:
-            if os.path.exists(project_folder+'/out.sum'):
-                os.system('rm '+project_folder+'/out.sum')
-            velmodel = pathhyp+'/standard.crh'
-            os.system("cp %s %s" % (velmodel,project_folder))
             os.system("cat %s/run.hyp | hyp2000" % (project_folder))
-                #os.system("mv %s %s" % (original1,mseed1))
         except:
             pass
+        
         try:
             lines = open(project_folder+'/out.sum').readlines() 
             for line in lines: 
@@ -1600,7 +1608,7 @@ def locate_hyp2000(cat=None, project_folder=None):
                 #lat = lat_deg + (lat_min / 60.)
                 #if lat_negative:
                 #    lat = -lat
-                lon = float(line[33:41])
+                lon = float(line[32:41])
                 #lon_min = float(line[39:44])
                 #lon = lon_deg + (lon_min / 60.)
                 #if lon_negative:
