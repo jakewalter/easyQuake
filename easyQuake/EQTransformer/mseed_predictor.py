@@ -537,7 +537,7 @@ def _mseed2nparry(args, fdir, i, time_slots, comp_types):
             "trace_name":i,
             "network_code": netname
              } 
-                
+
     chanL = [tr.stats.channel[-1] for tr in st]
     comp_types.append(len(chanL))
     tim_shift = int(60-(args['overlap']*60))
@@ -678,7 +678,8 @@ def _output_writter_prediction(meta, ofile, matches, snr, detection_memory, idx)
                        
             if match_value[3]: 
                 p_time = start_time+timedelta(seconds= match_value[3]/100)
-                ofile.write("%s %s HHZ P %s\n" % (network_name, station_name, p_time.isoformat()))
+                chan_pick = instrument_type+'Z'
+                ofile.write("%s %s %s P %s\n" % (network_name, station_name, chan_pick, p_time.isoformat()))
             else:
                 p_time = None
             p_prob = match_value[4]
@@ -688,7 +689,8 @@ def _output_writter_prediction(meta, ofile, matches, snr, detection_memory, idx)
                 
             if match_value[6]:
                 s_time = start_time+timedelta(seconds= match_value[6]/100)
-                ofile.write("%s %s HHE S %s\n" % (network_name, station_name, s_time.isoformat()))
+                chan_pick_s = instrument_type+'E'
+                ofile.write("%s %s %s S %s\n" % (network_name, station_name, chan_pick_s, s_time.isoformat()))
             else:
                 s_time = None
             s_prob = match_value[7]               

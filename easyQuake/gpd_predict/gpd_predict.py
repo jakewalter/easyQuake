@@ -267,9 +267,9 @@ if __name__ == "__main__":
                         continue
                     pick = np.argmax(ts[trig[0]:trig[1], 0])+trig[0]
                     stamp_pick = st[0].stats.starttime + tt[pick]
-                    #chan_pick = st[0].stats.channel
+                    chan_pick = st[0].stats.channel[0:2]+'Z'
                     p_picks.append(stamp_pick)
-                    ofile.write("%s %s HHZ P %s\n" % (net, sta, stamp_pick.isoformat()))
+                    ofile.write("%s %s %s P %s\n" % (net, sta, chan_pick, stamp_pick.isoformat()))
         
                 trigs = trigger_onset(prob_S, min_proba, 0.1)
                 for trig in trigs:
@@ -277,9 +277,9 @@ if __name__ == "__main__":
                         continue
                     pick = np.argmax(ts[trig[0]:trig[1], 1])+trig[0]
                     stamp_pick = st[0].stats.starttime + tt[pick]
-                    chan_pick = st[0].stats.channel
+                    chan_pick_s = st[0].stats.channel[0:2]+'E'
                     s_picks.append(stamp_pick)
-                    ofile.write("%s %s HHE S %s\n" % (net, sta, stamp_pick.isoformat()))
+                    ofile.write("%s %s %s S %s\n" % (net, sta, chan_pick_s, stamp_pick.isoformat()))
         
                 if plot:
                     fig = plt.figure(figsize=(8, 12))
