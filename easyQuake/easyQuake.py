@@ -601,13 +601,16 @@ def create_connection(db_file):
 
 
 
-def hypo_station(project_folder=None, project_code=None):
+def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None):
     hypo71_string_sta = ""
     station_strings = []
     f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')
     #for stas in temp:
-    files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
+    if catalog_year:
+        files = sorted(glob.glob(project_folder+'/'+year+'*/tt*'+project_code+'.db'))
+    else:
+        files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
     #print(files)
     stas1 = pd.DataFrame()
     for dfilesta in files: 
@@ -1650,28 +1653,25 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     return cat
 
 
-def plot_easyquake_catalog(cat=None):    
+def plot_map_catalog(cat=None):    
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
-#    catdfr = catdfr.reset_index(drop=True)
-#    #rutc = np.zeros((len(catdfr.index),1))
-#    rutc = []
-#    for i in range(0,len(catdfr.index)):
-#        rutc.append(UTCDateTime(int(catdfr.iloc[i,10]),int(catdfr.iloc[i,11]),int(catdfr.iloc[i,12]),int(catdfr.iloc[i,13]),int(catdfr.iloc[i,14]),catdfr.iloc[i,15]))
-#    
-#    catdfr['rutc'] = rutc
-#    catdfr.sort_values(by=['rutc'], inplace=True)
-#    catdfr = catdfr.reset_index(drop=True)
-    
-    
+    catdfr = simple_cat_df(cat)
+
+    #catdfr = catdfr.reset_index(drop=True)
+    #rutc = np.zeros((len(catdfr.index),1))
+
     
     
     
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
+    plt.figure()
+    lat0 = np.median(catdfr.iloc[:,0].values)
+    lon0 = np.median(catdfr.iloc[:,1].values)
     m = Basemap(projection='lcc', resolution='h', 
-                lat_0=31.66, lon_0=-104,
+                lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
     #m.shadedrelief()
     m.drawcoastlines(color='gray')
@@ -1681,7 +1681,7 @@ def plot_easyquake_catalog(cat=None):
     
     # 2. scatter city data, with color reflecting population
     # and size reflecting area
-    m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,16].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
+    m.scatter(catdfr.iloc[:,1].values,catdfr.iloc[:,0].values,s=catdfr.iloc[:,3].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
     
     #m.scatter(catdfo.iloc[:,2].values,catdfo.iloc[:,1].values,s=catdfo.iloc[:,16].values**3*10,c=catdfo.index,marker='o',alpha=0.5,latlon=True)
     
@@ -1689,14 +1689,81 @@ def plot_easyquake_catalog(cat=None):
     
     cbar = plt.colorbar()
     N_TICKS=8
-    indexes = [catdfr['rutc'].iloc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
+    indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
     
     #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
     cbar.ax.set_yticklabels(indexes)
     plt.show()
-    plt.savefig('hypoDDmap.png')
+    plt.savefig('hypo_map.png')
 
 
+def plot_gr_freq_catalog(cat=None,min_mag=2):
+    catdf = simple_cat_df(cat)
+    
+    catdf['origintime'] = pd.to_datetime(catdf.index)
+
+    catdf3 = catdf[catdf['magnitude']>=min_mag]
+    
+    m3eqcount = catdf3['origintime'].groupby(catdf3.origintime.dt.to_period("M")).agg('count')
+    m3eqcountd = catdf3['origintime'].groupby(catdf3.origintime.dt.to_period("D")).agg('count')
+    alleqcount = catdf['origintime'].groupby(catdf.origintime.dt.to_period("M")).agg('count')
+    alleqcountd = catdf['origintime'].groupby(catdf.origintime.dt.to_period("D")).agg('count')
+    
+    df3 = m3eqcount.to_frame()
+    df3d = m3eqcountd.to_frame()
+    dfall = alleqcount.to_frame()
+    dfalld = alleqcountd.to_frame()
+    
+    df3.index = df3.index.to_timestamp()
+    df3d.index = df3d.index.to_timestamp()
+    dfall.index = dfall.index.to_timestamp()
+    dfalld.index = dfalld.index.to_timestamp()
+    
+    df3 = df3.resample('MS').sum()
+    df3d = df3d.resample('D').sum()
+    dfall = dfall.resample('MS').sum()
+    dfalld = dfalld.resample('D').sum()
+
+    fig, axs = plt.subplots(2, 2)
+    axs[0, 0].step(dfall.index,dfall.origintime, color='k')
+    #plt.xlim([datetime.date(2009, 1, 1), datetime.datetime.now()])
+    axs[0, 0].set(ylabel = 'Earthquakes per month')
+    axs[0, 1].step(dfalld.index,dfalld.origintime, color='k')
+    #plt.xlim([datetime.date(2009, 1, 1), datetime.datetime.now()])
+    axs[0, 1].set(ylabel = 'Earthquakes per day')
+    axs[1, 0].step(df3.index,df3.origintime, color='k')
+    #plt.xlim([datetime.date(2009, 1, 1), datetime.datetime.now()])
+    axs[1, 0].set(ylabel = 'Earthquakes M>'+str(min_mag)+' per month')
+    axs[1, 1].step(df3d.index,df3d.origintime, color='k')
+    #plt.xlim([datetime.date(2009, 1, 1), datetime.datetime.now()])
+    axs[1, 1].set(ylabel = 'Earthquakes M>'+str(min_mag)+' per day')
+    plt.show()
+    
+    plt.figure()
+    plt.savefig('freq_plot.png')
+    
+    rangemin = np.floor(np.min(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
+    rangemax = np.ceil(np.max(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
+    
+    hist, edges = np.histogram(a=catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)], bins=101, range=(rangemin,rangemax))
+    chist = np.cumsum(hist[::-1])[::-1]
+    
+    
+    fig, ax = plt.subplots()
+    ax.plot(edges[:-1], hist, marker='.', color='k', linestyle='')
+    ax.plot(edges[:-1], chist, marker='o', color='k', linestyle='',label='')
+    
+    ax.set_yscale('log')
+    ax.set_ylabel('N')
+    ax.set_xlabel('Magnitude')
+#    ax.set_xlim(1, 6)
+#    ax.set_ylim(1e0, 4e4)
+    ax.set_title('Gutenburg-Richter Distribution')
+    plt.show()
+    plt.savefig('gr_plot.png')
+
+    
+    
 if __name__ == "__main__":
     easyQuake()
 
