@@ -608,7 +608,7 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
     #f2 = open(project_folder+'/'+'station.dat', 'w')
     #for stas in temp:
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+year+'*/tt*'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/tt*'+project_code+'.db'))
     else:
         files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
     #print(files)
