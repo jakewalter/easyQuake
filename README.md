@@ -90,6 +90,11 @@ plt.plot(catdf.index,catdf.magnitude,'.')
 
 Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
 
+## Video introductions
+
+Cre
+
+
 ## Running easyQuake with SLURM
 
 If you have access to shared computing resources that utilize SLURM, you can drive easyQuake by making a bash script to run the example code or any code (thanks to Xiaowei Chen at OU). Save the following to a drive_easyQuake.sh and then run it
