@@ -90,10 +90,11 @@ plt.plot(catdf.index,catdf.magnitude,'.')
 
 Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
 
-## Video introductions
+## Video intros to easyQuake
 
-Cre
+Most recent updates, recorded for the 2021 SSA Annual meeting: https://www.youtube.com/watch?v=bjBqPL9pD5w
 
+Recorded for the fall 2020 Virtual SSA Eastern Section meeting: https://www.youtube.com/watch?v=coS2OwTWO3Y
 
 ## Running easyQuake with SLURM
 
