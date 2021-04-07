@@ -1306,10 +1306,9 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 
 #
 #
-def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
+def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None, download_station_metadata=True):
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
-    station_dat_file = project_folder+'/'+project_code+'station.dat'
     #for idx0, t0 in enumerate(catdf.index):
     #stations = []
     stations = set()
@@ -1358,7 +1357,7 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
         event_strings.append(event_string)
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
-            stations.add(pick.waveform_id.station_code)
+            stations.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code)
             #print(pick.polarity)
             # Only P and S phases currently supported by HypoDD.
             if pick.phase_hint is not None:
@@ -1395,32 +1394,34 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
         with open(phase_dat_file, "w") as open_file:
             open_file.write(event_string)
     
-    print('Downloading station location metadata')
-    client = Client()
-    station_strings = []
-    for sta in stations:
-        print(sta)
-        net, sta1 = sta.split('.')
-        #sta1 = sta
-        try:
-            inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network=net, station=sta1, level='station')
-        except:
+    if download_station_metadata:
+        station_dat_file = project_folder+'/'+project_code+'station.dat'
+        print('Downloading station location metadata')
+        client = Client()
+        station_strings = []
+        for sta in stations:
+            print(sta)
+            net, sta1 = sta.split('.')
+            #sta1 = sta
+    
             try:
                 inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network='*', station=sta1, level='station')
             except:
                 inva = None
                 pass
-            pass
-        if inva is not None:
-            if len(inva.networks) == 1:
-                if len(net+'.'+sta1)>7:
-                    station_strings.append("%s %.6f %.6f %i" % (sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
-                else:
-                    station_strings.append("%s %.6f %.6f %i" % (net+'.'+sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
-        #inva1[0][0].latitude
-    station_string = "\n".join(station_strings)
-    with open(station_dat_file, "w") as open_file:
-        open_file.write(station_string)
+            if inva is not None:
+                dists = []            
+                for idxn, net in enumerate(inva):       
+                    dists.append(gps2dist_azimuth(net[0].latitude, net[0].longitude, cat[-1].preferred_origin().latitude, cat[-1].preferred_origin().longitude)[0])
+                
+                station_lat = inva[np.where(dists==np.min(dists))[0][0]][0].latitude
+                station_lon = inva[np.where(dists==np.min(dists))[0][0]][0].longitude
+                station_elev = inva[np.where(dists==np.min(dists))[0][0]][0].elevation
+                station_strings.append("%s %.6f %.6f %i" % (sta1,  station_lat,  station_lon,  station_elev))
+            #inva1[0][0].latitude
+        station_string = "\n".join(set(station_strings))
+        with open(station_dat_file, "w") as open_file:
+            open_file.write(station_string)
 
     
 #    station_dat_file = project_folder+'/'+'station.dat'
