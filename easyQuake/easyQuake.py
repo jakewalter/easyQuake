@@ -1309,14 +1309,15 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
+    station_dat_file = project_folder+'/'+project_code+'station.dat'
     #for idx0, t0 in enumerate(catdf.index):
     #stations = []
     stations = set()
 
     event_strings = []            
     for idx1, event in enumerate(cat):
-        evo = event.origins[0].time
-        #evid = catdf['event_id'][idx1]
+        #evo = event.preferred_origin().time
+        evid = idx1
         #otime = UTCDateTime(evo)
         #try:
         
@@ -1360,31 +1361,32 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
             stations.add(pick.waveform_id.station_code)
             #print(pick.polarity)
             # Only P and S phases currently supported by HypoDD.
-            if pick.phase_hint.upper() != "P" and pick.phase_hint.upper() != "S":
-                continue
-            string = "{station_id} {travel_time:.6f} {weight:.2f} {phase}"
-            travel_time = pick.time - origin.time
-            # Simple check to assure no negative travel times are used.
-            if travel_time < 0:
-                msg = "Negative absolute travel time. " + \
-                    "{phase} phase pick for event {event_id} at " + \
-                    "station {station_id} will not be used."
-                msg = msg.format(
-                    phase=pick.phase_hint,
-                    event_id=evid,
-                    station_id=pick.waveform_id.station_code)
-                print(msg)
-                continue
-            phase_weighting = lambda sta_id, ph_type, time, uncertainty: 1.0
-            weight = phase_weighting(pick.waveform_id.station_code, pick.phase_hint.upper(),
-                                     pick.time,
-                                     arrv.time_residual)
-            pick_string = string.format(
-                station_id=pick.waveform_id.station_code,
-                travel_time=travel_time,
-                weight=weight,
-                phase=pick.phase_hint.upper())
-            event_strings.append(pick_string)
+            if pick.phase_hint is not None:
+                if pick.phase_hint.upper() != "P" and pick.phase_hint.upper() != "S":
+                    continue
+                string = "{station_id} {travel_time:.6f} {weight:.2f} {phase}"
+                travel_time = pick.time - origin.time
+                # Simple check to assure no negative travel times are used.
+                if travel_time < 0:
+                    msg = "Negative absolute travel time. " + \
+                        "{phase} phase pick for event {event_id} at " + \
+                        "station {station_id} will not be used."
+                    msg = msg.format(
+                        phase=pick.phase_hint,
+                        event_id=evid,
+                        station_id=pick.waveform_id.station_code)
+                    print(msg)
+                    continue
+                phase_weighting = lambda sta_id, ph_type, time, uncertainty: 1.0
+                weight = phase_weighting(pick.waveform_id.station_code, pick.phase_hint.upper(),
+                                         pick.time,
+                                         arrv.time_residual)
+                pick_string = string.format(
+                    station_id=pick.waveform_id.network_code+'.'+pick.waveform_id.station_code,
+                    travel_time=travel_time,
+                    weight=weight,
+                    phase=pick.phase_hint.upper())
+                event_strings.append(pick_string)
         event_string = "\n".join(event_strings)
 #        except:
 #            print('Some error occurred????', evo)
@@ -1392,7 +1394,30 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
         # Write the phase.dat file.
         with open(phase_dat_file, "w") as open_file:
             open_file.write(event_string)
-            
+    
+    print('Downloading station location metadata')
+    client = Client()
+    station_strings = []
+    for sta in stations:
+        print(sta)
+        net, sta1 = sta.split('.')
+        sta1 = sta
+        try:
+            inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network=net, station=sta1, level='station')
+        except:
+            try:
+                inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network='*', station=sta1, level='station')
+            except:
+                inva = None
+                pass
+            pass
+        if inva is not None:
+            if len(inva.networks) == 1:
+                station_strings.append("%s %.6f %.6f %i" % (sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
+        #inva1[0][0].latitude
+    station_string = "\n".join(station_strings)
+    with open(station_dat_file, "w") as open_file:
+        open_file.write(station_string)
 
     
 #    station_dat_file = project_folder+'/'+'station.dat'
