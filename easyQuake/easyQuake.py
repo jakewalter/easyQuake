@@ -1382,7 +1382,7 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
                                          pick.time,
                                          arrv.time_residual)
                 pick_string = string.format(
-                    station_id=pick.waveform_id.network_code+'.'+pick.waveform_id.station_code,
+                    station_id=pick.waveform_id.station_code,
                     travel_time=travel_time,
                     weight=weight,
                     phase=pick.phase_hint.upper())
@@ -1401,7 +1401,7 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
     for sta in stations:
         print(sta)
         net, sta1 = sta.split('.')
-        sta1 = sta
+        #sta1 = sta
         try:
             inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network=net, station=sta1, level='station')
         except:
@@ -1413,7 +1413,10 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None):
             pass
         if inva is not None:
             if len(inva.networks) == 1:
-                station_strings.append("%s %.6f %.6f %i" % (sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
+                if len(net+'.'+sta1)>7:
+                    station_strings.append("%s %.6f %.6f %i" % (sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
+                else:
+                    station_strings.append("%s %.6f %.6f %i" % (net+'.'+sta1, inva[0][0].latitude, inva[0][0].longitude, inva[0][0].elevation))
         #inva1[0][0].latitude
     station_string = "\n".join(station_strings)
     with open(station_dat_file, "w") as open_file:
