@@ -1476,11 +1476,13 @@ def plot_hypodd_catalog(file=None):
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
+    lat0 = np.median(catdfr.iloc[:,1].values)
+    lon0 = np.median(catdfr.iloc[:,2].values)
     m = Basemap(projection='lcc', resolution='h', 
-                lat_0=31.66, lon_0=-104,
+                lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
     #m.shadedrelief()
-    m.drawcoastlines(color='gray')
+    #m.drawcoastlines(color='gray')
     m.drawcountries(color='gray')
     #m.drawcounties(color='gray')
     m.drawstates(color='gray')
@@ -1499,8 +1501,9 @@ def plot_hypodd_catalog(file=None):
     
     #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
     cbar.ax.set_yticklabels(indexes)
-    plt.show()
     plt.savefig('hypoDDmap.png')
+    plt.show()
+
 
 
 
