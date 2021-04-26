@@ -1363,11 +1363,11 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
         origin = event.preferred_origin() or event.origins[0]
         try:
             mag1 = event.preferred_magnitude() or event.magnitudes[0]
-            magpref = mag1
+            magpref = mag1.mag
         except:
             magpref = 0
             continue
-        print(magpref)
+        #print(magpref)
         
         
         depth_error = 0
@@ -1391,7 +1391,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                              longitude=origin.longitude,
                              # QuakeML depth is in meters. Convert to km.
                              depth=origin.depth / 1000.0,
-                             magnitude=str(magpref),
+                             magnitude=magpref,
                              horizontal_error=max(
                                  [latitude_error,
                                   longitude_error]),
