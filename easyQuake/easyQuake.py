@@ -1391,7 +1391,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                              longitude=origin.longitude,
                              # QuakeML depth is in meters. Convert to km.
                              depth=origin.depth / 1000.0,
-                             magnitude=magpref,
+                             magnitude=str(magpref),
                              horizontal_error=max(
                                  [latitude_error,
                                   longitude_error]),
