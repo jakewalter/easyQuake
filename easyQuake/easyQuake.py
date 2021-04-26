@@ -1125,13 +1125,55 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
     for ev in catalog:
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
         ev.write(xmlspath+'/'+filename, format=format)
-        
+
+
+def cut_event_waveforms():
+    for event in cat:
+        origin = event.origins[0]
+        print(origin)
+        event_lat = origin.latitude
+        event_lon = origin.longitude
+        strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        if eventmode:
+            strday = str(project_folder.split('/')[-1])
+        #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        print(strday)
+        strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
+
+
+#        st2 = Stream()
+#        
+#        for idx1, pick in enumerate(event.picks):
+#            if pick.phase_hint == 'S':
+#                try:
+#                    try:
+#                        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+#                        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+#                    except:
+#                        try:
+#                            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+#                        except:
+#                            try:
+#                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+#                            except:    
+#                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+#                                pass
+#                        pass
+#
+
+
+
+
+
+
+
+
 def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
     starting = approxotime - 60
-    stopping = approxotime + 60
+    stopping = approxotime + 120
     dir1 = project_folder+'/'+dirname
     print(dir1)
     if downloadwaveforms:
@@ -1306,7 +1348,7 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 
 #
 #
-def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None, download_station_metadata=True):
+def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=None, project_code=None):
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
     #for idx0, t0 in enumerate(catdf.index):
@@ -1318,11 +1360,13 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None, download
         #evo = event.preferred_origin().time
         evid = idx1
         #otime = UTCDateTime(evo)
-        #try:
-        
         origin = event.preferred_origin() or event.origins[0]
-        mag1 = event.preferred_magnitude() or event.magnitudes[0]
-        magpref = mag1.mag
+        try:
+            mag1 = event.preferred_magnitude() or event.magnitudes[0]
+            magpref = mag1
+        except:
+            magpref = 0
+            continue
 
         
         
@@ -1386,6 +1430,8 @@ def quakeml_to_hypodd(cat=None, project_folder=None, project_code=None, download
                     weight=weight,
                     phase=pick.phase_hint.upper())
                 event_strings.append(pick_string)
+        
+        
         event_string = "\n".join(event_strings)
 #        except:
 #            print('Some error occurred????', evo)
