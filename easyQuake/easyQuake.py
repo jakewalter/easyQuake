@@ -96,7 +96,7 @@ class SCNL():
                 self.station,self.channel,self.network,self.location=input
             if len(input)==3:
                 self.station,self.channel,self.network=input
-                
+
 
 def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -132,7 +132,7 @@ def download_mseed_event(dirname=None, project_folder=None, starting=None, stopp
     #os.system("mv %s %s" % (original1,mseed1))
     mdl = MassDownloader()
     mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
-    
+
 def download_mseed_event_radial(dirname=None, project_folder=None, starting=None, stopping = None, lat1=None, lon1=None, maxrad=None):
     starttime = starting
     endtime = stopping
@@ -152,9 +152,9 @@ def process_local_sac():
     print('Local sac files')
 
 
-                
+
 def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5., delta_distance=1):
-    """ 
+    """
     """
     # Create a connection to an sqlalchemy database
     tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
@@ -182,7 +182,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    #delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -203,7 +203,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     return inv
 
 def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1):
-    """ 
+    """
     """
     # Create a connection to an sqlalchemy database
     tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
@@ -233,7 +233,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    #delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -254,9 +254,9 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     return inv
 
 
-    
+
 def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel_codes=['EH','BH','HH'],db=None,maxdist=800.,source_depth=5.,delta_distance=1):
-    """ 
+    """
     """
     # Create a connection to an sqlalchemy database
     tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
@@ -266,7 +266,7 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
     inv = Inventory()
     dir1a = glob.glob(project_folder+'/'+dirname+'/*xml')
     m = Basemap(projection='spstere',boundinglat=-60,lon_0=180,resolution='i')
-    
+
     for file1 in dir1a:
         inv1a = read_inventory(file1)
         inv.networks.extend(inv1a)
@@ -290,7 +290,7 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     velmod=taup.TauPyModel(model='iasp91')
-    #delta_distance=1. # km for spacing tt calculations  
+    #delta_distance=1. # km for spacing tt calculations
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
         d_deg=geodetics.kilometer2degrees(d_km)
@@ -309,7 +309,7 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
         tt_session.commit() # Probably faster to do the commit outside of loop but oh well
     tt_session.close()
     return inv
-    
+
 def fb_pick(dbengine=None,picker=None,fileinput=None):
     fdir = []
     engine_assoc=dbengine
@@ -408,13 +408,13 @@ def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
 #         scnl.phase = type1
 #         time1 = UTCDateTime(line.split()[4]).datetime
 #         t_create=datetime.utcnow()
-           
+
 #         new_pick=tables1D.Pick(scnl,time1,'',10,0.1,t_create)
 #         dbsession.add(new_pick) # Add pick i to the database
 #         dbsession.commit() #
 #       except:
 #         pass
-                
+
 def get_chan1(stationfile):
     if len(list(filter(None, stationfile.split('/')[-1].split('.'))))==5:
         comp = list(filter(None, stationfile.split('/')[-1].split('.')))[3][2]
@@ -428,7 +428,7 @@ def get_chan3(stationfile):
     else:
         comp3 = list(filter(None, stationfile.split('/')[-1].split('.')))[2][0:3]
     return comp3
-           
+
 def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, latitude=None, longitude=None, max_radius=None):
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
@@ -439,7 +439,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     #print(dir1+'/1dassociator_'+project_code+'.db')
     if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         os.remove(dir1+'/1dassociator_'+project_code+'.db')
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'    
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
 #    if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
 #        os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
 #    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
@@ -498,9 +498,9 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         if any(elem is None for elem in station3a):
             continue
         day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
-        
+
     day_string = "\n".join(day_strings)
-    
+
     with open(dir1+'/dayfile.in', "w") as open_file:
         open_file.write(day_string)
     infile = dir1+'/dayfile.in'
@@ -509,7 +509,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
     #gpd_predict(inputfile=infile,outputfile=outfile)
     fileinassociate = outfile
-    
+
     if local:
         inv = Inventory()
         dir1a = glob.glob(project_folder+'/'+dirname+'/*xml')
@@ -519,7 +519,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     else:
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
-    
+
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
@@ -543,7 +543,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     #print(dir1+'/1dassociator_'+project_code+'.db')
 #    if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
 #        os.remove(dir1+'/1dassociator_'+project_code+'.db')
-#    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'    
+#    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
         os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
@@ -579,8 +579,8 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         assocXX.single_phase()
     except:
         pass
-    
-    
+
+
 
 
 
@@ -596,7 +596,7 @@ def create_connection(db_file):
         return conn
     except Error as e:
         print(e)
- 
+
     return None
 
 
@@ -613,14 +613,14 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
         files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
     #print(files)
     stas1 = pd.DataFrame()
-    for dfilesta in files: 
+    for dfilesta in files:
         conn1 = create_connection(dfilesta)
         with conn1:
             cur1 = conn1.cursor()
             cur1.execute("SELECT * FROM stations")
-         
+
             rows = cur1.fetchall()
-            
+
             for row in rows:
                 #print(row[0],row[1])
                 #(row[0])
@@ -636,9 +636,9 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
         print(stas)
 #                temp = stas1[stas1['station'].str.contains(sta_used)]
 #                stas = temp.iloc[0]
-        
 
-    
+
+
         if len(stas['station'])>4:
             sta = stas['station'][1:]
         else:
@@ -660,8 +660,8 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
         hypo71_string_sta += fmt % (sta, lat_deg, lat_min, hem_NS,
                                 lon_deg, lon_min, hem_EW, ele)
         station_strings.append("%s %.6f %.6f %i" % (sta, stas['latitude'], stas['longitude'], stas['elevation']))
-                
-                
+
+
                 #print(hypo71_string_sta)
     station_string = "\n".join(station_strings)
     with open(project_folder+'/'+'station.dat', "w") as open_file:
@@ -672,7 +672,7 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
 
 
 
- 
+
 def select_all_associated(conn, f0):
     """
     Query all rows in the associated table
@@ -709,7 +709,7 @@ def select_all_associated(conn, f0):
         event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
         origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
         for pick1 in picks1a:
-            
+
             #print(pick1)
             stream_id = WaveformStreamID(network_code=pick1[3], station_code=pick1[1], location_code="", channel_code=pick1[2])
             p = Pick()
@@ -722,7 +722,7 @@ def select_all_associated(conn, f0):
             #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
             p.resource_id = ResourceIdentifier(id=pres_id)
             #print(p)
-            
+
             a = Arrival()
             #a.time = pick1[5]
             a.phase = pick1[6]
@@ -733,7 +733,7 @@ def select_all_associated(conn, f0):
             a.resource_id = ResourceIdentifier(id=ares_id)
             a.time_weight = 1.0
             #print(a)
-            
+
             #origin.picks.append(p)
             sta1 = pick1[1]
             stas.append(sta1)
@@ -767,9 +767,9 @@ def select_all_associated(conn, f0):
                 sta = states
             if numP > -1:
                 pick = picks1a[numP]
-            
-            
-            
+
+
+
                 t = UTCDateTime(pick[5])
                 hundredth = int(round(t.microsecond / 1e4))
                 if hundredth == 100:
@@ -784,7 +784,7 @@ def select_all_associated(conn, f0):
                 #print(sta,onset,polarity,weight,date)
                 hypo71_string += fmtP % (sta, onset, polarity, weight, date)
                 #f0.write(str(hypo71_string))
-                
+
                 #print(hypo71_string)
                 if numP > -1 and numS > -1:
                     pick = picks1a[numS]
@@ -813,7 +813,7 @@ def select_all_associated(conn, f0):
                     weight = 1
                     #print(sta,onset,polarity,weight,date)
                     hypo71_string += fmtS % (date2, onset, polarity,weight)
-                    
+
                 else:
                     hypo71_string += "\n"
             f0.write(str(hypo71_string))
@@ -822,15 +822,15 @@ def select_all_associated(conn, f0):
         f0.write("\n")
             #f1.write("\n")
 
-      
-            
+
+
     return dfs1, stalistall, cat1, f0
 
 def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False):
     #files = sorted(glob.glob('/data/tx/ContWaveform/*/1dass*'++'.db'))
     #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
     #dir1 = project_folder+'/'+dirname
-    
+
     hypo_station(project_folder, project_code)
     files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
     if catalog_year:
@@ -841,18 +841,18 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     dfs2 = pd.DataFrame()
     stalistall1 = []
     cat = Catalog()
-    for dfile in files:   
+    for dfile in files:
         # create a database connection
         print(dfile)
         conn = create_connection(dfile)
-        
+
         with conn:
             #print("1. Query task by priority:")
             #select_task_by_priority(conn,1)
-         
+
             #print('Day '+dfile[-6:-3])
             #try:
-                
+
             dfs1,stalistall,cat1,f0 = select_all_associated(conn, f0)
             cat.extend(cat1)
             for stas1 in stalistall:
@@ -877,7 +877,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 #
 #      index0=int(round((picks[i]-self.tr.stats.starttime)/dt,0))
 #      index=index0
-#      
+#
 #      # roll forward index+=1
 #      while True:
 #        if index>=self.stats.npts-1-2:
@@ -886,17 +886,17 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 #          index+=1
 #        else:
 #          break
-#      
-#      # notice index+1, rolling stop one point before extreme, compare with std to avoid very small 
+#
+#      # notice index+1, rolling stop one point before extreme, compare with std to avoid very small
 #      if self.tr[index+1] - self.tr[index0] > 0 and abs(self.tr[index+1] - self.tr[index0]) > self.picker.pol_coeff * np.std(self.tr[index0 - self.picker.pol_len: index0]):
 #        polarity='C'
 #      elif self.tr[index+1] - self.tr[index0] < 0 and abs(self.tr[index+1] - self.tr[index0]) > self.picker.pol_coeff * np.std(self.tr[index0 - self.picker.pol_len: index0]):
 #        polarity='D'
-#      else: 
+#      else:
 #        polarity=''
 def polarity(tr,pickP=None):
     dt=tr.stats.delta
-    #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt) 
+    #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt)
     index0=int(round((pickP-tr.stats.starttime)/dt,0))
     index=index0
     pol_coeff = 5
@@ -913,15 +913,15 @@ def polarity(tr,pickP=None):
             polarity='positive'
         elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
             polarity='negative'
-        else: 
+        else:
             polarity='undecidable'
     return polarity
-    
-        
+
+
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False):
 
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
-    
+
     print('Computing magnitudes')
     client = Client()
 
@@ -954,7 +954,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
                             try:
                                 st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                            except:    
+                            except:
                                 st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
                                 pass
     #                    try:
@@ -962,7 +962,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
     #                    except:
     #                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
                         pass
-    
+
         #            pazs = glob.glob('/data/tx/ContWaveform/'+strday+'/SACPZ.'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]')
                     #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
                     try:
@@ -993,20 +993,20 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             tr.stats.location = inv[0][0][0].location_code
                             pre_filt = (0.05, 0.06, 30.0, 35.0)
                             tr.trim(pick.time-30, pick.time+120)
-                            
-        
+
+
                             #tr.demean()
                             tr.detrend()
                             tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True)
                             #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
                             tr.simulate(paz_simulate=paz_wa, water_level=10)
-                            
-                            
+
+
                             #tr = tr.filter('bandpass', freqmin=fminbp, freqmax=fmaxbp, zerophase=True)
                         #st.trim(pick.time-5,pick.time+10)
                         tr1 = st3.select(channel='[EHB]HZ')[0]
-        
-                        sta_lat = inv[0][0].latitude 
+
+                        sta_lat = inv[0][0].latitude
                         sta_lon = inv[0][0].longitude
                         epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
                         epi_dist = epi_dist / 1000
@@ -1016,7 +1016,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                         st.trim(pick.time-1,pick.time+5)
                         ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
                         for idx2,ampl in enumerate(ampls):
-    
+
                             amp = Amplitude()
                             res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
                             #res_id = ResourceIdentifier(prefix='Amplitude')
@@ -1027,7 +1027,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             amp.type = 'ML'
                             amp.generic_amplitude = ampl
                             amp.evaluation_mode = 'automatic'
-        
+
                             if epi_dist < 60:
                                 a = 0.018
                                 b = 2.17
@@ -1035,10 +1035,10 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 a = 0.0038
                                 b = 3.02
                             ml = np.log10(ampl * 1000) + a * epi_dist + b
-                            
+
                             ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
                             print(ml, ml_iaspei)
-    
+
                             if epi_dist < 160:
                                 mags.append(ml)
                                 mags_iaspei.append(ml_iaspei)
@@ -1061,7 +1061,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                         pass
                 except:
                     pass
-                
+
         for pick in event.picks:
             if pick.phase_hint == 'P':
                 tr = st2.select(station=pick.waveform_id.station_code)
@@ -1072,11 +1072,11 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     print(pol)
                 except:
                     pass
-                
-                
-                
-                
-                
+
+
+
+
+
         netmag = np.median(mags_iaspei)
         try:
             m = Magnitude()
@@ -1092,21 +1092,21 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
             m.resource_id = m_id
             event.magnitudes.append(m)
-            
-            
-            
+
+
+
             event.preferred_magnitude_id = m.resource_id
-            
-            
-            
-            
+
+
+
+
             if plot_event:
                 dir1a = glob.glob(project_folder+'/'+strday+'*')
                 filename = dir1a[0]+'/'+strdaytime
                 fig = plt.figure()
                 st2.filter('highpass', freq=.1, zerophase=True)
                 st2.plot(type='section', scale=2,plot_dx=100e3, recordlength=50,
-                    time_down=True, linewidth=.25, grid_linewidth=.25, show=False, 
+                    time_down=True, linewidth=.25, grid_linewidth=.25, show=False,
                     outfile=filename,fig=fig)
                 plt.close()
         except:
@@ -1142,7 +1142,7 @@ def cut_event_waveforms():
 
 
 #        st2 = Stream()
-#        
+#
 #        for idx1, pick in enumerate(event.picks):
 #            if pick.phase_hint == 'S':
 #                try:
@@ -1155,7 +1155,7 @@ def cut_event_waveforms():
 #                        except:
 #                            try:
 #                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-#                            except:    
+#                            except:
 #                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
 #                                pass
 #                        pass
@@ -1171,7 +1171,7 @@ def cut_event_waveforms():
 def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
-    #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') - 
+    #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') -
     starting = approxotime - 60
     stopping = approxotime + 120
     dir1 = project_folder+'/'+dirname
@@ -1233,15 +1233,15 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         if any(elem is None for elem in station3a):
             continue
         day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
-        
+
     day_string = "\n".join(day_strings)
-    
+
     with open(dir1+'/dayfile.in', "w") as open_file:
         open_file.write(day_string)
     infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
     fileinassociate = outfile
-    
+
     if local:
         inv = Inventory()
         dir1a = glob.glob(project_folder+'/'+dirname+'/*xml')
@@ -1266,7 +1266,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 #    stopping = starting + 86430
 
     dir1 = project_folder+'/'+dirname
- 
+
     if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
         os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
@@ -1311,8 +1311,8 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     for idx1, ev in enumerate(cat):
         filename = dirname+'_'+str(idx1) + ".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
-    
-    
+
+
 def simple_cat_df(cat=None):
     times = []
     lats = []
@@ -1339,7 +1339,9 @@ def simple_cat_df(cat=None):
                     magnitudes.append(np.nan)
                     magnitudestype.append(np.nan)
             resourceid.append(event.resource_id)
-    catdf1 = pd.DataFrame({'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid}, index = times)
+    catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid})
+    catdf1 = catdf1.sort_values(by='origintime',ascending=True)
+    catdf1 = catdf1.reset_index(drop=True)
     return catdf1
 
 def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
@@ -1355,7 +1357,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
     #stations = []
     stations = set()
 
-    event_strings = []            
+    event_strings = []
     for idx1, event in enumerate(cat):
         #evo = event.preferred_origin().time
         evid = idx1
@@ -1368,13 +1370,13 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
             magpref = 0
             continue
         #print(magpref)
-        
-        
+
+
         depth_error = 0
         longitude_error = 0
         latitude_error = 0
 
-                    
+
         string = "# {year} {month} {day} {hour} {minute} " + \
             "{second:.6f} {latitude:.6f} {longitude:.6f} " + \
             "{depth:.4f} {magnitude:.6f} {horizontal_error:.6f} " + \
@@ -1430,8 +1432,8 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                     weight=weight,
                     phase=pick.phase_hint.upper())
                 event_strings.append(pick_string)
-        
-        
+
+
         event_string = "\n".join(event_strings)
 #        except:
 #            print('Some error occurred????', evo)
@@ -1439,7 +1441,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
         # Write the phase.dat file.
         with open(phase_dat_file, "w") as open_file:
             open_file.write(event_string)
-    
+
     if download_station_metadata:
         station_dat_file = project_folder+'/'+project_code+'station.dat'
         print('Downloading station location metadata')
@@ -1449,17 +1451,17 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
             print(sta)
             net, sta1 = sta.split('.')
             #sta1 = sta
-    
+
             try:
                 inva = client.get_stations(starttime=cat[0].preferred_origin().time, endtime=cat[-1].preferred_origin().time, network='*', station=sta1, level='station')
             except:
                 inva = None
                 pass
             if inva is not None:
-                dists = []            
-                for idxn, net in enumerate(inva):       
+                dists = []
+                for idxn, net in enumerate(inva):
                     dists.append(gps2dist_azimuth(net[0].latitude, net[0].longitude, cat[-1].preferred_origin().latitude, cat[-1].preferred_origin().longitude)[0])
-                
+
                 station_lat = inva[np.where(dists==np.min(dists))[0][0]][0].latitude
                 station_lon = inva[np.where(dists==np.min(dists))[0][0]][0].longitude
                 station_elev = inva[np.where(dists==np.min(dists))[0][0]][0].elevation
@@ -1469,9 +1471,9 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
         with open(station_dat_file, "w") as open_file:
             open_file.write(station_string)
 
-    
+
 #    station_dat_file = project_folder+'/'+'station.dat'
-#    
+#
 #    #station_strings = []
 #    #for key, value in self.stations.iteritems():
 #    #    station_strings.append("%s %.6f %.6f %i" % (key, value["latitude"],
@@ -1480,12 +1482,12 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
 #    #with open(station_dat_file, "w") as open_file:
 #    #    open_file.write(station_string)
 #    #self.log("Created station.dat input file.")
-#    
-#    
+#
+#
 #    starttime = UTCDateTime("2010-01-01T00:00:00.000")
 #    endtime = UTCDateTime("2022-01-01T00:00:00.000")
 #    #line = [(-98.15, 35.88),(-98.05, 35.8)] # Cushing area
-#    
+#
 #    client = Client('IRIS')
 #    inva = client.get_stations(starttime=starttime, endtime=endtime,network="*", loc="*", channel="*",minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon,level="station")
 #    station_strings = []
@@ -1502,7 +1504,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
 
 
 
-def plot_hypodd_catalog(file=None):    
+def plot_hypodd_catalog(file=None):
     catdfr = pd.read_csv(file,delimiter=r"\s+")
     catdfr = catdfr.dropna()
     catdfr = catdfr.reset_index(drop=True)
@@ -1510,21 +1512,21 @@ def plot_hypodd_catalog(file=None):
     rutc = []
     for i in range(0,len(catdfr.index)):
         rutc.append(UTCDateTime(int(catdfr.iloc[i,10]),int(catdfr.iloc[i,11]),int(catdfr.iloc[i,12]),int(catdfr.iloc[i,13]),int(catdfr.iloc[i,14]),catdfr.iloc[i,15]))
-    
+
     catdfr['rutc'] = rutc
     catdfr.sort_values(by=['rutc'], inplace=True)
     catdfr = catdfr.reset_index(drop=True)
-    
-    
-    
-    
-    
+
+
+
+
+
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
     lat0 = np.median(catdfr.iloc[:,1].values)
     lon0 = np.median(catdfr.iloc[:,2].values)
-    m = Basemap(projection='lcc', resolution='h', 
+    m = Basemap(projection='lcc', resolution='h',
                 lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
     #m.shadedrelief()
@@ -1532,20 +1534,20 @@ def plot_hypodd_catalog(file=None):
     m.drawcountries(color='gray')
     #m.drawcounties(color='gray')
     m.drawstates(color='gray')
-    
+
     # 2. scatter city data, with color reflecting population
     # and size reflecting area
     m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,16].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
-    
+
     #m.scatter(catdfo.iloc[:,2].values,catdfo.iloc[:,1].values,s=catdfo.iloc[:,16].values**3*10,c=catdfo.index,marker='o',alpha=0.5,latlon=True)
-    
-    
-    
+
+
+
     cbar = plt.colorbar()
     N_TICKS=8
-    indexes = [catdfr['rutc'].iloc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
-    
-    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
+    indexes = [catdfr['rutc'].iloc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
+
+    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
     cbar.ax.set_yticklabels(indexes)
     plt.savefig('hypoDDmap.png')
     plt.show()
@@ -1598,7 +1600,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                 #print(sta,onset,polarity,weight,date)
                 hypo71_string += fmtP % (sta, onset, polarity, weight, date1)
                 #f0.write(str(hypo71_string))
-                
+
                 #print(hypo71_string)
                 if numP > -1 and numS > -1:
                     pick = picks1a[numS]
@@ -1627,7 +1629,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                     weight = 1
                     #print(sta,onset,polarity,weight,date)
                     hypo71_string += fmtS % (date2, onset, polarity,weight)
-                    
+
                 else:
                     hypo71_string += "\n"
 
@@ -1645,7 +1647,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
         fcur = open(project_folder+'/pha','w')
         fcur.write(str(hypo71_string))
         fcur.close()
-        
+
         frun = open(project_folder+'/run.hyp','w')
         frun.write("crh 1 "+vel_model)
         frun.write("\n")
@@ -1673,12 +1675,12 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
             os.system("cat %s/run.hyp | hyp2000" % (project_folder))
         except:
             pass
-        
+
         try:
-            lines = open(project_folder+'/out.sum').readlines() 
-            for line in lines: 
-                if line.startswith("   DATE"): 
-                    print(' ') 
+            lines = open(project_folder+'/out.sum').readlines()
+            for line in lines:
+                if line.startswith("   DATE"):
+                    print(' ')
             else:
                 #model = 'standard'
                 model = vel_model[:-4]
@@ -1699,12 +1701,12 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                 #lon = lon_deg + (lon_min / 60.)
                 #if lon_negative:
                 #    lon = -lon
-                
+
                 depth = float(line[42:48]) # depth: negative down!
                 rms = float(line[75:80])
                 errXY = float(line[81:86])
                 errZ = float(line[87:92])
-                
+
                 gap  = float(line[65:69])
                 o = Origin()
                 #self.catalog[0].set_creation_info_username(self.username)
@@ -1735,7 +1737,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     return cat
 
 
-def plot_map_catalog(cat=None):    
+def plot_map_catalog(cat=None):
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
     catdfr = simple_cat_df(cat)
@@ -1743,16 +1745,16 @@ def plot_map_catalog(cat=None):
     #catdfr = catdfr.reset_index(drop=True)
     #rutc = np.zeros((len(catdfr.index),1))
 
-    
-    
-    
+
+
+
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
     plt.figure()
     lat0 = np.median(catdfr.iloc[:,0].values)
     lon0 = np.median(catdfr.iloc[:,1].values)
-    m = Basemap(projection='lcc', resolution='h', 
+    m = Basemap(projection='lcc', resolution='h',
                 lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
     #m.shadedrelief()
@@ -1760,20 +1762,20 @@ def plot_map_catalog(cat=None):
     m.drawcountries(color='gray')
     #m.drawcounties(color='gray')
     m.drawstates(color='gray')
-    
+
     # 2. scatter city data, with color reflecting population
     # and size reflecting area
     m.scatter(catdfr.iloc[:,1].values,catdfr.iloc[:,0].values,s=catdfr.iloc[:,3].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
-    
+
     #m.scatter(catdfo.iloc[:,2].values,catdfo.iloc[:,1].values,s=catdfo.iloc[:,16].values**3*10,c=catdfo.index,marker='o',alpha=0.5,latlon=True)
-    
-    
-    
+
+
+
     cbar = plt.colorbar()
     N_TICKS=8
-    indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
-    
-    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)] 
+    indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
+
+    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
     cbar.ax.set_yticklabels(indexes)
     plt.show()
     plt.savefig('hypo_map.png')
@@ -1781,26 +1783,26 @@ def plot_map_catalog(cat=None):
 
 def plot_gr_freq_catalog(cat=None,min_mag=2):
     catdf = simple_cat_df(cat)
-    
+
     catdf['origintime'] = pd.to_datetime(catdf.index)
 
     catdf3 = catdf[catdf['magnitude']>=min_mag]
-    
+
     m3eqcount = catdf3['origintime'].groupby(catdf3.origintime.dt.to_period("M")).agg('count')
     m3eqcountd = catdf3['origintime'].groupby(catdf3.origintime.dt.to_period("D")).agg('count')
     alleqcount = catdf['origintime'].groupby(catdf.origintime.dt.to_period("M")).agg('count')
     alleqcountd = catdf['origintime'].groupby(catdf.origintime.dt.to_period("D")).agg('count')
-    
+
     df3 = m3eqcount.to_frame()
     df3d = m3eqcountd.to_frame()
     dfall = alleqcount.to_frame()
     dfalld = alleqcountd.to_frame()
-    
+
     df3.index = df3.index.to_timestamp()
     df3d.index = df3d.index.to_timestamp()
     dfall.index = dfall.index.to_timestamp()
     dfalld.index = dfalld.index.to_timestamp()
-    
+
     df3 = df3.resample('MS').sum()
     df3d = df3d.resample('D').sum()
     dfall = dfall.resample('MS').sum()
@@ -1820,21 +1822,21 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     #plt.xlim([datetime.date(2009, 1, 1), datetime.datetime.now()])
     axs[1, 1].set(ylabel = 'Earthquakes M>'+str(min_mag)+' per day')
     plt.show()
-    
+
     plt.figure()
     plt.savefig('freq_plot.png')
-    
+
     rangemin = np.floor(np.min(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
     rangemax = np.ceil(np.max(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
-    
+
     hist, edges = np.histogram(a=catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)], bins=101, range=(rangemin,rangemax))
     chist = np.cumsum(hist[::-1])[::-1]
-    
-    
+
+
     fig, ax = plt.subplots()
     ax.plot(edges[:-1], hist, marker='.', color='k', linestyle='')
     ax.plot(edges[:-1], chist, marker='o', color='k', linestyle='',label='')
-    
+
     ax.set_yscale('log')
     ax.set_ylabel('N')
     ax.set_xlabel('Magnitude')
@@ -1844,8 +1846,8 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     plt.show()
     plt.savefig('gr_plot.png')
 
-    
-    
+
+
 if __name__ == "__main__":
     easyQuake()
 
