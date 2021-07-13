@@ -1313,7 +1313,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         ev.write(project_folder+'/'+filename, format='QUAKEML')
 
 
-def simple_cat_df(cat=None):
+def simple_cat_df(cat=None, uncertainty=False):
     times = []
     lats = []
     lons = []
@@ -1321,6 +1321,12 @@ def simple_cat_df(cat=None):
     magnitudes = []
     magnitudestype = []
     resourceid = []
+    rms = []
+    az_gap = []
+    hor_err = []
+    vert_err = []
+    n_arr = []
+
     for event in cat:
         if len(event.origins) != 0:
             origin1 = event.preferred_origin() or event.origins[0]
@@ -1339,9 +1345,21 @@ def simple_cat_df(cat=None):
                     magnitudes.append(np.nan)
                     magnitudestype.append(np.nan)
             resourceid.append(event.resource_id)
-    catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid})
-    catdf1 = catdf1.sort_values(by='origintime',ascending=True)
-    catdf1 = catdf1.reset_index(drop=True)
+        if uncertainty is True:
+            rms.append(origin1.quality.standard_error)
+            az_gap.append(origin1.quality.azimuthal_gap)
+            hor_err.append(origin1.origin_uncertainty.horizontal_uncertainty)
+            vert_err.append(origin1.depth_errors.uncertainty)
+            n_arr.append(len(origin1.arrivals))
+
+    if uncertainty is True:
+        catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'horizontal_error':hor_err,'vertical_error':vert_err,'num_arrivals':n_arr,'rms':rms, 'azimuthal_gap':az_gap ,'id':resourceid})
+        catdf1 = catdf1.sort_values(by='origintime',ascending=True)
+        catdf1 = catdf1.reset_index(drop=True)
+    else:
+        catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'id':resourceid})
+        catdf1 = catdf1.sort_values(by='origintime',ascending=True)
+        catdf1 = catdf1.reset_index(drop=True)
     return catdf1
 
 def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
