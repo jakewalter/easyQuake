@@ -874,26 +874,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 
 
 
-#
-#      index0=int(round((picks[i]-self.tr.stats.starttime)/dt,0))
-#      index=index0
-#
-#      # roll forward index+=1
-#      while True:
-#        if index>=self.stats.npts-1-2:
-#          break
-#        elif (self.tr[index+1]-self.tr[index])*(self.tr[index+2]-self.tr[index+1])>0:
-#          index+=1
-#        else:
-#          break
-#
-#      # notice index+1, rolling stop one point before extreme, compare with std to avoid very small
-#      if self.tr[index+1] - self.tr[index0] > 0 and abs(self.tr[index+1] - self.tr[index0]) > self.picker.pol_coeff * np.std(self.tr[index0 - self.picker.pol_len: index0]):
-#        polarity='C'
-#      elif self.tr[index+1] - self.tr[index0] < 0 and abs(self.tr[index+1] - self.tr[index0]) > self.picker.pol_coeff * np.std(self.tr[index0 - self.picker.pol_len: index0]):
-#        polarity='D'
-#      else:
-#        polarity=''
+
 def polarity(tr,pickP=None):
     dt=tr.stats.delta
     #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt)
@@ -1346,11 +1327,20 @@ def simple_cat_df(cat=None, uncertainty=False):
                     magnitudestype.append(np.nan)
             resourceid.append(event.resource_id)
         if uncertainty is True:
-            rms.append(origin1.quality.standard_error)
-            az_gap.append(origin1.quality.azimuthal_gap)
-            hor_err.append(origin1.origin_uncertainty.horizontal_uncertainty)
-            vert_err.append(origin1.depth_errors.uncertainty)
-            n_arr.append(len(origin1.arrivals))
+            try:
+                rms.append(origin1.quality.standard_error)
+                az_gap.append(origin1.quality.azimuthal_gap)
+                hor_err.append(origin1.origin_uncertainty.horizontal_uncertainty)
+                vert_err.append(origin1.depth_errors.uncertainty)
+                n_arr.append(len(origin1.arrivals))
+            except:
+                rms.append(float("NAN"))
+                az_gap.append(float("NAN"))
+                hor_err.append(float("NAN"))
+                vert_err.append(float("NAN"))
+                n_arr.append(len(origin1.arrivals))
+                pass
+
 
     if uncertainty is True:
         catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'horizontal_error':hor_err,'vertical_error':vert_err,'num_arrivals':n_arr,'rms':rms, 'azimuthal_gap':az_gap ,'id':resourceid})
