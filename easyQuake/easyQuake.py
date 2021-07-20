@@ -162,7 +162,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     fdsnclient=Client()
-    inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=lat1,longitude=long1,maxradius=maxrad,channel='*HZ',level='channel')
+    inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=lat1,longitude=long1,maxradius=maxrad,channel='*H*',level='response')
     # Get inventory
     for net in inv:
         network=net.code
