@@ -831,10 +831,13 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
     #dir1 = project_folder+'/'+dirname
 
-    hypo_station(project_folder, project_code)
-    files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
+
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dass*'+project_code+'.db'))
+        hypo_station(project_folder, project_code, catalog_year=True, year=year)
+    else:
+        files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
+        hypo_station(project_folder, project_code)
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dass*'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
