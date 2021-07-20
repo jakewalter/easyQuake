@@ -619,9 +619,9 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
             cur1 = conn1.cursor()
             cur1.execute("SELECT * FROM stations")
 
-            rows = cur1.fetchall()
+            #rows = cur1.fetchall()
 
-            for row in rows:
+            for row in cur1:
                 #print(row[0],row[1])
                 #(row[0])
                 df4 = pd.DataFrame()
@@ -964,11 +964,19 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 try:
                                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                                     inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                                    if not inv:
+                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code, time=origin.time)
+                                        if not inv:
+                                            print('Getting response from DMC')
+                                            starttime = UTCDateTime(origin.time-10)
+                                            endtime = UTCDateTime(origin.time+10)
+                                            inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+
                                 except:
-                                    print('Getting response from DMC')
-                                    starttime = UTCDateTime(origin.time-10)
-                                    endtime = UTCDateTime(origin.time+10)
-                                    inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                                    print('Station metadata error')
+                                    #starttime = UTCDateTime(origin.time-10)
+                                    #endtime = UTCDateTime(origin.time+10)
+                                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                                     pass
                                     #                    paz = [x for x in pazs if tr.stats.channel in x]
         #                    attach_paz(tr, paz[0])
