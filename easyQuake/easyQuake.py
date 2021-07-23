@@ -1658,7 +1658,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
             if vel_model is None:
                 velmodel = pathhyp+'/standard.crh'
                 os.system("cp %s %s" % (velmodel,project_folder))
-                os.system("cat %s/run.hyp | hyp2000" % (project_folder))
+                #os.system("cat %s/run.hyp | hyp2000" % (project_folder))
                 vel_model = 'standard.crh'
                 #os.system("mv %s %s" % (original1,mseed1))
         except:
@@ -1756,6 +1756,24 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     return cat
 
 
+
+def reduce_catalog(cat=None, num_arr=8):
+    events = list(cat.events)
+    temp_events = []
+    for event in events:
+        #print(event)
+        if len(event.preferred_origin().arrivals) >= num_arr:
+            temp_events.append(event)
+    events = temp_events
+    from obspy import Catalog
+    cat2 = Catalog(events=events)
+    return cat2
+
+
+
+catdf2 = simple_cat_df(cat2)
+catdf2.to_csv('catalog_pr_hyp14.csv')
+
 def plot_map_catalog(cat=None, filename=None):
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
@@ -1807,7 +1825,7 @@ def plot_map_catalog(cat=None, filename=None):
 def plot_gr_freq_catalog(cat=None,min_mag=2):
     catdf = simple_cat_df(cat)
 
-    catdf['origintime'] = pd.to_datetime(catdf.index)
+    #catdf['origintime'] = pd.to_datetime(catdf.index)
 
     catdf3 = catdf[catdf['magnitude']>=min_mag]
 
