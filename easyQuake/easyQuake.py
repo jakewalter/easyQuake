@@ -1774,10 +1774,6 @@ def reduce_catalog(cat=None, num_arr=8):
     return cat2
 
 
-
-catdf2 = simple_cat_df(cat2)
-catdf2.to_csv('catalog_pr_hyp14.csv')
-
 def plot_map_catalog(cat=None, filename=None):
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
