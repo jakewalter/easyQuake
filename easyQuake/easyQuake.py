@@ -1678,6 +1678,10 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
         frun.write("\n")
         frun.write('pos 1.78')
         frun.write("\n")
+        frun.write('dis 2 1000 0.04 0.08')        #DIS 4 50 1 3
+        frun.write("\n")
+        frun.write('rms 4 .16 1.5 3')        #rms 4 .16 1.5 3
+        frun.write("\n")
         frun.write('jun t')
         frun.write("\n")
         frun.write('min 4')
