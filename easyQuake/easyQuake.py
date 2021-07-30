@@ -1576,7 +1576,6 @@ def plot_hypodd_catalog(file=None):
 
 
 
-
 def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
