@@ -1685,6 +1685,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
         frun.write("\n")
         frun.write('min 4')
         frun.write("\n")
+        frun.write('prt out.prt')
+        frun.write("\n")
         frun.write('fil')
         frun.write("\n")
         frun.write('sum out.sum')
@@ -1751,7 +1753,38 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                 o.earth_model_id = "smi:local/earth_model/%s" % (model)
                 o.time = time
                 o.resource_id = ResourceIdentifier(id='smi:local/Origin/hyp2000location_1')
-                o.arrivals = origin.arrivals
+                #o.arrivals = origin.arrivals
+                lines = open(project_folder+'/out.prt').readlines()
+                while True:
+                    try:
+                        line = lines.pop(0)
+                    except:
+                        break
+                    if line.startswith(" STA NET COM L CR DIST AZM"):
+                        break
+                for i in range(len(lines)):
+                # check which type of phase
+                    if lines[i][32] == "P":
+                        type = "P"
+                    elif lines[i][32] == "S":
+                        type = "S"
+                    else:
+                        continue
+                    # get values from line
+                    station = lines[i][0:6].strip()
+                    if station == "":
+                        station = sta_map_reverse[lines[i-1][0:6].strip()]
+                        distance = float(lines[i-1][18:23])
+                        azimuth = int(lines[i-1][23:26])
+                        #XXX TODO check, if incident is correct!!
+                        incident = int(lines[i-1][27:30])
+                    else:
+                        station = sta_map_reverse[station]
+                        distance = float(lines[i][18:23])
+                        azimuth = int(lines[i][23:26])
+                        #XXX TODO check, if incident is correct!!
+                        incident = int(lines[i][27:30])
+                    print(station, azimuth, incident)
             event.origins.append(o)
             event.preferred_origin_id = o.resource_id
         except:
