@@ -1814,10 +1814,11 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                         pickid.polarity = polarity
                     # we use weights 0,1,2,3 but hypo2000 outputs floats...
                     arrival.time_weight = weight
+                    arrival.pick_id = pickid.resource_id
                     o.arrivals.append(arrival)
                     #o.quality.used_phase_count += 1
 
-                    print(type, station, distance, azimuth, incident, res, weight)
+                    #print(type, station, distance, azimuth, incident, res, weight)
 
 
             event.origins.append(o)
