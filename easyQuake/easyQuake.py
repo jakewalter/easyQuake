@@ -39,7 +39,7 @@ from sqlalchemy import create_engine
 import pandas as pd
 import sqlite3
 from sqlite3 import Error
-from obspy.geodetics import gps2dist_azimuth
+from obspy.geodetics import gps2dist_azimuth, kilometer2degrees
 
 import pylab as plt
 import re
@@ -1773,18 +1773,53 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                     # get values from line
                     station = lines[i][0:6].strip()
                     if station == "":
-                        station = sta_map_reverse[lines[i-1][0:6].strip()]
+                        station = lines[i-1][0:6].strip()
                         distance = float(lines[i-1][18:23])
                         azimuth = int(lines[i-1][23:26])
-                        #XXX TODO check, if incident is correct!!
                         incident = int(lines[i-1][27:30])
                     else:
-                        station = sta_map_reverse[station]
+                        station = station
                         distance = float(lines[i][18:23])
                         azimuth = int(lines[i][23:26])
-                        #XXX TODO check, if incident is correct!!
                         incident = int(lines[i][27:30])
-                    print(station, azimuth, incident)
+                    if lines[i][31] == "I":
+                        onset = "impulsive"
+                    elif lines[i][31] == "E":
+                        onset = "emergent"
+                    else:
+                        onset = None
+                    if lines[i][33] == "U":
+                        polarity = "positive"
+                    elif lines[i][33] == "D":
+                        polarity = "negative"
+                    else:
+                        polarity = None
+                    res = float(lines[i][61:66])
+                    weight = float(lines[i][68:72])
+                    phase_hint = type
+                    for p in event.picks:
+                        if station is not None and station != p.waveform_id.station_code:
+                            continue
+                        if phase_hint is not None and phase_hint != p.phase_hint:
+                            continue
+                        pickid = p
+                    arrival = Arrival(origin=o, pick=pickid)
+                    arrival.time_residual = res
+                    arrival.azimuth = azimuth
+                    arrival.distance = kilometer2degrees(distance)
+                    arrival.takeoff_angle = incident
+                    if onset and not pickid.onset:
+                        pickid.onset = onset
+                    if polarity and not pick.polarity:
+                        pickid.polarity = polarity
+                    # we use weights 0,1,2,3 but hypo2000 outputs floats...
+                    arrival.time_weight = weight
+                    o.arrivals.append(arrival)
+                    #o.quality.used_phase_count += 1
+
+                    print(type, station, distance, azimuth, incident, res, weight)
+
+
             event.origins.append(o)
             event.preferred_origin_id = o.resource_id
         except:
