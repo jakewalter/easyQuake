@@ -1577,6 +1577,11 @@ def plot_hypodd_catalog(file=None):
 
 
 def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
+    if vel_model is None:
+        velmodel = pathhyp+'/standard.crh'
+        os.system("cp %s %s" % (velmodel,project_folder))
+        vel_model = 'standard.crh'
+
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
         stas = []
@@ -1654,12 +1659,6 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
         try:
             if os.path.exists(project_folder+'/out.sum'):
                 os.system('rm '+project_folder+'/out.sum')
-            if vel_model is None:
-                velmodel = pathhyp+'/standard.crh'
-                os.system("cp %s %s" % (velmodel,project_folder))
-                #os.system("cat %s/run.hyp | hyp2000" % (project_folder))
-                vel_model = 'standard.crh'
-                #os.system("mv %s %s" % (original1,mseed1))
         except:
             pass
         fcur = open(project_folder+'/pha','w')
