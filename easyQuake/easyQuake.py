@@ -429,7 +429,7 @@ def get_chan3(stationfile):
         comp3 = list(filter(None, stationfile.split('/')[-1].split('.')))[2][0:3]
     return comp3
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, latitude=None, longitude=None, max_radius=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None):
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -496,7 +496,29 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
                 #print(ind1)
                 station3a[ind1] = station1
         if any(elem is None for elem in station3a):
+            if make3: #make single vertical comp, 3 channels
+                if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
+                    st = read(station3a[-1])
+                    st[0].stats.channel = st[0].stats.channel[0:2]+'E'
+                    st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    st[0].stats.channel = st[0].stats.channel[0:2]+'N'
+                    st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
+                    station3a = [None,None,None]
+                    for station1 in station3:
+                        if get_chan1(station1)  == 'Z':
+                            ind1 = 2
+                        elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
+                            ind1 = 0
+                        elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
+                            ind1 = 1
+                        #print(ind1)
+                        station3a[ind1] = station1
+                    print(station3a)
+
+        if any(elem is None for elem in station3a):
             continue
+            #continue
         day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
 
     day_string = "\n".join(day_strings)
