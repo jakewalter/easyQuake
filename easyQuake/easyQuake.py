@@ -25,7 +25,6 @@ from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
 from obspy import read
-import datetime
 import numpy as np
 import glob
 #import sys
@@ -41,10 +40,8 @@ import sqlite3
 from sqlite3 import Error
 from obspy.geodetics import gps2dist_azimuth, kilometer2degrees
 
-import pylab as plt
 import re
 from datetime import datetime
-#from mpl_toolkits.basemap import Basemap
 
 
 from obspy import Stream
@@ -925,7 +922,6 @@ def polarity(tr,pickP=None):
 
 
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False):
-
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
@@ -1115,6 +1111,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
 
 
             if plot_event:
+                import matplotlib.pyplot as plt
                 dir1a = glob.glob(project_folder+'/'+strday+'*')
                 filename = dir1a[0]+'/'+strdaytime
                 fig = plt.figure()
@@ -1561,7 +1558,7 @@ def plot_hypodd_catalog(file=None):
 
 
 
-
+    import matplotlib.pyplot as plt
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
@@ -1866,6 +1863,7 @@ def reduce_catalog(cat=None, num_arr=8):
 def plot_map_catalog(cat=None, filename=None):
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
+    import matplotlib.pyplot as plt
     catdfr = simple_cat_df(cat)
 
     #catdfr = catdfr.reset_index(drop=True)
@@ -1912,6 +1910,7 @@ def plot_map_catalog(cat=None, filename=None):
 
 
 def plot_gr_freq_catalog(cat=None,min_mag=2):
+    import matplotlib.pyplot as plt
     catdf = simple_cat_df(cat)
 
     #catdf['origintime'] = pd.to_datetime(catdf.index)
