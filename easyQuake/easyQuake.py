@@ -846,11 +846,6 @@ def select_all_associated(conn, f0):
     return dfs1, stalistall, cat1, f0
 
 def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False):
-    #files = sorted(glob.glob('/data/tx/ContWaveform/*/1dass*'++'.db'))
-    #files = [f for f in os.listdir(dirdata) if os.path.isfile(os.path.join(dirdata, f))]
-    #dir1 = project_folder+'/'+dirname
-
-
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dass*'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
@@ -1137,6 +1132,29 @@ def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
         filename = str(ev.resource_id).split('/')[-1] + ".xml"
         ev.write(xmlspath+'/'+filename, format=format)
 
+def daily_catalog_xml(catalog=None,project_folder='.', format="QUAKEML"):
+    xmlspath = project_folder+'/'+format.lower()
+    if not os.path.exists(xmlspath):
+        os.makedirs(xmlspath)
+    catdf = simple_cat_df(catalog)
+    date1 = date(int(catdf.origintime.min().strftime("%Y")),int(catdf.origintime.min().strftime("%m")),int(catdf.origintime.min().strftime("%d")))
+    date2 = date(int(catdf.origintime.max().strftime("%Y")),int(catdf.origintime.max().strftime("%m")),int(catdf.origintime.max().strftime("%d")))
+    for single_date in daterange(date1, date2+datetime.timedelta(1)):
+        #print(single_date.strftime("%Y-%m-%d"), (single_date+datetime.timedelta(1)).strftime("%Y-%m-%d"))
+        filename = single_date.strftime("%Y").zfill(4)+single_date.strftime("%m").zfill(2)+single_date.strftime("%d").zfill(2) + ".xml"
+        cat2 = catalog.filter("time > "+single_date.strftime("%Y-%m-%d")+"T00:00", "time < "+(single_date+datetime.timedelta(1)).strftime("%Y-%m-%d")+"T00:00")
+        if len(cat2) > 0:
+            cat2.write(xmlspath+'/'+filename, format=format)
+
+
+def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
+    from obspy import read_events
+    xmlfiles = glob.glob(xml_folder+'/*xml')
+    cat = Catalog()
+    for file in xmlfiles:
+        cat0 = read_events(file)
+        cat.extend(cat0)
+    cat.write(filename+'.xml', format=format)
 
 def cut_event_waveforms():
     for event in cat:
@@ -1150,30 +1168,6 @@ def cut_event_waveforms():
         #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
         print(strday)
         strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
-
-
-#        st2 = Stream()
-#
-#        for idx1, pick in enumerate(event.picks):
-#            if pick.phase_hint == 'S':
-#                try:
-#                    try:
-#                        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
-#                        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
-#                    except:
-#                        try:
-#                            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
-#                        except:
-#                            try:
-#                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-#                            except:
-#                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-#                                pass
-#                        pass
-#
-
-
-
 
 
 
