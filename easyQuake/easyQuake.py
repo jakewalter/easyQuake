@@ -987,6 +987,10 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
 
                                 except:
                                     print('Station metadata error')
+                                    print('Getting response from DMC')
+                                    starttime = UTCDateTime(origin.time-10)
+                                    endtime = UTCDateTime(origin.time+10)
+                                    inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                                     #starttime = UTCDateTime(origin.time-10)
                                     #endtime = UTCDateTime(origin.time+10)
                                     #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
