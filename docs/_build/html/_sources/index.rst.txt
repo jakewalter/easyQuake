@@ -3,15 +3,23 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to easyquake's documentation!
-=====================================
+easyQuake - simplified earthquake location
+==========================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+
+   Installation 
+   About
+   Getting_Started
+   Modules
 
 
+Citation
+========
+Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (2021), easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study, Seismological Research Letters, 92(1): 555–563, https://doi.org/10.1785/0220200226
 
+   
 Indices and tables
 ==================
 

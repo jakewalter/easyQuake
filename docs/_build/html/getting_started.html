@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Running easyQuake &mdash; easyQuake 0.6 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Modules" href="Modules.html" />
+    <link rel="prev" title="About" href="About.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> easyQuake
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="About.html">About</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running easyQuake</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#event-mode">Event mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#core-modules">Core modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#data-download">Data Download</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#earthquake-detection">Earthquake Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#event-association">Event Association</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#earthquake-magnitude">Earthquake Magnitude</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#additional-modules">Additional Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tips-for-success">Tips for Success</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Modules.html">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">easyQuake</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Running easyQuake</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Getting_Started.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="running-easyquake">
+<span id="getting-started"></span><h1>Running easyQuake<a class="headerlink" href="#running-easyquake" title="Permalink to this headline"></a></h1>
+<section id="event-mode">
+<span id="id1"></span><h2>Event mode<a class="headerlink" href="#event-mode" title="Permalink to this headline"></a></h2>
+<p>Check that everything is installed and working as it should by detecting a single Oklahoma event on a snippet of downloaded miniseed data from the OGS network:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">detection_association_event</span>
+<span class="n">detection_association_event</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="s1">&#39;/scratch&#39;</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="s1">&#39;ok&#39;</span><span class="p">,</span> <span class="n">maxdist</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">maxkm</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">latitude</span><span class="o">=</span><span class="mf">36.7</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=-</span><span class="mf">98.4</span><span class="p">,</span> <span class="n">max_radius</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">approxorigintime</span><span class="o">=</span><span class="s1">&#39;2021-01-27T14:03:46&#39;</span><span class="p">,</span> <span class="n">downloadwaveforms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A few things are going on here. You are downloading waveforms, detecting picks with the GPD picker, associating events to get an approximate location, and then approximating an event magnitude from the amplitudes of the horizontal seismograph components (i.e. Richter magnitude). These are steps that you would normally separate into 4, but they are all in one here.</p>
+<p>We can set various paramaters here. In this case, we choose an approximate location for the data downloader (<em>lat</em> and <em>long</em>) and a maximum radius (<em>max_radius</em>) over which to download data from stations. Next we set <em>maxdist</em> and <em>maxkm</em>, the variables that control the maximum distance from a station to a possible hypocenter (based on detected S-P times) and the maximum distance over which to precompute the travel-times for the 1D traveltime lookup tables. The variables <em>local</em> and <em>machine</em> set whether the station metadata (or inventory file) should be within the day folder (it will be since we are downloading the waveforms) and whether the picker is the machine-learning picker. If everything runs at it should, it should create an event file ending with <em>.xml</em>, which is a QuakeML-formatted event file. You can inspect this with a text editor or open it with obspy with the <em>read_events</em> module.</p>
+</section>
+<section id="core-modules">
+<h2>Core modules<a class="headerlink" href="#core-modules" title="Permalink to this headline"></a></h2>
+<section id="data-download">
+<h3>Data Download<a class="headerlink" href="#data-download" title="Permalink to this headline"></a></h3>
+<p>In reality, we don’t really want to do earthquake detection based on a general idea of the time and location of an event. We want to determine events from continuos seismograms.</p>
+<p>YYYYDDMM</p>
+</section>
+<section id="earthquake-detection">
+<h3>Earthquake Detection<a class="headerlink" href="#earthquake-detection" title="Permalink to this headline"></a></h3>
+</section>
+<section id="event-association">
+<h3>Event Association<a class="headerlink" href="#event-association" title="Permalink to this headline"></a></h3>
+</section>
+<section id="earthquake-magnitude">
+<h3>Earthquake Magnitude<a class="headerlink" href="#earthquake-magnitude" title="Permalink to this headline"></a></h3>
+</section>
+</section>
+<section id="additional-modules">
+<h2>Additional Modules<a class="headerlink" href="#additional-modules" title="Permalink to this headline"></a></h2>
+</section>
+<section id="tips-for-success">
+<h2>Tips for Success<a class="headerlink" href="#tips-for-success" title="Permalink to this headline"></a></h2>
+<p>Most of the time it is beneficial to run jobs overnight and in the background (or several days for longer datasets):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">nohup</span> <span class="n">python</span> <span class="n">yourscript</span><span class="o">.</span><span class="n">py</span> <span class="o">&amp;</span>
+</pre></div>
+</div>
+<p>If something goes wrong, you can inspect the nohup.out file (or just the end of it):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">tail</span> <span class="o">-</span><span class="n">n</span> <span class="mi">100</span> <span class="n">nohup</span><span class="o">.</span><span class="n">out</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="About.html" class="btn btn-neutral float-left" title="About" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Modules.html" class="btn btn-neutral float-right" title="Modules" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

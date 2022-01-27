@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation &mdash; easyQuake 0.6 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="About" href="About.html" />
+    <link rel="prev" title="easyQuake - simplified earthquake location" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> easyQuake
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="About.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Getting_Started.html">Running easyQuake</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Modules.html">Modules</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">easyQuake</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Installation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Installation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation">
+<span id="id1"></span><h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h1>
+<p>In most cases you would want to utilize this software on an NVIDIA CUDA-capable server, desktop, or laptop. The machine-learning pickers are configured to run with TensorFlow and that is the trickiest part of the installation process.</p>
+<p>On most systems you should be able to simply:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span>
+</pre></div>
+</div>
+<p>As development rapidly continues, upgrade:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span> <span class="o">--</span><span class="n">upgrade</span>
+</pre></div>
+</div>
+<p>If you want to tweak something, like the number of GPUs in gpd_predict, you could:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">jakewalter</span><span class="o">/</span><span class="n">easyQuake</span><span class="o">.</span><span class="n">git</span>
+<span class="n">cd</span> <span class="n">easyQuake</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p>The easiest way to install CUDA, TensorFlow, and Keras (while avoiding conflicting versions, etc.) is through installing Anaconda python and allowing conda-install to manage the dependencies. Since this has it’s own headaches in running less than current versions of Python, we suggest a new conda environment. This can be achieved with (last tested January 2022):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">easyquake</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.7</span> <span class="n">anaconda</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">easyquake</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">tensorflow</span><span class="o">-</span><span class="n">gpu</span><span class="o">==</span><span class="mf">2.1</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">keras</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">obspy</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span>
+</pre></div>
+</div>
+<p>One simple test that everything (especially TensorFlow) is working is to run “event-mode” on a short snippet of data for an earthquake detected by OGS in Oklahoma:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">detection_association_event</span>
+<span class="n">detection_association_event</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="s1">&#39;/scratch&#39;</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="s1">&#39;ok&#39;</span><span class="p">,</span> <span class="n">maxdist</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span> <span class="n">maxkm</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">latitude</span><span class="o">=</span><span class="mf">36.7</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=-</span><span class="mf">98.4</span><span class="p">,</span> <span class="n">max_radius</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">approxorigintime</span><span class="o">=</span><span class="s1">&#39;2021-01-27T14:03:46&#39;</span><span class="p">,</span> <span class="n">downloadwaveforms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="easyQuake - simplified earthquake location" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="About.html" class="btn btn-neutral float-right" title="About" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

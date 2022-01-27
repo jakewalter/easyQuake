@@ -497,9 +497,14 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
                 if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
                     st = read(station3a[-1])
                     st[0].stats.channel = st[0].stats.channel[0:2]+'E'
-                    st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
-                    st[0].stats.channel = st[0].stats.channel[0:2]+'N'
-                    st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    if len(station3a[-1].split('__')) == 1:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E.mseed')
+                    else:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    if len(station3a[-1].split('__')) == 1:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N.mseed')
+                    else:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
                     station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
                     station3a = [None,None,None]
                     for station1 in station3:
