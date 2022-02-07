@@ -1164,8 +1164,8 @@ def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
         cat.extend(cat0)
     cat.write(filename+'.xml', format=format)
 
-def cut_event_waveforms():
-    for event in cat:
+def cut_event_waveforms(catalog=None, project_folder=None):
+    for ev in catalog:
         origin = event.origins[0]
         print(origin)
         event_lat = origin.latitude
@@ -1818,9 +1818,9 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
                     weight = float(lines[i][68:72])
                     phase_hint = type
                     for p in event.picks:
-                        if station is not None and station != p.waveform_id.station_code:
+                        if station is not None and station != p.waveform_id.station_code[-4:]:
                             continue
-                        if phase_hint is not None and phase_hint != p.phase_hint:
+                        if phase_hint is not None and phase_hint != p.phase_hint[-4:]:
                             continue
                         pickid = p
                     arrival = Arrival(origin=o, pick=pickid)

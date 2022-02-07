@@ -12,7 +12,6 @@ easyQuake - simplified earthquake location
    Installation 
    About
    Getting_Started
-   Modules
 
 
 Citation
@@ -24,5 +23,4 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

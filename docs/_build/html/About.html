@@ -18,7 +18,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Getting Started" href="Getting_Started.html" />
+    <link rel="next" title="Running easyQuake" href="Getting_Started.html" />
     <link rel="prev" title="Installation" href="Installation.html" /> 
 </head>
 
@@ -39,9 +39,14 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Getting_Started.html">Getting Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Modules.html">Modules</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">About</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#background">Background</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#detection-improvement">Detection Improvement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#in-development">In Development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Getting_Started.html">Running easyQuake</a></li>
 </ul>
 
         </div>
@@ -70,8 +75,31 @@
              
   <section id="about">
 <span id="id1"></span><h1>About<a class="headerlink" href="#about" title="Permalink to this headline"></a></h1>
-<p>Citation:
-* Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (2021), easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study, Seismological Research Letters, 92(1): 555–563, <a class="reference external" href="https://doi.org/10.1785/0220200226">https://doi.org/10.1785/0220200226</a></p>
+<section id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline"></a></h2>
+<p>The easyQuake package combines earthquake waveform download, event detection at individual stations, event association, magnitude determination, and absolute location with hypoinverse.</p>
+<p>Each module in the easyQuake package is called, individually, with a driver script and we include several example driver scripts in these docs and in the Github repository: <a class="reference external" href="https://github.com/jakewalter/easyQuake">https://github.com/jakewalter/easyQuake</a></p>
+<p>EasyQuake utilizes a choice between the GPD picker (Ross et al., 2019) and the EQTransformer (Mousavi et al., 2020) deep-learning pickers and easyQuake will utilize the default models for those pickers. However, in most circumstances, you may want to train your own picker if you have a sufficient dataset for your experiment or region of interest.</p>
+</section>
+<section id="detection-improvement">
+<h2>Detection Improvement<a class="headerlink" href="#detection-improvement" title="Permalink to this headline"></a></h2>
+<p>At OGS, we run the seismic network and create scientific products (location, magnitude, etc.) that are released through USGS as part of our membership in the national Advanced National Seismic System (ANSS). In adding easyQuake to augment detection, we have found a factor of 2 more earthquakes since May 2020.</p>
+<a class="reference internal image-reference" href="_images/oklahoma_case.png"><img alt="Oklahoma seismicity detection improved" src="_images/oklahoma_case.png" style="width: 800px;" /></a>
+<p>In addition, as a test scenario, we can run it on FDSN-downloaded waveforms and find significant detection improvementrelative to the regional seismic network in the case of the March 2020 M6.5 Central Idaho eartquake</p>
+<a class="reference internal image-reference" href="_images/idaho.png"><img alt="Idaho detection example" src="_images/idaho.png" style="width: 800px;" /></a>
+</section>
+<section id="in-development">
+<h2>In Development<a class="headerlink" href="#in-development" title="Permalink to this headline"></a></h2>
+<p>We have some tailored some of the standard easyQuake modules to large-N node datasets and other special applications. Those will be available at the next major release. Also, we have a quasi-realtime detection workflow, utilizing easyQuake on short snippets of data gathered from a seedlink stream, that is currently being tested.</p>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Permalink to this headline"></a></h2>
+<ul class="simple">
+<li><p>Ross, Z. E., M.-A. Meier, E. Hauksson, and T. H. Heaton (2018), Generalized seismic phase detection with deep learning, Bull. Seismol. Soc. Am., 108, doi: 10.1785/0120180080.</p></li>
+<li><p>Mousavi, S.M., Ellsworth, W.L., Zhu, W., Chuang, L.Y., Beroza, G.C. (2020), Earthquake Transformer: An Attentive Deep-learning Model for Simultaneous Earthquake Detection and Phase Picking, Nature Communications</p></li>
+<li><p>Walter, J. I., P. Ogwari, A. Thiel, F. Ferrer, and I. Woelfel (2021), easyQuake: Putting machine learning to work for your regional seismic network or local earthquake study, Seismological Research Letters, 92(1): 555–563, <a class="reference external" href="https://doi.org/10.1785/0220200226">https://doi.org/10.1785/0220200226</a>.</p></li>
+</ul>
+</section>
 </section>
 
 
@@ -79,7 +107,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="Installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="Getting_Started.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="Getting_Started.html" class="btn btn-neutral float-right" title="Running easyQuake" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
