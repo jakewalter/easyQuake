@@ -17,25 +17,61 @@ Check that everything is installed and working as it should by detecting a singl
 
 A few things are going on here. You are downloading waveforms, detecting picks with the GPD picker, associating events to get an approximate location, and then approximating an event magnitude from the amplitudes of the horizontal seismograph components (i.e. Richter magnitude). These are steps that you would normally separate into 4, but they are all in one here. 
 
-We can set various paramaters here. In this case, we choose an approximate location for the data downloader (*lat* and *long*) and a maximum radius (*max_radius*) over which to download data from stations. Next we set *maxdist* and *maxkm*, the variables that control the maximum distance from a station to a possible hypocenter (based on detected S-P times) and the maximum distance over which to precompute the travel-times for the 1D traveltime lookup tables. The variables *local* and *machine* set whether the station metadata (or inventory file) should be within the day folder (it will be since we are downloading the waveforms) and whether the picker is the machine-learning picker. If everything runs at it should, it should create an event file ending with *.xml*, which is a QuakeML-formatted event file. You can inspect this with a text editor or open it with obspy with the *read_events* module.
+We can set various parameters here. In this case, we choose an approximate location for the data downloader (*lat* and *long*) and a maximum radius (*max_radius*) over which to download data from stations. Next we set *maxdist* and *maxkm*, the variables that control the maximum distance from a station to a possible hypocenter (based on detected S-P times) and the maximum distance over which to precompute the travel-times for the 1D traveltime lookup tables. The variables *local* and *machine* set whether the station metadata (or inventory file) should be within the day folder (it will be since we are downloading the waveforms) and whether the picker is the machine-learning picker. If everything runs at it should, it should create an event file ending with *.xml*, which is a QuakeML-formatted event file. You can inspect this with a text editor or open it with obspy with the *read_events* module.
 
 Core modules
 =============
 
 Data Download
 --------------
-In reality, we don't really want to do earthquake detection based on a general idea of the time and location of an event. We want to determine events from continuos seismograms.
+In reality, we don't really want to do earthquake detection based on a general idea of the time and location of an event. We want to determine events from continuous seismograms.
 
+The easyQuake package can download waveforms for you and will organize the downloaded waveforms in a uniform manner so that it can run the subsequent submodules on the dataset. It leverages the obspy mass_downloader, with a few tweaks, so that by selecting a latitude and longitude bounding box, you will end up with folders in your working directory organized by year, day, and then month (YYYYDDMM).
 
-YYYYDDMM
+Within each folder, the daylong miniseed files will be there, as well as the stationXML inventory metadata files. If you choose to work with a local dataset, it is easiest if you work with the same folder structure for your data.
+
+As a tutorial example, let's gather data adjacent to the March 31, 2020 M6.5 Central Idaho earthquake::
+
+        from easyQuake import download_mseed
+        from easyQuake import daterange
+        from datetime import date
+        lat_a = 42
+        lat_b = 47.5
+        lon_a = -118
+        lon_b = -111
+        start_date = date(2020, 3, 31)
+        end_date = date(2020, 4, 2)
+
+        project_code = 'idaho'
+        project_folder = '/data/id'
+        for single_date in daterange(start_date, end_date)
+            dirname = single_date.strftime("%Y%m%d")
+            download_mseed(dirname=dirname, project_folder=project_folder, single_date=single_date, minlat=lat_a, maxlat=lat_b, minlon=lon_a, maxlon=lon_b)
+
 
 Earthquake Detection
 ---------------------
+Earthquake detection leverages either one of two machine-learning pickers: GPD (Ross et al., 2018) or EQTransformer (Mousavi et al., 2020). The earthquake detection module is simply a one-liner after data has been downloaded or otherwise organized, as described above. To continue with the tutorial exercise::
+        
+        from easyQuake import detection_continuous
+        from easyQuake import daterange
+        from datetime import date
+        start_date = date(2020, 3, 31)
+        end_date = date(2020, 4, 2)
 
+        project_code = 'idaho'
+        project_folder = '/data/id'
+        for single_date in daterange(start_date, end_date)
+            dirname = single_date.strftime("%Y%m%d")
+            download_mseed(dirname=dirname, project_folder=project_folder, single_date=single_date, minlat=lat_a, maxlat=lat_b, minlon=lon_a, maxlon=lon_b)
+
+It should be becoming apparent that the easyQuake submodules only work on a given day of data. Thus, the user needs to consider strategies by which several days of data can be analyzed in the loop with the daterange function.
+
+During this stage, you should see your video card working on the dataset. Check the video memory with the "nvidia-smi" terminal command.
 
 Event Association
 ------------------
-
+For event association, we modified the PhasePApy package (Chen and Holland, 2016) to work within the easyQuake data structure and outputs from the picker.
 
 Earthquake Magnitude
 --------------------

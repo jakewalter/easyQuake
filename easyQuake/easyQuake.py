@@ -384,33 +384,6 @@ def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
             except:
                 pass
 
-# def gpd_pick_add(dbsession=None,fileinput=None):
-#   filepath = fileinput
-#   with open(filepath) as fp:
-#     line = fp.readline()
-#     cnt = 1
-#     while line:
-#       try:
-#         print("Line {}: {}".format(cnt, line.strip()))
-#         line = fp.readline()
-#         cnt += 1
-#         sta1 = line.split()[1]
-#         chan1 = line.split()[2]
-#         #print(sta1,chan1)
-#         #scnl.station = sta1
-#         net1 = line.split()[0]
-#         scnl = SCNL([sta1,chan1,'OK'])
-#         #print(scnl.channel)
-#         type1 = line.split()[3]
-#         scnl.phase = type1
-#         time1 = UTCDateTime(line.split()[4]).datetime
-#         t_create=datetime.utcnow()
-
-#         new_pick=tables1D.Pick(scnl,time1,'',10,0.1,t_create)
-#         dbsession.add(new_pick) # Add pick i to the database
-#         dbsession.commit() #
-#       except:
-#         pass
 
 def get_chan1(stationfile):
     if len(list(filter(None, stationfile.split('/')[-1].split('.'))))==5:
@@ -945,6 +918,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         for idx1, pick in enumerate(event.picks):
             if pick.phase_hint == 'S':
                 ### make Amplitude
+                st3 = []
                 try:
                     try:
                         st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
@@ -1164,18 +1138,85 @@ def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
         cat.extend(cat0)
     cat.write(filename+'.xml', format=format)
 
-def cut_event_waveforms(catalog=None, project_folder=None):
+
+def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
+    cat2 = catalog.copy()
+    for event in cat2:
+    #print(event.preferred_origin().time)
+        for pick in event.picks:
+            filethere = glob.glob(project_folder+'/'+pick.time.strftime("%Y%m%d")+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code+'*mseed')
+            if pick.waveform_id.channel_code[-1] == 'E':
+                filethere1 = glob.glob(project_folder+'/'+pick.time.strftime("%Y%m%d")+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'1*mseed')
+            if filethere:
+                print('it is there')
+            else:
+                print('change pick')
+                st = read(filethere1[0])
+                pick.waveform_id.channel_code = st[0].stats.channel
+    if filename is not None:
+        cat2.write(filename,'QUAKEML')
+    return cat2
+
+
+
+
+def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False):
+    dirname = project_folder+'/events'
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    def nearest(items, pivot):
+        return np.where(items == min(items, key=lambda x: abs(x - pivot)))[0]
     for ev in catalog:
-        origin = event.origins[0]
-        print(origin)
-        event_lat = origin.latitude
-        event_lon = origin.longitude
-        strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-        if eventmode:
-            strday = str(project_folder.split('/')[-1])
-        #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-        print(strday)
-        strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
+        origin = ev.preferred_origin() or ev.origins[0]
+        #print(origin)
+        strday = str(origin.time.year).zfill(4)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+
+        st1 = Stream()
+        #arrivals = []
+        picks = []
+        picktimes = []
+        for _i, arrv in enumerate(origin.arrivals):
+            pick = arrv.pick_id.get_referred_object()
+            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
+            #arrivals.append(arrv)
+            picks.append(pick.phase_hint)
+            picktimes.append(pick.time)
+            #stas.append(pick.waveform_id.station_code)
+        st = st1.slice(origin.time, origin.time + length)
+        st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
+        if filteryes:
+            st.filter('highpass',freq=1)
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(10,10))
+        axes = fig.subplots(len(st), 1, sharex=True)
+        lines, labels = ([], [])
+        min_x = []
+        max_x = []
+        for ax, tr, p , pt in zip(axes, st, picks, picktimes):
+                x = np.arange(0, tr.stats.endtime - tr.stats.starttime + tr.stats.delta, tr.stats.delta)
+                y = tr.data
+                x = np.array([(tr.stats.starttime + _x).datetime for _x in x])
+                min_x1, max_x1 = (x[0], x[-1])
+                ax.plot(x, y, 'k', linewidth=1.2)
+                if 'P' in p.upper():
+                    pcolor = 'red'
+                    label = 'P-pick'
+                if 'S' in p.upper():
+                    pcolor = 'blue'
+                    label = 'S-pick'
+                ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
+                          linestyle='--', label=label)
+                ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
+                ax.yaxis.tick_right()
+                ind1 = nearest(x,pt.datetime)
+                ax.set_ylim([np.min(y[ind1[0]-100:ind1[0]+100])*1.1,np.max(y[ind1[0]-100:ind1[0]+100])*1.1])
+                min_x.append(min_x1)
+                max_x.append(max_x1)
+        axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
+        #axes[-1].set_xlabel("Time")
+        plt.subplots_adjust(hspace=0)
+        fig.legend(lines, labels)
+        fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
 
 
 
