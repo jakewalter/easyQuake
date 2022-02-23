@@ -130,6 +130,8 @@ python idaho_example.py
 ```
 ## Version brief notes
 
+Version 0.9 (2/23/2022) - Modules to cut easyQuake event waveforms from continuous data (cut_event_waveforms) and module for converting easyQuake catalog (or any QuakeML-formatted catalog) to HDF5 (quakeML_to_hdf5) for training new ML models
+
 Version 0.8 (7/30/2021) - Several major bug fixes and improved controls for Hypoinverse location
 
 Verson 0.6 (2/24/2021) - Implemented choice of GPD or EQTransformer pickers for the picking stage
