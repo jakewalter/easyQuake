@@ -1142,7 +1142,7 @@ def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
 def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
     cat2 = catalog.copy()
     for event in cat2:
-    #print(event.preferred_origin().time)
+        print(event.preferred_origin().time)
         for pick in event.picks:
             filethere = glob.glob(project_folder+'/'+pick.time.strftime("%Y%m%d")+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code+'*mseed')
             if pick.waveform_id.channel_code[-1] == 'E':
@@ -1168,7 +1168,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         return np.where(items == min(items, key=lambda x: abs(x - pivot)))[0]
     for ev in catalog:
         origin = ev.preferred_origin() or ev.origins[0]
-        #print(origin)
+        print(origin)
         strday = str(origin.time.year).zfill(4)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
 
         st1 = Stream()
@@ -1182,10 +1182,11 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
             #stas.append(pick.waveform_id.station_code)
-        st = st1.slice(origin.time, origin.time + length)
+        st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
         if filteryes:
             st.filter('highpass',freq=1)
+            st = st.slice(origin.time-10, origin.time + length)
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(10,10))
         axes = fig.subplots(len(st), 1, sharex=True)
@@ -1206,17 +1207,22 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                     label = 'S-pick'
                 ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
                           linestyle='--', label=label)
+                line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
+                          linestyle='-', label='origin')
                 ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
                 ax.yaxis.tick_right()
-                ind1 = nearest(x,pt.datetime)
-                ax.set_ylim([np.min(y[ind1[0]-100:ind1[0]+100])*1.1,np.max(y[ind1[0]-100:ind1[0]+100])*1.1])
+                #ind1 = nearest(x,pt.datetime)
+                ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
                 min_x.append(min_x1)
                 max_x.append(max_x1)
+                labels.append(label)
+                lines.append(line)
         axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
         #axes[-1].set_xlabel("Time")
         plt.subplots_adjust(hspace=0)
         fig.legend(lines, labels)
         fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
+        fig.close()
 
 
 
