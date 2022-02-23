@@ -1222,6 +1222,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         plt.subplots_adjust(hspace=0)
         fig.legend(lines, labels)
         fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
+        fig.close()
 
 
 
