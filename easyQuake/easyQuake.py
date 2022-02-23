@@ -1167,8 +1167,10 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
     def nearest(items, pivot):
         return np.where(items == min(items, key=lambda x: abs(x - pivot)))[0]
     for ev in catalog:
+        filename = str(ev.resource_id).split('/')[-1] + ".xml"
+        ev.write(dirname+'/'+filename, format="QUAKEML")
         origin = ev.preferred_origin() or ev.origins[0]
-        print(origin)
+        print(origin.time)
         strday = str(origin.time.year).zfill(4)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
 
         st1 = Stream()
@@ -1222,7 +1224,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         plt.subplots_adjust(hspace=0)
         fig.legend(lines, labels)
         fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
-        fig.close()
+        plt.close(fig)
 
 
 
