@@ -3,6 +3,24 @@
 """
 set of functions to drive EasyQuake
 """
+
+print(r"""
+
+                         ____              __
+  ___  ____ ________  __/ __ \__  ______ _/ /_____
+ / _ \/ __ `/ ___/ / / / / / / / / / __ `/ //_/ _ \
+/  __/ /_/ (__  ) /_/ / /_/ / /_/ / /_/ / ,< /  __/
+\___/\__,_/____/\__, /\___\_\__,_/\__,_/_/|_|\___/
+               /____/
+
+
+Earthquake detection and location open-source software
+Jake Walter - Oklahoma Geological Survey
+http://github.com/jakewalter/easyQuake
+jwalter@ou.edu
+
+""")
+
 #import sys
 #sys.path.append("/home/jwalter/syncpython")
 from .phasepapy import fbpicker
@@ -46,6 +64,11 @@ from datetime import datetime
 
 from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier
+
+import h5py
+
+
+
 #from obspy.signal.invsim import simulate_seismometer as seis_sim
 fmtP = "%4s%1sP%1s%1i %15s"
 fmtS = "%12s%1sS%1s%1i\n"
@@ -2025,6 +2048,169 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     ax.set_title('Gutenburg-Richter Distribution')
     plt.show()
     plt.savefig('gr_plot.png')
+
+
+
+def quakeml_to_hdf5(cat=None, project_folder=None):
+    output_merge = project_folder+'/merge.hdf5'
+    if os.path.exists(project_folder+'/merge.hdf5'):
+        os.remove(project_folder+'/merge.hdf5')
+    HDF0 = h5py.File(output_merge, 'a')
+    HDF0.create_group("data")
+    def samplename(stream):
+        st = str(stream[0].stats.starttime)
+        st_name = st[0:13]+st[14:16]+st[17:19]
+        stend = str(stream[0].stats.endtime)
+        st_nameend = st[0:13]+st[14:16]+st[17:19]
+        filename = stream[0].stats.network + '.' + stream[0].stats.station
+        for tr in stream:
+            filename = filename + '.' + tr.stats.channel
+        filename = filename + '.' + st_name + st_nameend
+        return filename
+
+    for event in cat:
+        #print(t0)
+        origin = event.preferred_origin()
+        evo = origin.time
+        #evid = origin.id
+        otime = UTCDateTime(evo)
+        print(otime)
+
+        origin = event.preferred_origin() or cat.origins[0]
+        try:
+            magnitude = event.preferred_magnitude().mag
+            magtype = event.preferred_magnitude().magnitude_type
+        except:
+            magnitude = -2
+            magtype = 'ML'
+        contdir =  project_folder+'/'+str(origin.time.year)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+
+        stas = []
+        picks1a = []
+        for _i, arrv in enumerate(origin.arrivals):
+            pick = arrv.pick_id.get_referred_object()
+            stas.append(pick.waveform_id.station_code)
+            picks1a.append(pick.waveform_id.network_code+' '+pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time)+' '+pick.waveform_id.channel_code)
+        stalist = list(set(stas))
+
+        for states in stalist:
+            numP = -9
+            numS = -9
+            #print(states)
+            for num, line in enumerate(picks1a):
+                if states in line and 'P' in line:
+                    numP = num
+                if states in line and 'S' in line:
+                    numS = num
+            #print(stalistall)
+            if numP > -1 and numS > -1:
+                pickS = picks1a[numS]
+                pickP = picks1a[numP]
+                sacyes = None
+                try:
+                    st3 = read(contdir+'/'+pickP.split(' ')[0]+'.'+pickP.split(' ')[1]+'*'+pickP.split(' ')[-1][0:2]+'*mseed',debug_headers=True)
+                except:
+                    try:
+                        st3 = read(contdir+'/*'+pickP.split(' ')[1]+'.*SAC',debug_headers=True)
+                        sacyes = 1
+                    except:
+                        pass
+                if sacyes is None:
+                    for tr in st3:
+                        inventory_local = glob.glob(contdir+'/'+pickP.split(' ')[0]+'.'+pickP.split(' ')[1]+'.xml')
+                        if len(inventory_local)>0:
+                            inv = read_inventory(inventory_local[0])
+                        else:
+                            try:
+                                inv0 = read_inventory(contdir+'/'+'dailyinventory.xml')
+                                inv = inv0.select(network=pickP.split(' ')[0], station=pickP.split(' ')[1], time=origin.time)
+                                if len(inv) ==0:
+                                    try:
+                                        inv = read_inventory(contdir+'/'+'dailyinventory.xml')
+                                    except:
+                                        pass
+                            except:
+                                pass
+
+                if sacyes is None:
+                    stationlat = inv.networks[0].stations[0].latitude
+                    stationlon = inv.networks[0].stations[0].longitude
+                    stationelev = inv.networks[0].stations[0].elevation
+                    epi_dist1, az1, baz1 = gps2dist_azimuth(inv.networks[0].stations[0].latitude, inv.networks[0].stations[0].longitude, origin.latitude, origin.longitude)
+                else:
+                    try:
+                        inv0 = read_inventory(contdir+'/'+'dailyinventory.xml')
+                        inv = inv0.select(network=pickP.split(' ')[0], station=pickP.split(' ')[1], time=origin.time)
+                    except:
+                        stationlat = st3[0].stats.sac.stla
+                        stationlon = st3[0].stats.sac.stlo
+                        stationelev = st3[0].stats.sac.stel
+                        epi_dist1, az1, baz1 = gps2dist_azimuth(st3[0].stats.sac.stla, st3[0].stats.sac.stlo, origin.latitude, origin.longitude)
+                        pass
+
+                dist1 = epi_dist1/1000
+                p_arriv_time = UTCDateTime(pickP.split(' ')[-2])-origin.time
+                s_arriv_time = UTCDateTime(pickS.split(' ')[-2])-origin.time
+
+                st_1a = st3
+                if len(st_1a)>1:
+                    st_1 = st_1a.select(location='')
+                    if len(st_1)<1:
+                        st_1 = st_1a
+                else:
+                    st_1 = st_1a
+                st_1.trim(UTCDateTime(pickP.split(' ')[-2])-30,UTCDateTime(pickP.split(' ')[-2])+30)
+                if int(st_1[0].stats.sampling_rate) != 100:
+                    st_1.resample(100.0)
+                filename = samplename(st_1)
+                data = np.array(st_1)
+                data = data.T
+                HDFr = h5py.File(output_merge, 'a')
+                dsF = HDFr.create_dataset("data/"+filename, data.shape, data=data, dtype=np.float64)
+                dsF.attrs['network_code'] = st_1[0].stats.network
+                dsF.attrs['receiver_code'] = st_1[0].stats.station
+                dsF.attrs['receiver_type'] = st_1[0].stats.channel
+                dsF.attrs['receiver_latitude'] = stationlat
+                dsF.attrs['receiver_longitude'] = stationlon
+                dsF.attrs['receiver_elevation_m'] = stationelev
+                dsF.attrs['p_arrival_sample'] = int(100*(UTCDateTime(pickP.split(' ')[-2])-st_1[0].stats.starttime))
+                dsF.attrs['p_status'] = 'manual'
+                dsF.attrs['p_weight'] = 1
+                dsF.attrs['p_travel_sec'] = p_arriv_time
+                dsF.attrs['s_arrival_sample'] = int(100*(UTCDateTime(pickP.split(' ')[-2])-st_1[0].stats.starttime))
+                dsF.attrs['s_status'] = 'manual'
+                dsF.attrs['s_weight'] = 1
+                dsF.attrs['source_id'] = 'evid'
+                dsF.attrs['source_origin_time'] = str(origin.time)
+                dsF.attrs['source_origin_uncertainty_sec'] = []
+                dsF.attrs['source_latitude'] = origin.latitude
+                dsF.attrs['source_longitude'] = origin.longitude
+                dsF.attrs['source_error_sec'] = []
+                dsF.attrs['source_gap_deg'] = []
+                try:
+                    dsF.attrs['source_horizontal_uncertainty_km'] = np.sqrt((origin.origin_uncertainty["max_horizontal_uncertainty"])**2 + (origin.origin_uncertainty["min_horizontal_uncertainty"])**2)/1000
+                except:
+                    dsF.attrs['source_horizontal_uncertainty_km'] = []
+                    pass
+                dsF.attrs['source_depth_km'] = origin.depth/1000
+                try:
+                    dsF.attrs['source_depth_uncertainty_km'] = origin.depth_errors.uncertainty/1000
+                except:
+                    dsF.attrs['source_depth_uncertainty_km'] = []
+                dsF.attrs['source_magnitude'] = magnitude
+                dsF.attrs['source_magnitude_type'] = magtype
+                dsF.attrs['source_magnitude_author'] = 'ogs'
+                dsF.attrs['source_mechanism_strike_dip_rake'] = []
+                dsF.attrs['source_distance_deg'] = kilometers2degrees(epi_dist1/1000)
+                dsF.attrs['source_distance_km'] = epi_dist1/1000
+                dsF.attrs['back_azimuth_deg'] = az1
+                dsF.attrs['snr_db'] = []
+                dsF.attrs['coda_end_sample'] = []
+                dsF.attrs['trace_start_time'] = str(st_1[0].stats.starttime)
+                dsF.attrs['trace_category'] = 'earthquake_local'
+                dsF.attrs['trace_name'] =   filename
+                HDFr.flush()
+                HDFr.close()
 
 
 
