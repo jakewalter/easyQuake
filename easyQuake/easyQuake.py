@@ -1934,7 +1934,7 @@ def reduce_catalog(cat=None, num_arr=8):
     return cat2
 
 
-def plot_map_catalog(cat=None, filename=None):
+def plot_map_catalog(cat=None, filename=None, points=False):
 #    catdfr = pd.read_csv(file,delimiter=r"\s+")
 #    catdfr = catdfr.dropna()
     import matplotlib.pyplot as plt
@@ -1949,14 +1949,17 @@ def plot_map_catalog(cat=None, filename=None):
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
-    plt.figure()
+    #plt.figure()
     lat0 = np.median(catdfr.iloc[:,1].values)
     lon0 = np.median(catdfr.iloc[:,2].values)
     m = Basemap(projection='lcc', resolution='h',
                 lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
     #m.shadedrelief()
-    m.drawcoastlines(color='gray')
+    try:
+        m.drawcoastlines(color='gray')
+    except:
+        pass
     m.drawcountries(color='gray')
     #m.drawcounties(color='gray')
     m.drawstates(color='gray')
@@ -1964,18 +1967,15 @@ def plot_map_catalog(cat=None, filename=None):
     # 2. scatter city data, with color reflecting population
     # and size reflecting area
     catdfr['magnitude'] = catdfr['magnitude'].fillna(1)
-    m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,4].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
+    if points:
+        m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=20,c='k',marker='.',alpha=0.5,latlon=True)
+    else:
+        m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,4].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
+        cbar = plt.colorbar()
+        N_TICKS=8
+        indexes = [catdfr['origintime'].loc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
 
-    #m.scatter(catdfo.iloc[:,2].values,catdfo.iloc[:,1].values,s=catdfo.iloc[:,16].values**3*10,c=catdfo.index,marker='o',alpha=0.5,latlon=True)
-
-
-
-    cbar = plt.colorbar()
-    N_TICKS=8
-    indexes = [catdfr['origintime'].loc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
-
-    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
-    cbar.ax.set_yticklabels(indexes)
+        cbar.ax.set_yticklabels(indexes)
     plt.show()
     if filename:
         plt.savefig(filename+'.png')

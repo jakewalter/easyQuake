@@ -12,6 +12,11 @@ Each module in the easyQuake package is called, individually, with a driver scri
 
 The easyQuake platform utilizes a choice between the GPD picker (Ross et al., 2019) and the EQTransformer (Mousavi et al., 2020) deep-learning pickers and easyQuake will utilize the default models for those pickers. However, in most circumstances, you may want to train your own picker if you have a sufficient dataset for your experiment or region of interest.
 
+It then takes those picks and utilizes a modified version of the Python-based PhasePApy (Chen and Holland, 2016) 1D associator. The associated events can then be passed through easyQuake modules to get a local magnitude, an absolute location from Hypoinverse, and output pick information in various formats for relative relocation (e.g. HypoDD). All the relevant metadata (picks, station amplitudes, station magnitudes, origins from association and Hypoinverse) is aggregated into a QuakeML format and can be output as an Obspy catalog or single event QuakeML file.
+
+In implementation at OGS, we use the single event QuakeML file and add that directly into our SeisComP system. If you would like the script to add that to SeisComP, then please email us.
+
+
 Detection Improvement
 ----------------------
 
@@ -33,6 +38,9 @@ We have some tailored some of the standard easyQuake modules to large-N node dat
 
 References
 -----------
+
+* Chen, C., and A. A. Holland (2016), PhasePApy: A Robust Pure Python Package for Automatic Identification of Seismic Phases, Seismological Research Letters, 87(6), doi: 10.1785/0220160019.
+
 * Ross, Z. E., M.-A. Meier, E. Hauksson, and T. H. Heaton (2018), Generalized seismic phase detection with deep learning, Bull. Seismol. Soc. Am., 108, doi: 10.1785/0120180080.
 
 * Mousavi, S.M., Ellsworth, W.L., Zhu, W., Chuang, L.Y., Beroza, G.C. (2020), Earthquake Transformer: An Attentive Deep-learning Model for Simultaneous Earthquake Detection and Phase Picking, Nature Communications

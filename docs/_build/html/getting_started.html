@@ -48,7 +48,10 @@
 <li class="toctree-l3"><a class="reference internal" href="#earthquake-magnitude">Earthquake Magnitude</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#additional-modules">Additional Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#additional-modules">Additional Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#hypoinverse">Hypoinverse</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#tips-for-success">Tips for Success</a></li>
 </ul>
 </li>
@@ -129,22 +132,82 @@
 <span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
 <span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
     <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">download_mseed</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">minlat</span><span class="o">=</span><span class="n">lat_a</span><span class="p">,</span> <span class="n">maxlat</span><span class="o">=</span><span class="n">lat_b</span><span class="p">,</span> <span class="n">minlon</span><span class="o">=</span><span class="n">lon_a</span><span class="p">,</span> <span class="n">maxlon</span><span class="o">=</span><span class="n">lon_b</span><span class="p">)</span>
+    <span class="n">detection_continuous</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># run it with EQTransformer instead of GPD picker</span>
+    <span class="c1">#detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, machine=True, machine_picker=&#39;EQTransformer&#39;, local=True, single_date=single_date)</span>
 </pre></div>
 </div>
-<p>It should be becoming apparent that the easyQuake submodules only work on a given day of data. Thus, the user needs to consider strategies by which several days of data can be analyzed in the loop with the daterange function.</p>
-<p>During this stage, you should see your video card working on the dataset. Check the video memory with the “nvidia-smi” terminal command.</p>
+<p>It should be becoming apparent that the easyQuake submodules only work on a given day of data. Thus, the user needs to consider strategies by which several days of data can be analyzed in the loop with the daterange function. As you can see from the above code snippet, it runs the detection on each day of data and the detection is done in serial. Each day can only run at one time for a single workstation. This is due to the limited GPU resources available to us (one or two GPUs on a single workstation) - the machine learning pickers will automatically allocate all the GPU memory it can find so you cannot run detection in parallel - it would lead to errors that are difficult to track.</p>
+<p>In the above code snippet, you can see uncomment the EQTransformer line and compare your detection results between GPD and EQTransformer pickers.</p>
+<p>During this stage, you should see your video card working on the dataset. Run it in ipython and you can check that it is running correctly in a different terminal window by checking that video memory is being used by python with the “nvidia-smi” terminal command.</p>
 </section>
 <section id="event-association">
 <h3>Event Association<a class="headerlink" href="#event-association" title="Permalink to this headline"></a></h3>
-<p>For event association, we modified the PhasePApy package (Chen and Holland, 2016) to work within the easyQuake data structure and outputs from the picker.</p>
+<p>For event association, we modified the PhasePApy package (Chen and Holland, 2016) to work within the easyQuake data structure and outputs from the picker. Either ML picker generates a file called gpd_picks.out that is simply a list of plausible detected events, time of detection, and station name. Another way to check that the pickers are working is whether there is data in the gpd_picks.out file. In the previous step, those detections are added to an sqlite file called 1dassociator.db, which should be within each day folder where detection has been completed. As above, the association can be completed on the example tutorial dataset:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">association_continuous</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">daterange</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span>
+<span class="n">start_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
+<span class="n">end_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">maxdist</span> <span class="o">=</span> <span class="mi">300</span>
+<span class="n">maxkm</span> <span class="o">=</span> <span class="mi">300</span>
+
+<span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
+<span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+    <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">association_continuous</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">,</span> <span class="n">maxdist</span><span class="o">=</span><span class="n">maxdist</span><span class="p">,</span> <span class="n">maxkm</span><span class="o">=</span><span class="n">maxkm</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">cat</span><span class="p">,</span> <span class="n">dfs</span> <span class="o">=</span> <span class="n">combine_associated</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This script runs the association step, in serial, within each day folder. Obviously, for a large amount of data, this would take quite a long time but is fine for the example tutorial. For longer datasets it would be better to utilize the Python multiprocessing package. As an example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">association_continuous</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">daterange</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">combine_associated</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span>
+<span class="n">start_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
+<span class="n">end_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">maxdist</span> <span class="o">=</span> <span class="mi">300</span>
+<span class="n">maxkm</span> <span class="o">=</span> <span class="mi">300</span>
+
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Pool</span>
+<span class="n">pool</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
+<span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+    <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">association_continuous</span><span class="p">,</span> <span class="p">(</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="p">,</span> <span class="n">maxdist</span><span class="p">,</span> <span class="n">maxkm</span><span class="p">,</span> <span class="n">single_date</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">pool</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+<span class="n">cat</span><span class="p">,</span> <span class="n">dfs</span> <span class="o">=</span> <span class="n">combine_associated</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The final line in the association example combine all the day folder possible events and saves a <em>cat.xml</em> Obsby-compatible Catalog file in the <em>project_folder</em>. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).</p>
 </section>
 <section id="earthquake-magnitude">
 <h3>Earthquake Magnitude<a class="headerlink" href="#earthquake-magnitude" title="Permalink to this headline"></a></h3>
+<p>Finally, we estimate earthquake magnitudes and the submodule <em>magnitude_quakeml</em> includes the amplitude and station magnitudes in the Catalog file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">magnitude_quakeml</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">simple_cat_df</span>
+<span class="kn">from</span> <span class="nn">obspy</span> <span class="kn">import</span> <span class="n">read_events</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">cat</span> <span class="o">=</span> <span class="n">read_events</span><span class="p">(</span><span class="s1">&#39;idaho_cat.xml&#39;</span><span class="p">)</span>
+<span class="n">cat</span> <span class="o">=</span> <span class="n">magnitude_quakeml</span><span class="p">(</span><span class="n">cat</span><span class="o">=</span><span class="n">cat</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span><span class="n">plot_event</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">cat</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;catalog_idaho.xml&#39;</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;QUAKEML&#39;</span><span class="p">)</span>
+
+<span class="c1">#test to see whether it was a success</span>
+<span class="n">catdf</span> <span class="o">=</span> <span class="n">simple_cat_df</span><span class="p">(</span><span class="n">cat</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">catdf</span><span class="o">.</span><span class="n">index</span><span class="p">,</span><span class="n">catdf</span><span class="o">.</span><span class="n">magnitude</span><span class="p">,</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 </section>
 <section id="additional-modules">
 <h2>Additional Modules<a class="headerlink" href="#additional-modules" title="Permalink to this headline"></a></h2>
+<section id="hypoinverse">
+<h3>Hypoinverse<a class="headerlink" href="#hypoinverse" title="Permalink to this headline"></a></h3>
+</section>
 </section>
 <section id="tips-for-success">
 <h2>Tips for Success<a class="headerlink" href="#tips-for-success" title="Permalink to this headline"></a></h2>
