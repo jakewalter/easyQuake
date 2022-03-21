@@ -1,9 +1,9 @@
 .. _Getting_Started:
 
 
-*****************
-Getting Started
-*****************
+******************
+Running easyQuake
+******************
 
 .. _event-mode:
 
