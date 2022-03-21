@@ -7,11 +7,13 @@ easyQuake - simplified earthquake location
 ==========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    Installation 
    About
    Getting_Started
+   Additional
+
 
 Citation
 ========
