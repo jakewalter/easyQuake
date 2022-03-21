@@ -2,7 +2,7 @@
 
 
 *****************
-Running easyQuake
+Getting Started
 *****************
 
 .. _event-mode:
@@ -138,10 +138,11 @@ Finally, we estimate earthquake magnitudes and the submodule *magnitude_quakeml*
 Additional Modules
 ===================
 
+In addition to the core modules, we have written various submodules to extend easyQuake/
+
 Hypoinverse 
 -------------
-
-
+Put something here
 
 Tips for Success
 ================
