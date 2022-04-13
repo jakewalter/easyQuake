@@ -115,7 +115,7 @@ This script runs the association step, in serial, within each day folder. Obviou
         pool.join()  
         cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code)
 
-The final line in the association example combine all the day folder possible events and saves a *cat.xml* Obsby-compatible Catalog file in the *project_folder*. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).
+The final line in the association example combine all the day folder possible events and saves a *idaho_cat.xml* Obsby-compatible Catalog file in the *project_folder*. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).
 
 Earthquake Magnitude
 --------------------

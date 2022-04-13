@@ -17,6 +17,7 @@ print(r"""
 Earthquake detection and location open-source software
 Jake Walter - Oklahoma Geological Survey
 http://github.com/jakewalter/easyQuake
+https://easyquake.readthedocs.io
 jwalter@ou.edu
 
 """)
