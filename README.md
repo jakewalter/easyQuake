@@ -2,6 +2,7 @@
 
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
+
 For more details, see the documentation: https://easyquake.readthedocs.io/
 
 On most systems you should be able to simply:
