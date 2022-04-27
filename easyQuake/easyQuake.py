@@ -423,7 +423,7 @@ def get_chan3(stationfile):
         comp3 = list(filter(None, stationfile.split('/')[-1].split('.')))[2][0:3]
     return comp3
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None):
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -545,11 +545,17 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
         fullpath1 = pathgpd+'/gpd_predict.py'
-        os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        if fullpath_python:
+            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        else:
+            os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
-        os.system(fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        if fullpath_python:
+            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        else:
+            os.system(fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
