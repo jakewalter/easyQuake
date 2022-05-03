@@ -36,8 +36,6 @@ st = os.stat(pathgpd+'/gpd_predict.py')
 st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
-os.chmod(pathgpd+'/gpd_predict.py', st.st_mode | stat.S_IEXEC)
-os.chmod(pathEQT+'/mseed_predictor.py', st1.st_mode | stat.S_IEXEC)
 
 import os
 from obspy import UTCDateTime
@@ -46,7 +44,6 @@ from obspy.clients.fdsn import Client
 from obspy import read
 import numpy as np
 import glob
-#import sys
 
 import obspy.taup as taup
 from obspy import geodetics
@@ -169,9 +166,9 @@ def download_mseed_event_radial(dirname=None, project_folder=None, starting=None
     mdl = MassDownloader()
     mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
 
+
 def process_local_sac():
     print('Local sac files')
-
 
 
 def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5., delta_distance=1):
@@ -544,18 +541,16 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
-        fullpath1 = pathgpd+'/gpd_predict.py'
         if fullpath_python:
-            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
-            os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     elif machine == True and machine_picker == 'EQTransformer':
-        fullpath2 = pathEQT+'/mseed_predictor.py'
         if fullpath_python:
-            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
-            os.system(fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
@@ -608,10 +603,6 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         pass
 
 
-
-
-
-
 def create_connection(db_file):
     """ create a database connection to the SQLite database
         specified by the db_file
@@ -625,7 +616,6 @@ def create_connection(db_file):
         print(e)
 
     return None
-
 
 
 def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None):
@@ -664,8 +654,6 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
 #                temp = stas1[stas1['station'].str.contains(sta_used)]
 #                stas = temp.iloc[0]
 
-
-
         if len(stas['station'])>4:
             sta = stas['station'][1:]
         else:
@@ -695,9 +683,6 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
         open_file.write(station_string)
     f1.write(str(hypo71_string_sta))
     f1.close()
-
-
-
 
 
 def select_all_associated(conn, f0):
@@ -849,8 +834,6 @@ def select_all_associated(conn, f0):
         f0.write("\n")
             #f1.write("\n")
 
-
-
     return dfs1, stalistall, cat1, f0
 
 def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False):
@@ -894,10 +877,6 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         if not eventmode:
             cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
-
-
-
-
 
 
 def polarity(tr,pickP=None):
@@ -1188,8 +1167,6 @@ def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
     return cat2
 
 
-
-
 def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False):
     dirname = project_folder+'/events'
     if not os.path.exists(dirname):
@@ -1255,9 +1232,6 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         fig.legend(lines, labels)
         fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
         plt.close(fig)
-
-
-
 
 
 def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
@@ -1452,7 +1426,6 @@ def simple_cat_df(cat=None, uncertainty=False):
                 n_arr.append(len(origin1.arrivals))
                 pass
 
-
     if uncertainty is True:
         catdf1 = pd.DataFrame({'origintime':times,'latitude':lats,'longitude':lons, 'depth':deps,'magnitude':magnitudes,'type':magnitudestype,'horizontal_error':hor_err,'vertical_error':vert_err,'num_arrivals':n_arr,'rms':rms, 'azimuthal_gap':az_gap ,'id':resourceid})
         catdf1 = catdf1.sort_values(by='origintime',ascending=True)
@@ -1462,6 +1435,7 @@ def simple_cat_df(cat=None, uncertainty=False):
         catdf1 = catdf1.sort_values(by='origintime',ascending=True)
         catdf1 = catdf1.reset_index(drop=True)
     return catdf1
+
 
 def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
     catdf = catdf[(catdf['latitude']>lat_a) & (catdf['latitude']<lat_b) & (catdf['longitude']>lon_a) & (catdf['longitude']<lon_b)]
@@ -1621,8 +1595,6 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
 #        open_file.write(station_string)
 
 
-
-
 def plot_hypodd_catalog(file=None):
     catdfr = pd.read_csv(file,delimiter=r"\s+")
     catdfr = catdfr.dropna()
@@ -1635,9 +1607,6 @@ def plot_hypodd_catalog(file=None):
     catdfr['rutc'] = rutc
     catdfr.sort_values(by=['rutc'], inplace=True)
     catdfr = catdfr.reset_index(drop=True)
-
-
-
 
     import matplotlib.pyplot as plt
     from mpl_toolkits.basemap import Basemap
@@ -1670,10 +1639,6 @@ def plot_hypodd_catalog(file=None):
     cbar.ax.set_yticklabels(indexes)
     plt.savefig('hypoDDmap.png')
     plt.show()
-
-
-
-
 
 
 def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
@@ -1927,7 +1892,6 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     return cat
 
 
-
 def reduce_catalog(cat=None, num_arr=8):
     events = list(cat.events)
     temp_events = []
@@ -1949,9 +1913,6 @@ def plot_map_catalog(cat=None, filename=None, points=False):
 
     #catdfr = catdfr.reset_index(drop=True)
     #rutc = np.zeros((len(catdfr.index),1))
-
-
-
 
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
@@ -2055,7 +2016,6 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     ax.set_title('Gutenburg-Richter Distribution')
     plt.show()
     plt.savefig('gr_plot.png')
-
 
 
 def quakeml_to_hdf5(cat=None, project_folder=None):
