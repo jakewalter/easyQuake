@@ -10,22 +10,13 @@
 # Contact: zross@gps.caltech.edu                        
 # Website: http://www.seismolab.caltech.edu/ross_z.html         
 
-import string
-import time
 import argparse as ap
-import sys
 import os
 
 import numpy as np
 import obspy.core as oc
-import keras
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Conv1D, MaxPooling1D
-from keras import losses
 from keras.models import model_from_json
 import tensorflow as tf
-import matplotlib as mpl
 import pylab as plt
 #mpl.rcParams['pdf.fonttype'] = 42
 #physical_devices = tf.config.list_physical_devices('GPU')
@@ -131,7 +122,8 @@ def sliding_window(data, size, stepsize=1, padded=False, axis=-1, copy=True):
     else:
         return strided
 
-if __name__ == "__main__":
+
+def main():
     parser = ap.ArgumentParser(
         prog='gpd_predict.py',
         description='Automatic picking of seismic waves using'
@@ -304,3 +296,7 @@ if __name__ == "__main__":
         except:
             pass
     ofile.close()
+
+
+if __name__ == "__main__":
+    main()
