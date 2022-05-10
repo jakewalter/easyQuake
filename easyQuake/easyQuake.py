@@ -207,9 +207,12 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     # We will use IASP91 here but obspy.taup does let you build your own model
     if model is not None:
         filename = model
-        #vmodel = VelocityModel.read_tvel_file(filename)
-        taup_model = build_taup_model(filename, output_folder=os.getcwd())
-        velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        #vmodel = VelocityModel.read_tvel_file(filename)    
+        if os.path.exists(f"{filename[:-5]}.npz"):
+            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        else:
+            taup_model = build_taup_model(filename, output_folder=os.getcwd())
+            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
     else:
         velmod=taup.TauPyModel(model='iasp91')
 
@@ -266,8 +269,12 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     if model is not None:
         filename = model
         #vmodel = VelocityModel.read_tvel_file(filename)
-        taup_model = build_taup_model(filename, output_folder=os.getcwd())
-        velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        if os.path.exists(f"{filename[:-5]}.npz"):
+            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        else:
+            taup_model = build_taup_model(filename, output_folder=os.getcwd())
+            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+
     else:
         velmod=taup.TauPyModel(model='iasp91')
     #delta_distance=1. # km for spacing tt calculations
@@ -284,6 +291,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
             distance_in_degree=d_deg,phase_list=['S','s'])
         for s in s_arrivals:
             stimes.append(s.time)
+        print(d_km,ptimes,stimes)
         tt_entry=tt_stations_1D.TTtable1D(d_km,d_deg,np.min(ptimes),np.min(stimes),np.min(stimes)-np.min(ptimes))
         tt_session.add(tt_entry)
         tt_session.commit() # Probably faster to do the commit outside of loop but oh well
