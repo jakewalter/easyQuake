@@ -49,6 +49,9 @@ import glob
 #import sys
 
 import obspy.taup as taup
+from obspy.taup import TauPyModel
+#from obspy.taup.velocity_model import VelocityModel
+from obspy.taup.taup_create import build_taup_model
 from obspy import geodetics
 from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
 from obspy.core.event.base import WaveformStreamID
@@ -174,7 +177,7 @@ def process_local_sac():
 
 
 
-def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5., delta_distance=1):
+def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=None, channel_codes=['EH','BH','HH','HN'],db=None,maxdist=500.,source_depth=5., delta_distance=1, model=None):
     """
     """
     # Create a connection to an sqlalchemy database
@@ -202,7 +205,14 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
 
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
-    velmod=taup.TauPyModel(model='iasp91')
+    if model is not None:
+        filename = model
+        #vmodel = VelocityModel.read_tvel_file(filename)
+        taup_model = build_taup_model(filename, output_folder=os.getcwd())
+        velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+    else:
+        velmod=taup.TauPyModel(model='iasp91')
+
     #delta_distance=1. # km for spacing tt calculations
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
@@ -223,7 +233,7 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     tt_session.close()
     return inv
 
-def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1):
+def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1, model=None):
     """
     """
     # Create a connection to an sqlalchemy database
@@ -253,7 +263,13 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
 
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
-    velmod=taup.TauPyModel(model='iasp91')
+    if model is not None:
+        filename = model
+        #vmodel = VelocityModel.read_tvel_file(filename)
+        taup_model = build_taup_model(filename, output_folder=os.getcwd())
+        velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+    else:
+        velmod=taup.TauPyModel(model='iasp91')
     #delta_distance=1. # km for spacing tt calculations
     distance_km=np.arange(0,maxdist+delta_distance,delta_distance)
     for d_km in distance_km:
@@ -1927,6 +1943,40 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
     return cat
 
 
+
+def quakeml_to_growclust(project_folder=None, project_code=None):
+    #run quakeml_to_hypodd first
+    with open(project_folder+'/phase.dat', 'r') as in_f: 
+        with open(project_folder+'/evlist.txt', 'w') as out_f: 
+            for ln in in_f: 
+                if ln.startswith('#'): 
+                    out_f.write('{}\n'.format(' '.join(ln.split()[1:])))
+    with open(project_folder+'/station.dat', 'r') as in_f: 
+        with open(project_folder+'/stlist.txt' , 'w') as out_f: 
+            for ln in in_f:
+                #print(ln[2])
+                if ln[2] == '.':
+                    out_f.write('{}'.format(ln[3:]))
+                else:
+                    out_f.write('{}'.format(ln))
+
+    with open(project_folder+'/dt.cc', 'r') as in_f: 
+        with open(project_folder+'/xcordata.txt' , 'w') as out_f: 
+            for ln in in_f: 
+                if ln[2] == '.':
+                    if len(ln[3:].split(' ')[0]) == 4:
+                        out_f.write('{}{}'.format('   ',ln[3:]))
+                    elif len(ln[3:].split(' ')[0]) == 5:
+                        out_f.write('{}{}'.format('  ',ln[3:]))
+                else:
+                    if ln[0] != '#':
+                        out_f.write('{}{}'.format('   ',ln))
+                    else:
+                        out_f.write(ln) 
+
+
+    
+    
 
 def reduce_catalog(cat=None, num_arr=8):
     events = list(cat.events)
