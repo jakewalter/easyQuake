@@ -577,7 +577,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, latitude=None, longitude=None, max_radius=None):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, latitude=None, longitude=None, max_radius=None, model=None):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
 
@@ -592,9 +592,9 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     print(db_tt)
     if local:
-        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     else:
-        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
