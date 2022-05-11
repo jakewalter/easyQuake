@@ -19,7 +19,7 @@ setuptools.setup(
         'obspy',
         'pandas',
         'tensorflow==2.1',
-        'tensorflow-gpu==2.1',
+        'tensorflow-gpu==2.5.3',
         'h5py==2.10.0',
         'tqdm',
     ],
