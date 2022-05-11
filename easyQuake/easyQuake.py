@@ -575,7 +575,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
         if fullpath_python:
-            os.system(fullpath_python+" "+fullpath2+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
@@ -1669,7 +1669,7 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
     plt.show()
 
 
-def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None):
     if vel_model is None:
         velmodel = pathhyp+'/standard.crh'
         os.system("cp %s %s" % (velmodel,project_folder))
@@ -1788,7 +1788,10 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None):
         frun.write('stop')
         frun.close()
         try:
-            os.system("cat %s/run.hyp | hyp2000" % (project_folder))
+            if fullpath_hyp:
+                os.system("cat %s/run.hyp | %s/hyp2000" % (project_folder, fullpath_hyp))
+            else:
+                os.system("cat %s/run.hyp | hyp2000" % (project_folder))
         except:
             pass
 
