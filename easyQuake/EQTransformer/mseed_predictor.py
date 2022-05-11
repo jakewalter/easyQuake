@@ -12,40 +12,22 @@ from keras.models import load_model
 from keras.optimizers import Adam
 import tensorflow as tf
 import numpy as np
-import pandas as pd
 import math
-import csv
 import keras
 import time
-from os import listdir
 import os
-import platform
-import shutil
-from tqdm import tqdm
 from datetime import datetime, timedelta
-import contextlib
-import sys
 import warnings
-from obspy import read
-from os.path import join
-import json
 import pickle
 import faulthandler; faulthandler.enable()
 import obspy
-import logging
 import argparse as ap
 
 from obspy.signal.trigger import trigger_onset
-from EqT_utils import f1, SeqSelfAttention, FeedForward, LayerNormalization
+from easyQuake.EQTransformer.EqT_utils import f1, SeqSelfAttention, FeedForward, LayerNormalization
 warnings.filterwarnings("ignore")
 from tensorflow.python.util import deprecation
 deprecation._PRINT_DEPRECATION_WARNINGS = False
-
-
-
-
-
-
 
 
 
@@ -185,9 +167,6 @@ def _detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising', kpsh=False, va
         ind = np.sort(ind[~idel])
 
     return ind
-
-
-
 
 
 def _picker(args, yh1, yh2, yh3):
@@ -490,8 +469,6 @@ class PreLoadGeneratorTest(keras.utils.Sequence):
         return X
 
 
-
-
 def _mseed2nparry(args, fdir, i, time_slots, comp_types):
     ' read miniseed files and from a list of string names and returns 3 dictionaries of numpy arrays, meta data, and time slice info'
 
@@ -515,11 +492,6 @@ def _mseed2nparry(args, fdir, i, time_slots, comp_types):
     st.filter(type='bandpass', freqmin = 1.0, freqmax = 45, corners=2, zerophase=True)
     st.taper(max_percentage=0.001, type='cosine', max_length=2)
     time_slots.append((st[0].stats.starttime, st[0].stats.endtime))
-
-
-
-
-
 
     if len([tr for tr in st if tr.stats.sampling_rate != 100.0]) != 0:
         try:
@@ -581,8 +553,6 @@ def _mseed2nparry(args, fdir, i, time_slots, comp_types):
 
 
     return meta, time_slots, comp_types, data_set
-
-
 
 
 detection_threshold=0.3
@@ -701,17 +671,7 @@ def _output_writter_prediction(meta, ofile, matches, snr, detection_memory, idx)
 
 
 
-
-
-
-
-
-
-
-
-
-
-if __name__ == "__main__":
+def main():
     parser = ap.ArgumentParser(
         prog='mseed_predictor.py',
         description='Automatic picking EQTransformer')
@@ -844,5 +804,5 @@ if __name__ == "__main__":
         pickle.dump(data_track, f, pickle.HIGHEST_PROTOCOL)
 
 
-
-
+if __name__ == "__main__":
+    main()
