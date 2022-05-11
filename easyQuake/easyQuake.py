@@ -208,11 +208,11 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     if model is not None:
         filename = model
         #vmodel = VelocityModel.read_tvel_file(filename)    
-        if os.path.exists(f"{filename[:-5]}.npz"):
-            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        if os.path.exists(project_folder+'/'+f"{filename[:-5]}.npz"):
+            velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
         else:
             taup_model = build_taup_model(filename, output_folder=os.getcwd())
-            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+            velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
     else:
         velmod=taup.TauPyModel(model='iasp91')
 
@@ -269,11 +269,11 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     if model is not None:
         filename = model
         #vmodel = VelocityModel.read_tvel_file(filename)
-        if os.path.exists(f"{filename[:-5]}.npz"):
-            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+        if os.path.exists(project_folder+'/'+f"{filename[:-5]}.npz"):
+            velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
         else:
             taup_model = build_taup_model(filename, output_folder=os.getcwd())
-            velmod = TauPyModel(model=f"{filename[:-5]}.npz")
+            velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
 
     else:
         velmod=taup.TauPyModel(model='iasp91')
@@ -291,7 +291,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
             distance_in_degree=d_deg,phase_list=['S','s'])
         for s in s_arrivals:
             stimes.append(s.time)
-        print(d_km,ptimes,stimes)
+        #print(d_km,ptimes,stimes)
         tt_entry=tt_stations_1D.TTtable1D(d_km,d_deg,np.min(ptimes),np.min(stimes),np.min(stimes)-np.min(ptimes))
         tt_session.add(tt_entry)
         tt_session.commit() # Probably faster to do the commit outside of loop but oh well
@@ -1647,7 +1647,7 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
 
 
 
-def plot_hypodd_catalog(file=None):
+def plot_hypodd_catalog(file=None,fancy_plot=False):
     catdfr = pd.read_csv(file,delimiter=r"\s+")
     catdfr = catdfr.dropna()
     catdfr = catdfr.reset_index(drop=True)
@@ -1667,8 +1667,10 @@ def plot_hypodd_catalog(file=None):
     from mpl_toolkits.basemap import Basemap
     # 1. Draw the map background
     #fig = plt.figure(figsize=(8, 8))
-    lat0 = np.median(catdfr.iloc[:,1].values)
-    lon0 = np.median(catdfr.iloc[:,2].values)
+    catdfr.iloc[:,1] = pd.to_numeric(catdfr.iloc[:,1].replace("**********",np.nan))
+    catdfr.iloc[:,2] = pd.to_numeric(catdfr.iloc[:,2].replace("***********",np.nan))
+    lat0 = np.nanmedian(catdfr.iloc[:,1].values)
+    lon0 = np.nanmedian(catdfr.iloc[:,2].values)
     m = Basemap(projection='lcc', resolution='h',
                 lat_0=lat0, lon_0=lon0,
                 width=1E6, height=.6E6)
@@ -1680,18 +1682,15 @@ def plot_hypodd_catalog(file=None):
 
     # 2. scatter city data, with color reflecting population
     # and size reflecting area
-    m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,16].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
+    if fancy_plot:
+        m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=catdfr.iloc[:,16].values**3*8,c=catdfr.index,marker='o',alpha=0.5,latlon=True)
+        cbar = plt.colorbar()
+        N_TICKS=8
+        indexes = [catdfr['rutc'].iloc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
+        cbar.ax.set_yticklabels(indexes)
+    else:
+        m.scatter(catdfr.iloc[:,2].values,catdfr.iloc[:,1].values,s=10,c='k',marker='o',alpha=1,latlon=True)
 
-    #m.scatter(catdfo.iloc[:,2].values,catdfo.iloc[:,1].values,s=catdfo.iloc[:,16].values**3*10,c=catdfo.index,marker='o',alpha=0.5,latlon=True)
-
-
-
-    cbar = plt.colorbar()
-    N_TICKS=8
-    indexes = [catdfr['rutc'].iloc[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
-
-    #indexes = [catdfr.index[i].strftime('%Y-%m-%d') for i in np.linspace(0,catdfr.shape[0]-1,N_TICKS).astype(int)]
-    cbar.ax.set_yticklabels(indexes)
     plt.savefig('hypoDDmap.png')
     plt.show()
 
