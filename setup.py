@@ -20,6 +20,7 @@ setuptools.setup(
         'pandas',
         'tensorflow==2.1',
         'tensorflow-gpu==2.1',
+        'h5py==2.10.0',
         'tqdm',
     ],
     include_package_data=True,

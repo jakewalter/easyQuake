@@ -566,14 +566,16 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
+        fullpath1 = pathgpd+'/gpd_predict.py'
         if fullpath_python:
-            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
             os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     elif machine == True and machine_picker == 'EQTransformer':
+        fullpath2 = pathEQT+'/mseed_predictor.py'
         if fullpath_python:
-            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+            os.system(fullpath_python+" "+fullpath2+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
