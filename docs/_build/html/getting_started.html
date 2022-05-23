@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Running easyQuake &mdash; easyQuake 0.9 documentation</title>
+  <title>Running easyQuake &mdash; easyQuake 1.0.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -18,6 +18,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="Additional.html" />
     <link rel="prev" title="About" href="About.html" /> 
 </head>
 
@@ -28,6 +29,9 @@
         <div class="wy-side-nav-search" >
             <a href="index.html" class="icon icon-home"> easyQuake
           </a>
+              <div class="version">
+                1.0
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -113,7 +117,7 @@
 
 <span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
 <span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
-<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">):</span>
     <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">download_mseed</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">minlat</span><span class="o">=</span><span class="n">lat_a</span><span class="p">,</span> <span class="n">maxlat</span><span class="o">=</span><span class="n">lat_b</span><span class="p">,</span> <span class="n">minlon</span><span class="o">=</span><span class="n">lon_a</span><span class="p">,</span> <span class="n">maxlon</span><span class="o">=</span><span class="n">lon_b</span><span class="p">)</span>
 </pre></div>
@@ -130,7 +134,7 @@
 
 <span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
 <span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
-<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">):</span>
     <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">detection_continuous</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="c1"># run it with EQTransformer instead of GPD picker</span>
@@ -146,6 +150,7 @@
 <p>For event association, we modified the PhasePApy package (Chen and Holland, 2016) to work within the easyQuake data structure and outputs from the picker. Either ML picker generates a file called gpd_picks.out that is simply a list of plausible detected events, time of detection, and station name. Another way to check that the pickers are working is whether there is data in the gpd_picks.out file. In the previous step, those detections are added to an sqlite file called 1dassociator.db, which should be within each day folder where detection has been completed. As above, the association can be completed on the example tutorial dataset:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">association_continuous</span>
 <span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">daterange</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">combine_associated</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span>
 <span class="n">start_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
 <span class="n">end_date</span> <span class="o">=</span> <span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -154,7 +159,7 @@
 
 <span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
 <span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
-<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">):</span>
     <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">association_continuous</span><span class="p">(</span><span class="n">dirname</span><span class="o">=</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">,</span> <span class="n">maxdist</span><span class="o">=</span><span class="n">maxdist</span><span class="p">,</span> <span class="n">maxkm</span><span class="o">=</span><span class="n">maxkm</span><span class="p">,</span> <span class="n">single_date</span><span class="o">=</span><span class="n">single_date</span><span class="p">,</span> <span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">cat</span><span class="p">,</span> <span class="n">dfs</span> <span class="o">=</span> <span class="n">combine_associated</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">)</span>
@@ -174,7 +179,7 @@
 <span class="n">pool</span> <span class="o">=</span> <span class="n">Pool</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
 <span class="n">project_code</span> <span class="o">=</span> <span class="s1">&#39;idaho&#39;</span>
 <span class="n">project_folder</span> <span class="o">=</span> <span class="s1">&#39;/data/id&#39;</span>
-<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">single_date</span> <span class="ow">in</span> <span class="n">daterange</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">):</span>
     <span class="n">dirname</span> <span class="o">=</span> <span class="n">single_date</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">association_continuous</span><span class="p">,</span> <span class="p">(</span><span class="n">dirname</span><span class="p">,</span> <span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="p">,</span> <span class="n">maxdist</span><span class="p">,</span> <span class="n">maxkm</span><span class="p">,</span> <span class="n">single_date</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 <span class="n">pool</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
@@ -182,7 +187,7 @@
 <span class="n">cat</span><span class="p">,</span> <span class="n">dfs</span> <span class="o">=</span> <span class="n">combine_associated</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="n">project_code</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The final line in the association example combine all the day folder possible events and saves a <em>cat.xml</em> Obsby-compatible Catalog file in the <em>project_folder</em>. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).</p>
+<p>The final line in the association example combine all the day folder possible events and saves a <em>idaho_cat.xml</em> Obsby-compatible Catalog file in the <em>project_folder</em>. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).</p>
 </section>
 <section id="earthquake-magnitude">
 <h3>Earthquake Magnitude<a class="headerlink" href="#earthquake-magnitude" title="Permalink to this headline"></a></h3>
@@ -205,8 +210,10 @@
 </section>
 <section id="additional-modules">
 <h2>Additional Modules<a class="headerlink" href="#additional-modules" title="Permalink to this headline"></a></h2>
+<p>In addition to the core modules, we have written various submodules to extend easyQuake/</p>
 <section id="hypoinverse">
 <h3>Hypoinverse<a class="headerlink" href="#hypoinverse" title="Permalink to this headline"></a></h3>
+<p>Put something here</p>
 </section>
 </section>
 <section id="tips-for-success">
@@ -227,6 +234,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="About.html" class="btn btn-neutral float-left" title="About" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Additional.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

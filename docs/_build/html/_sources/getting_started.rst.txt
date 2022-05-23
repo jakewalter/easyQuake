@@ -1,9 +1,9 @@
 .. _Getting_Started:
 
 
-*****************
+******************
 Running easyQuake
-*****************
+******************
 
 .. _event-mode:
 
@@ -44,7 +44,7 @@ As a tutorial example, let's gather data adjacent to the March 31, 2020 M6.5 Cen
 
         project_code = 'idaho'
         project_folder = '/data/id'
-        for single_date in daterange(start_date, end_date)
+        for single_date in daterange(start_date, end_date):
             dirname = single_date.strftime("%Y%m%d")
             download_mseed(dirname=dirname, project_folder=project_folder, single_date=single_date, minlat=lat_a, maxlat=lat_b, minlon=lon_a, maxlon=lon_b)
 
@@ -61,7 +61,7 @@ Earthquake detection leverages either one of two machine-learning pickers: GPD (
 
         project_code = 'idaho'
         project_folder = '/data/id'
-        for single_date in daterange(start_date, end_date)
+        for single_date in daterange(start_date, end_date):
             dirname = single_date.strftime("%Y%m%d")
             detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, single_date=single_date, machine=True,local=True)
             # run it with EQTransformer instead of GPD picker
@@ -79,6 +79,7 @@ For event association, we modified the PhasePApy package (Chen and Holland, 2016
         
         from easyQuake import association_continuous
         from easyQuake import daterange
+        from easyQuake import combine_associated
         from datetime import date
         start_date = date(2020, 3, 31)
         end_date = date(2020, 4, 2)
@@ -87,7 +88,7 @@ For event association, we modified the PhasePApy package (Chen and Holland, 2016
         
         project_code = 'idaho'
         project_folder = '/data/id'
-        for single_date in daterange(start_date, end_date)
+        for single_date in daterange(start_date, end_date):
             dirname = single_date.strftime("%Y%m%d")
             association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True)
         cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code)
@@ -108,14 +109,14 @@ This script runs the association step, in serial, within each day folder. Obviou
         pool = Pool(20)
         project_code = 'idaho'
         project_folder = '/data/id'
-        for single_date in daterange(start_date, end_date)
+        for single_date in daterange(start_date, end_date):
             dirname = single_date.strftime("%Y%m%d")
             pool.apply_async(association_continuous, (dirname, project_folder, project_code, maxdist, maxkm, single_date, True, 4, 1))
         pool.close()
         pool.join()  
         cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code)
 
-The final line in the association example combine all the day folder possible events and saves a *cat.xml* Obsby-compatible Catalog file in the *project_folder*. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).
+The final line in the association example combine all the day folder possible events and saves a *idaho_cat.xml* Obsby-compatible Catalog file in the *project_folder*. This file is also QuakeML compatible and includes pick and origin info. The catalog will be built out in subsequent post-processing steps (below).
 
 Earthquake Magnitude
 --------------------
@@ -138,10 +139,11 @@ Finally, we estimate earthquake magnitudes and the submodule *magnitude_quakeml*
 Additional Modules
 ===================
 
+In addition to the core modules, we have written various submodules to extend easyQuake/
+
 Hypoinverse 
 -------------
-
-
+Put something here
 
 Tips for Success
 ================
