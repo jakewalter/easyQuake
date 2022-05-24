@@ -18,7 +18,7 @@ setuptools.setup(
         'keras==2.3.1',
         'obspy',
         'pandas',
-        'tensorflow==2.1',
+        'tensorflow==2.6.4',
         'tensorflow-gpu==2.1',
         'h5py==2.10.0',
         'tqdm',
