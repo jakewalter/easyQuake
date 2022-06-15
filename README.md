@@ -57,7 +57,7 @@ detection_association_event(project_folder='/scratch', project_code='ok', maxdis
 This next example runs easyQuake for a recent M6.5 earthquake in Idaho for the 2 days around the earthquake (foreshocks and aftershocks). The catalog from running the example is in the examples folder: https://github.com/jakewalter/easyQuake/blob/master/examples/catalog_idaho_2days.xml
 
 If you don't have a suitable computer, try it in Google Colab
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jakewalter/easyQuake/blob/master/examples/easyquake_demo.ipynb)]
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jakewalter/easyQuake/blob/master/examples/easyquake_demo.ipynb)
 
 ```
 from easyQuake import download_mseed
