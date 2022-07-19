@@ -128,7 +128,7 @@ Finally, we estimate earthquake magnitudes and the submodule *magnitude_quakeml*
         import matplotlib.pyplot as plt
         cat = read_events('idaho_cat.xml')
         cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=True)
-        cat.write('catalog_idaho.xml',format='QUAKEML')
+        cat.write('catalog_idaho.xml', format='QUAKEML')
 
         #test to see whether it was a success 
         catdf = simple_cat_df(cat)
@@ -143,7 +143,16 @@ In addition to the core modules, we have written various submodules to extend ea
 
 Hypoinverse 
 -------------
-Put something here
+Assuming that the user's computer has hypoinverse installed (*hyp2000* as it is compiled on most systems) and it resides in the user's path, you can drive hypoinverse with easyQuake. The steps above give a location at 5 km depth during association, which can be quite different than the absolute location::
+        
+        from easyQuake import locate_hyp2000
+        cat = locate_hyp2000(cat=cat, project_folder=project_folder)
+        cat.write('catalog_idaho_hyp.xml', format='QUAKEML')
+
+If you examine the Catalog object, you can see that there are more than one origin for most events::
+        
+        print(cat[0].origins)
+
 
 Tips for Success
 ================

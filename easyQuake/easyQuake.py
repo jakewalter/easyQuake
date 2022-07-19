@@ -31,11 +31,14 @@ pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
+from .sta_lta.trigger_p_s import trigger_p_s
+
 import os
 st = os.stat(pathgpd+'/gpd_predict.py')
 st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
+from multiprocessing import Pool
 
 import os
 from obspy import UTCDateTime
@@ -382,7 +385,30 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
                 for i in range(len(picks)):
                     new_pick=tables1D.Pick(scnl,picks[i].datetime,polarity[i],snr[i],uncert[i],t_create)
                     dbsession.add(new_pick)
-
+                    
+def queue_sta_lta(infile,outfile,dirname):
+    fdir = []
+    with open(infile) as f:
+        for line in f:
+            tmp = line.split()
+            fdir.append([tmp[0], tmp[1], tmp[2]])
+    nsta = len(fdir)
+    pool = Pool(7)
+    for i in range(nsta):
+        #try:
+        print(str(i+1)+" of "+str(nsta)+" stations")
+        pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0],))
+    pool.close()
+    pool.join()
+    if os.path.exists(outfile):
+        os.remove(outfile)
+    filenames = glob.glob(outfile.split('.')[0]+'*')
+    with open(outfile, 'w') as outfile:
+        for fname in filenames:
+            with open(fname) as infile:
+                for line in infile:
+                    outfile.write(line)
+                    
 def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
     filepath = fileinput
     with open(filepath) as fp:
@@ -580,8 +606,11 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
-        picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
-        fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
+        queue_sta_lta(infile,outfile,dirname)
+        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+
+        #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
+        #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
 def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, latitude=None, longitude=None, max_radius=None, model=None):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')

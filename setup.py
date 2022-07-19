@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="easyQuake",
-    version="1.0.1",
+    version="1.1.0",
     author="Jake Walter",
     author_email="jakeiwalter@gmail.com",
     description="Simplified machine-learning driven earthquake detection, location, and analysis",
@@ -19,9 +19,9 @@ setuptools.setup(
         'obspy',
         'pandas',
         'tensorflow==2.1',
-        'tensorflow-gpu==2.1',
         'h5py==2.10.0',
         'tqdm',
+        'tensorflow-gpu==2.1',
     ],
     include_package_data=True,
     classifiers=[
