@@ -395,7 +395,12 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
             tmp = line.split()
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
-    pool = Pool(cpu_count()-1)
+    n_cpus1 = min(cpu_count(), nsta)
+    if n_cpus1 == cpu_count():
+        n_cpus = n_cpus1-1
+    else:
+        n_cpus = n_cpus1
+    pool = Pool(n_cpus-1)
     for i in range(nsta):
         #try:
         print(str(i+1)+" of "+str(nsta)+" stations")
