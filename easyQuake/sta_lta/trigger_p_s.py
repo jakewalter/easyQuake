@@ -63,7 +63,8 @@ def recSTALTAPy_h(a, b, nsta, nlta):
 
 
 
-def trigger_p_s(fdir, i, outfilea):
+def trigger_p_s(fdir, i, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
+    #t_sta,t_lta in seconds
     f = open(outfilea+str(i),'w')
 
     stn = read(fdir[i][0])
@@ -85,15 +86,15 @@ def trigger_p_s(fdir, i, outfilea):
     ste.detrend('linear') 
     stn.detrend('demean') 
     stn.detrend('linear') 
-    ste.filter(type="bandpass",freqmin=2.0,freqmax=15.0,zerophase=False)
-    stn.filter(type="bandpass",freqmin=2.0,freqmax=15.0,zerophase=False)
+    ste.filter(type="bandpass",freqmin=filtmin,freqmax=filtmax,zerophase=False)
+    stn.filter(type="bandpass",freqmin=filtmin,freqmax=filtmax,zerophase=False)
     trz = stz[0]  
     tre = ste[0]
     trn = stn[0]
 
     trz.detrend('demean') 
     trz.detrend('linear') 
-    trz.filter(type="bandpass",freqmin=2.0,freqmax=24.0,zerophase=False)
+    trz.filter(type="bandpass",freqmin=filtmin,freqmax=filtmax,zerophase=False)
     df = trz.stats.sampling_rate
     #tstart = trz.stats.starttime - UTCDateTime(int(dirname[0:4]),int(dirname[4:6]),int(dirname[6:8])) 
     dfe = tre.stats.sampling_rate
@@ -103,10 +104,10 @@ def trigger_p_s(fdir, i, outfilea):
     if (earliest_stop>latest_start):
         trn.trim(latest_start, earliest_stop)
         tre.trim(latest_start, earliest_stop)
-    cfte = recSTALTAPy_h(tre.data, trn.data, int(0.2 * df), int(2.5 * df))
-    on_ofe = trigger_onset(cfte, 4.0, 2.0)
-    cft = recursive_sta_lta(trz.data, int(0.1 * df), int(2.5 * df))
-    on_of = trigger_onset(cft, 6.0, 2.0)
+    cfte = recSTALTAPy_h(tre.data, trn.data, int(t_sta * df), int(t_lta * df))
+    on_ofe = trigger_onset(cfte, trigger_on, trigger_off)
+    cft = recursive_sta_lta(trz.data, int(t_sta * df), int(t_lta * df))
+    on_of = trigger_onset(cft, trigger_on, trigger_off)
     
     i = 0
     while(i<len(on_ofe)):
@@ -115,7 +116,7 @@ def trigger_p_s(fdir, i, outfilea):
         trig_offe = int(trig_ofe + (trig_ofe - trig_one)*4.0)
         if trig_offe >= tre.stats.npts - 1:
             break
-        if max(cft[trig_one:trig_ofe]) > 6.0:
+        if max(cfte[trig_one:trig_ofe]) > 6.0:
             f.write("%s %s %s S %s\n" % (tre.stats.network, tre.stats.station, tre.stats.channel, (tre.stats.starttime+trig_one/dfe).isoformat()))
         i=i+1
         

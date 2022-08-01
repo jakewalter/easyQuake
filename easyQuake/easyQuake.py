@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-set of functions to drive EasyQuake
+set of functions to drive easyQuake
 """
 
 print(r"""
@@ -39,6 +39,7 @@ st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
 from multiprocessing import Pool
+from multiprocessing import cpu_count
 
 import os
 from obspy import UTCDateTime
@@ -386,18 +387,19 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
                     new_pick=tables1D.Pick(scnl,picks[i].datetime,polarity[i],snr[i],uncert[i],t_create)
                     dbsession.add(new_pick)
                     
-def queue_sta_lta(infile,outfile,dirname):
+def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
+    #add sta/lta stuff
     fdir = []
     with open(infile) as f:
         for line in f:
             tmp = line.split()
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
-    pool = Pool(7)
+    pool = Pool(cpu_count()-1)
     for i in range(nsta):
         #try:
         print(str(i+1)+" of "+str(nsta)+" stations")
-        pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0],))
+        pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0], filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
     pool.close()
     pool.join()
     if os.path.exists(outfile):
@@ -408,7 +410,10 @@ def queue_sta_lta(infile,outfile,dirname):
             with open(fname) as infile:
                 for line in infile:
                     outfile.write(line)
+    for file1 in filenames:
+        os.remove(file1)
                     
+
 def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
     filepath = fileinput
     with open(filepath) as fp:
@@ -471,7 +476,7 @@ def get_chan3(stationfile):
         comp3 = list(filter(None, stationfile.split('/')[-1].split('.')))[2][0:3]
     return comp3
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -606,7 +611,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
     else:
-        queue_sta_lta(infile,outfile,dirname)
+        queue_sta_lta(infile,outfile,dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off)
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
 
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
