@@ -136,6 +136,8 @@ python idaho_example.py
 ```
 ## Version brief notes
 
+Version 1.2 (8/1/2022) - Rewrote the non-ML picker to be easier to work with (recursive_sta_lta from obpsy) and include input of those parameters within detection_continuous function.
+
 Version 0.9 (2/23/2022) - Modules to cut easyQuake event waveforms from continuous data (cut_event_waveforms) and module for converting easyQuake catalog (or any QuakeML-formatted catalog) to HDF5 (quakeML_to_hdf5) for training new ML models
 
 Version 0.8 (7/30/2021) - Several major bug fixes and improved controls for Hypoinverse location
@@ -150,7 +152,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* code was used or otherwise changed to suit our purposes from obspy (https://github.com/obspy/obspy/wiki), gpd (https://github.com/interseismic/generalized-phase-detection), PhasePApy (https://github.com/austinholland/PhasePApy), EQTransformer (https://github.com/smousavi05/EQTransformer) and others
+* code was used or otherwise changed to suit our purposes from obspy (https://github.com/obspy/obspy/wiki), GPD (https://github.com/interseismic/generalized-phase-detection), PhasePApy (https://github.com/austinholland/PhasePApy), EQTransformer (https://github.com/smousavi05/EQTransformer) and others
 * would not be possible without the robust documentation in the obspy project
 * this work was developed at the Oklahoma Geological Survey
 
