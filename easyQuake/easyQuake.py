@@ -1103,7 +1103,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
                             print(ml, ml_iaspei)
 
-                            if epi_dist < 160:
+                            if epi_dist < 200:
                                 mags.append(ml)
                                 mags_iaspei.append(ml_iaspei)
                                 #### make StationMagnitude
@@ -1120,7 +1120,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 ## add them to the event
                                 event.station_magnitudes.append(stamag)
                             else:
-                                print('Station not within 160 km of the epicenter - no station magnitude')
+                                print('Station not within 200 km of the epicenter - no station magnitude')
                             event.amplitudes.append(amp)
                     except Exception:
                         print(traceback.format_exc())#input("push")
