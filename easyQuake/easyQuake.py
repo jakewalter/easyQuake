@@ -33,6 +33,7 @@ from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
 from .sta_lta.trigger_p_s import trigger_p_s
 
+import traceback
 import os
 st = os.stat(pathgpd+'/gpd_predict.py')
 st1 = os.stat(pathEQT+'/mseed_predictor.py')
@@ -965,7 +966,7 @@ def polarity(tr,pickP=None):
         elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
             polarity='negative'
         else:
-            polarity='undecidable'
+            polarity='undecidable polarity'
     return polarity
 
 
@@ -1116,10 +1117,13 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 stamag.mag = ml
                                 stamag.station_magnitude_type = 'ML'
                                 stamag.amplitude_id = amp.resource_id
-                            ## add them to the event
-                            event.station_magnitudes.append(stamag)
+                                ## add them to the event
+                                event.station_magnitudes.append(stamag)
+                            else:
+                                print('Station not within 160 km of the epicenter - no station magnitude')
                             event.amplitudes.append(amp)
-                    except:
+                    except Exception:
+                        print(traceback.format_exc())#input("push")
                         print('Something went wrong here')
                         pass
                 except:
@@ -1175,6 +1179,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 plt.close()
         except:
             print('Magnitude failed')
+            print(traceback.format_exc())#input("push")
+
             pass
     if not eventmode:
         cat.write(project_folder+'/cat.xml',format="QUAKEML")
