@@ -970,7 +970,7 @@ def polarity(tr,pickP=None):
     return polarity
 
 
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
@@ -1103,7 +1103,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
                             print(ml, ml_iaspei)
 
-                            if epi_dist < 200:
+                            if epi_dist < cutoff_dist:
                                 mags.append(ml)
                                 mags_iaspei.append(ml_iaspei)
                                 #### make StationMagnitude
@@ -1120,7 +1120,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 ## add them to the event
                                 event.station_magnitudes.append(stamag)
                             else:
-                                print('Station not within 200 km of the epicenter - no station magnitude')
+                                print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
                             event.amplitudes.append(amp)
                     except Exception:
                         print(traceback.format_exc())#input("push")
