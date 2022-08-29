@@ -153,6 +153,31 @@ If you examine the Catalog object, you can see that there are more than one orig
         
         print(cat[0].origins)
 
+Interface with Seiscomp 
+-----------------------
+At OGS, our analysts review ML-derived events and re-adjust picks, etc. The easyQuake events can be easily passed to a Seiscomp system. For this example, Machine #1 can be the computer that runs easyQuake, while Machine #2 will be the Seiscomp production system. First, on Machine #1::
+        
+        #export to SC3ML file rather than QuakeML
+	from easyQuake import single_event_xml
+	format = "SC3ML"
+	#remove the previous zip file
+	os.system('rm -r /scratch/scratch/'+format.lower()+'*')
+	single_event_xml(cat,'/scratch/scratch',format)
+	import shutil
+	shutil.make_archive('/scratch/scratch/sc3ml', 'zip', '/scratch/scratch/', '/scratch/scratch/sc3ml')
+	os.system('scp /scratch/scratch/sc3ml.zip /machine2/directory/ml/')
+
+Then on Machine #2, we have a listener written in bash that waits for file ingestion and strips away the event info so that it can be added to the event queue for review::
+        
+        #!/bin/bash
+	/usr/local/bin/inotifywait -m /home/sysop/incoming_ML -e create -e moved_to |
+    	while read directory action file; do
+        	if [[ "$file" =~ .*xml$ ]]; then # Does the file end with .xml?
+            		scdispatch -i /home/sysop/incoming_ML/$file -O add --routingtable Pick:PICK,Amplitude:AMPLITUDE,Origin:LOCATION,StationMagnitude:MAGNITUDE,Magnitude:MAGNITUDE
+            		rm /home/sysop/incoming_ML/$file
+        	fi
+    	done
+
 
 Tips for Success
 ================

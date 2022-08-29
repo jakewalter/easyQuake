@@ -54,6 +54,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#additional-modules">Additional Modules</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#hypoinverse">Hypoinverse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interface-with-seiscomp">Interface with Seiscomp</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#tips-for-success">Tips for Success</a></li>
@@ -198,7 +199,7 @@
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="n">cat</span> <span class="o">=</span> <span class="n">read_events</span><span class="p">(</span><span class="s1">&#39;idaho_cat.xml&#39;</span><span class="p">)</span>
 <span class="n">cat</span> <span class="o">=</span> <span class="n">magnitude_quakeml</span><span class="p">(</span><span class="n">cat</span><span class="o">=</span><span class="n">cat</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">,</span><span class="n">plot_event</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">cat</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;catalog_idaho.xml&#39;</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;QUAKEML&#39;</span><span class="p">)</span>
+<span class="n">cat</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;catalog_idaho.xml&#39;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;QUAKEML&#39;</span><span class="p">)</span>
 
 <span class="c1">#test to see whether it was a success</span>
 <span class="n">catdf</span> <span class="o">=</span> <span class="n">simple_cat_df</span><span class="p">(</span><span class="n">cat</span><span class="p">)</span>
@@ -213,7 +214,42 @@
 <p>In addition to the core modules, we have written various submodules to extend easyQuake/</p>
 <section id="hypoinverse">
 <h3>Hypoinverse<a class="headerlink" href="#hypoinverse" title="Permalink to this headline"></a></h3>
-<p>Put something here</p>
+<p>Assuming that the user’s computer has hypoinverse installed (<em>hyp2000</em> as it is compiled on most systems) and it resides in the user’s path, you can drive hypoinverse with easyQuake. The steps above give a location at 5 km depth during association, which can be quite different than the absolute location:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">locate_hyp2000</span>
+<span class="n">cat</span> <span class="o">=</span> <span class="n">locate_hyp2000</span><span class="p">(</span><span class="n">cat</span><span class="o">=</span><span class="n">cat</span><span class="p">,</span> <span class="n">project_folder</span><span class="o">=</span><span class="n">project_folder</span><span class="p">)</span>
+<span class="n">cat</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;catalog_idaho_hyp.xml&#39;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;QUAKEML&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you examine the Catalog object, you can see that there are more than one origin for most events:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">cat</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">origins</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="interface-with-seiscomp">
+<h3>Interface with Seiscomp<a class="headerlink" href="#interface-with-seiscomp" title="Permalink to this headline"></a></h3>
+<p>At OGS, our analysts review ML-derived events and re-adjust picks, etc. The easyQuake events can be easily passed to a Seiscomp system. For this example, Machine #1 can be the computer that runs easyQuake, while Machine #2 will be the Seiscomp production system. First, on Machine #1:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#export to SC3ML file rather than QuakeML</span>
+<span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">single_event_xml</span>
+<span class="nb">format</span> <span class="o">=</span> <span class="s2">&quot;SC3ML&quot;</span>
+<span class="c1">#remove the previous zip file</span>
+<span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s1">&#39;rm -r /scratch/scratch/&#39;</span><span class="o">+</span><span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">+</span><span class="s1">&#39;*&#39;</span><span class="p">)</span>
+<span class="n">single_event_xml</span><span class="p">(</span><span class="n">cat</span><span class="p">,</span><span class="s1">&#39;/scratch/scratch&#39;</span><span class="p">,</span><span class="nb">format</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">make_archive</span><span class="p">(</span><span class="s1">&#39;/scratch/scratch/sc3ml&#39;</span><span class="p">,</span> <span class="s1">&#39;zip&#39;</span><span class="p">,</span> <span class="s1">&#39;/scratch/scratch/&#39;</span><span class="p">,</span> <span class="s1">&#39;/scratch/scratch/sc3ml&#39;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">system</span><span class="p">(</span><span class="s1">&#39;scp /scratch/scratch/sc3ml.zip /machine2/directory/ml/&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then on Machine #2, we have a listener written in bash that waits for file ingestion and strips away the event info so that it can be added to the event queue for review:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>#!/bin/bash
+/usr/local/bin/inotifywait -m /home/sysop/incoming_ML -e create -e moved_to |
+while read directory action file; do
+        if [[ &quot;$file&quot; =~ .*xml$ ]]; then # Does the file end with .xml?
+                scdispatch -i /home/sysop/incoming_ML/$file -O add --routingtable Pick:PICK,Amplitude:AMPLITUDE,Origin:LOCATION,StationMagnitude:MAGNITUDE,Magnitude:MAGNITUDE
+                rm /home/sysop/incoming_ML/$file
+        fi
+done
+</pre></div>
+</div>
 </section>
 </section>
 <section id="tips-for-success">
