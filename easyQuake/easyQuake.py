@@ -189,22 +189,23 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     fdsnclient=Client()
-    inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=lat1,longitude=long1,maxradius=maxrad,channel='*H*',level='response')
+    inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=lat1,longitude=long1,maxradius=maxrad,channel='*H*',level='station')
     # Get inventory
     for net in inv:
         network=net.code
         for sta in net:
-            loccodes=[]
-            for ch in sta:
-                for cc in channel_codes:
-                  if re.match(cc,ch.code):
-                    if not ch.location_code in loccodes:
-                      loccodes.append(ch.location_code)
-            for loc in loccodes:
-                print(sta.code,network,loc,sta.latitude,sta.longitude,sta.elevation)
-                station=tt_stations_1D.Station1D(sta.code,network,loc,sta.latitude,sta.longitude,sta.elevation)
-                tt_session.add(station)
-            tt_session.commit()
+            # loccodes=[]
+            # for ch in sta:
+            #     for cc in channel_codes:
+            #       if re.match(cc,ch.code):
+            #         if not ch.location_code in loccodes:
+            #           loccodes.append(ch.location_code)
+            # for loc in loccodes:
+            loc = ''
+            print(sta.code,network,loc,sta.latitude,sta.longitude,sta.elevation)
+            station=tt_stations_1D.Station1D(sta.code,network,loc,sta.latitude,sta.longitude,sta.elevation)
+            tt_session.add(station)
+    tt_session.commit()
 
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
@@ -598,7 +599,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             inv.networks.extend(inv1a)
     else:
         fdsnclient=Client()
-        inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
+        inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='station')
 
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
