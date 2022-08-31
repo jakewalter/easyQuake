@@ -982,17 +982,24 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         print(origin)
         event_lat = origin.latitude
         event_lon = origin.longitude
-        strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-        if eventmode:
-            strday = str(project_folder.split('/')[-1])
-        #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-        print(strday)
-        strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
+        # strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        # if eventmode:
+        #     strday = str(project_folder.split('/')[-1])
+        # #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        # print(strday)
+        # strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
         mags = []
         mags_iaspei = []
 
         st2 = Stream()
         for idx1, pick in enumerate(event.picks):
+            strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
+            if eventmode:
+                strday = str(project_folder.split('/')[-1])
+            #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+            print(strday)
+            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+            
             if pick.phase_hint == 'S':
                 ### make Amplitude
                 st3 = []
