@@ -412,7 +412,7 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
         #try:
         print(str(i+1)+" of "+str(nsta)+" stations")
         print(fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,)
-        r = pool.apply_async(trigger_p_s, (fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
+        pool.apply(trigger_p_s, (fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
         #print(r.get())
         #results.append((i,r))
     pool.close()
