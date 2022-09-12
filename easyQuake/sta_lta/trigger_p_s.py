@@ -5,14 +5,10 @@ Created on Mon Jul 18 11:44:47 2022
 
 @author: jwalter
 """
-import obspy
-import os
-import shutil
-from obspy import read,UTCDateTime
-from obspy.signal.trigger import recursive_sta_lta, trigger_onset, classic_sta_lta, plot_trigger
-# how to pick phases using STA/LTA method? Please refer to
-# https://docs.obspy.org/tutorial/code_snippets/trigger_tutorial.html
-import numpy as np
+#import obspy
+#import os
+#import shutil
+
 
 
     # infile = dir1+'/dayfile.in'
@@ -34,6 +30,7 @@ def recSTALTAPy_h(a, b, nsta, nlta):
     :return: Characteristic function of recursive STA/LTA
     .. seealso:: [Withers1998]_ (p. 98) and [Trnkoczy2012]_
     """
+    import numpy as np
     try:
         a = a.tolist()
     except:
@@ -65,7 +62,13 @@ def recSTALTAPy_h(a, b, nsta, nlta):
 
 def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
     #t_sta,t_lta in seconds
+    from obspy import read
+    from obspy.signal.trigger import recursive_sta_lta, trigger_onset
+    # how to pick phases using STA/LTA method? Please refer to
+    # https://docs.obspy.org/tutorial/code_snippets/trigger_tutorial.html
+    import numpy as np
     f = open(outfilea,'w')
+    
 
     stn = read(fdir[0])
     stn.merge(method=1)
