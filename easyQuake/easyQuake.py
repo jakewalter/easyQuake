@@ -39,8 +39,8 @@ st = os.stat(pathgpd+'/gpd_predict.py')
 st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
-from multiprocessing import Pool
-from multiprocessing import cpu_count
+from multiprocess import Pool
+from multiprocess import cpu_count
 
 import os
 from obspy import UTCDateTime
@@ -590,7 +590,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
     #gpd_predict(inputfile=infile,outputfile=outfile)
     fileinassociate = outfile
-
+    #remove this later as it is called in association module?
     if local:
         inv = Inventory()
         dir1a = glob.glob(project_folder+'/'+dirname+'/*xml')
