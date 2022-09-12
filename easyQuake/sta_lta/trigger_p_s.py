@@ -63,21 +63,21 @@ def recSTALTAPy_h(a, b, nsta, nlta):
 
 
 
-def trigger_p_s(fdir, i, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
+def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
     #t_sta,t_lta in seconds
-    f = open(outfilea+str(i),'w')
+    f = open(outfilea,'w')
 
-    stn = read(fdir[i][0])
+    stn = read(fdir[0])
     stn.merge(method=1)
     for tr in stn:
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
-    ste = read(fdir[i][1])
+    ste = read(fdir[1])
     ste.merge(method=1)
     for tr in ste:
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
-    stz = read(fdir[i][2])
+    stz = read(fdir[2])
     stz.merge(method=1)
     for tr in stz:
         if isinstance(tr.data, np.ma.masked_array):
@@ -136,4 +136,4 @@ def trigger_p_s(fdir, i, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, 
     f.close()
 
 if __name__ == "__main__":
-    main()
+    trigger_p_s()
