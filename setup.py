@@ -21,7 +21,7 @@ setuptools.setup(
         'tensorflow==2.1',
         'h5py==2.10.0',
         'tqdm',
-        'tensorflow-gpu==2.1',
+        'tensorflow-gpu==2.7.2',
     ],
     include_package_data=True,
     classifiers=[
