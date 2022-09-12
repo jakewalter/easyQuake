@@ -21,7 +21,6 @@ setuptools.setup(
         'tensorflow==2.1',
         'h5py==2.10.0',
         'tqdm',
-        'multiprocess',
         'tensorflow-gpu==2.1',
     ],
     include_package_data=True,

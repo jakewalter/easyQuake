@@ -39,8 +39,11 @@ st = os.stat(pathgpd+'/gpd_predict.py')
 st1 = os.stat(pathEQT+'/mseed_predictor.py')
 import stat
 
-from multiprocess import Pool
-from multiprocess import cpu_count
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+#from multiprocessing import set_start_method
+#set_start_method("spawn")
+from multiprocessing import get_context
 
 import os
 from obspy import UTCDateTime
@@ -402,23 +405,24 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
         n_cpus = n_cpus1-1
     else:
         n_cpus = n_cpus1
-    pool = Pool(n_cpus-1)
-    for i in range(nsta):
-        #try:
-        print(str(i+1)+" of "+str(nsta)+" stations")
-        pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0], filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
-    pool.close()
-    pool.join()
-    if os.path.exists(outfile):
-        os.remove(outfile)
-    filenames = glob.glob(outfile.split('.')[0]+'*')
-    with open(outfile, 'w') as outfile:
-        for fname in filenames:
-            with open(fname) as infile:
-                for line in infile:
-                    outfile.write(line)
-    for file1 in filenames:
-        os.remove(file1)
+    with get_context("spawn").Pool() as pool:
+        pool = Pool(n_cpus-1)
+        for i in range(nsta):
+            #try:
+            print(str(i+1)+" of "+str(nsta)+" stations")
+            pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0], filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
+        pool.close()
+        pool.join()
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        filenames = glob.glob(outfile.split('.')[0]+'*')
+        with open(outfile, 'w') as outfile:
+            for fname in filenames:
+                with open(fname) as infile:
+                    for line in infile:
+                        outfile.write(line)
+        for file1 in filenames:
+            os.remove(file1)
                     
 
 def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
