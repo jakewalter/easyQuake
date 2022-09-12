@@ -41,9 +41,9 @@ import stat
 
 from multiprocessing import Pool
 from multiprocessing import cpu_count
-from multiprocessing import set_start_method
-set_start_method("spawn")
-from multiprocessing import get_context
+#from multiprocessing import set_start_method
+# set_start_method("spawn")
+# from multiprocessing import get_context
 
 import os
 from obspy import UTCDateTime
@@ -407,11 +407,14 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
         n_cpus = n_cpus1
     #with get_context("spawn").Pool() as pool:
     pool = Pool(n_cpus-1)
+    results = []
     for i in range(nsta):
         #try:
         print(str(i+1)+" of "+str(nsta)+" stations")
-        pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0], filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
+        r = pool.apply_async(trigger_p_s, (fdir,i,outfile.split('.')[0], filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,))
+        results.append((i,r))
     pool.close()
+    print(i)
     pool.join()
     if os.path.exists(outfile):
         os.remove(outfile)
