@@ -60,7 +60,7 @@ def recSTALTAPy_h(a, b, nsta, nlta):
 
 
 
-def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2):
+def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10):
     #t_sta,t_lta in seconds
     from obspy import read
     from obspy.signal.trigger import recursive_sta_lta, trigger_onset
@@ -119,8 +119,10 @@ def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, tri
         trig_offe = int(trig_ofe + (trig_ofe - trig_one)*4.0)
         if trig_offe >= tre.stats.npts - 1:
             break
-        if max(cfte[trig_one:trig_ofe]) > 6.0:
-            f.write("%s %s %s S %s\n" % (tre.stats.network, tre.stats.station, tre.stats.channel, (tre.stats.starttime+trig_one/dfe).isoformat()))
+        #print(cfte[trig_one:trig_ofe])
+        if cfte[trig_one:trig_ofe].size > 0:
+            if max(cfte[trig_one:trig_ofe]) > trig_horz:
+                f.write("%s %s %s S %s\n" % (tre.stats.network, tre.stats.station, tre.stats.channel, (tre.stats.starttime+trig_one/dfe).isoformat()))
         i=i+1
         
     i = 0
@@ -130,8 +132,9 @@ def trigger_p_s(fdir, outfilea, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, tri
         trig_off = int(trig_of + (trig_of - trig_on)*4.0 + 3*df) 
         if trig_off >= trz.stats.npts - 1:
             break
-        if max(cft[trig_on:trig_of]) > 10.0:
-            f.write("%s %s %s P %s\n" % (trz.stats.network, trz.stats.station, trz.stats.channel, (trz.stats.starttime+trig_on/df).isoformat()))
+        if cft[trig_on:trig_of].size > 0:
+            if max(cft[trig_on:trig_of]) > trig_vert:
+                f.write("%s %s %s P %s\n" % (trz.stats.network, trz.stats.station, trz.stats.channel, (trz.stats.starttime+trig_on/df).isoformat()))
         i=i+1
 
     # except:
