@@ -1063,7 +1063,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                                     inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
                                     if not inv:
-                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code, time=origin.time)
+                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                                         if not inv:
                                             print('Getting response from DMC')
                                             starttime = UTCDateTime(origin.time-10)
