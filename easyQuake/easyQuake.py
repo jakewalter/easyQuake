@@ -2033,13 +2033,18 @@ def quakeml_to_growclust(project_folder=None, project_code=None):
     
     
 
-def reduce_catalog(cat=None, num_arr=8):
+def reduce_catalog(cat=None, num_arr=None, vert_unc=None):
     events = list(cat.events)
     temp_events = []
     for event in events:
         #print(event)
-        if len(event.preferred_origin().arrivals) >= num_arr:
-            temp_events.append(event)
+        if num_arr:
+            if len(event.preferred_origin().arrivals) >= num_arr:
+                temp_events.append(event)
+        if vert_unc:
+            if event.preferred_origin().depth_errors.uncertainty < vert_unc:
+                temp_events.append(event)
+
     events = temp_events
     from obspy import Catalog
     cat2 = Catalog(events=events)
@@ -2159,7 +2164,8 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     plt.savefig('gr_plot.png')
 
 
-def quakeml_to_hdf5(cat=None, project_folder=None):
+def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
+    #make a training dataset in STEAD format for retraining data
     output_merge = project_folder+'/merge.hdf5'
     if os.path.exists(project_folder+'/merge.hdf5'):
         os.remove(project_folder+'/merge.hdf5')
@@ -2321,7 +2327,65 @@ def quakeml_to_hdf5(cat=None, project_folder=None):
                 HDFr.close()
 
 
+    if makecsv:
+        import csv
+        output_merge = 'merge.hdf5'
 
+        csvfile = open(output_merge.split('.')[0]+'.csv', 'w')
+        output_writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        output_writer.writerow(['network_code','receiver_code','receiver_type','receiver_latitude','receiver_longitude',
+                                      'receiver_elevation_m','p_arrival_sample','p_status','p_weight','p_travel_sec',
+                                      's_arrival_sample','s_status','s_weight',
+                                      'source_id','source_origin_time','source_origin_uncertainty_sec',
+                                      'source_latitude','source_longitude','source_error_sec',
+                                      'source_gap_deg','source_horizontal_uncertainty_km', 'source_depth_km', 'source_depth_uncertainty_km',
+                                      'source_magnitude', 'source_magnitude_type', 'source_magnitude_author','source_mechanism_strike_dip_rake',
+                                      'source_distance_deg', 'source_distance_km', 'back_azimuth_deg', 'snr_db', 'coda_end_sample',
+                                      'trace_start_time', 'trace_category', 'trace_name'])
+
+        dtfl = h5py.File(output_merge, 'r')
+
+        for evi in dtfl['data']:
+            x = dtfl.get('data/'+str(evi))
+            try:
+                output_writer.writerow([x.attrs['network_code'],
+                                        x.attrs['receiver_code'],
+                                        x.attrs['receiver_type'],
+                                        x.attrs['receiver_latitude'],
+                                        x.attrs['receiver_longitude'],
+                                        x.attrs['receiver_elevation_m'],
+                                        x.attrs['p_arrival_sample'],
+                                        x.attrs['p_status'],
+                                        x.attrs['p_weight'],
+                                        x.attrs['p_travel_sec'],
+                                        x.attrs['s_arrival_sample'],
+                                        x.attrs['s_status'],
+                                        x.attrs['s_weight'],
+                                        x.attrs['source_id'],
+                                        x.attrs['source_origin_time'],
+                                        x.attrs['source_origin_uncertainty_sec'],
+                                        x.attrs['source_latitude'],
+                                        x.attrs['source_longitude'],
+                                        x.attrs['source_error_sec'],
+                                        x.attrs['source_gap_deg'],
+                                        x.attrs['source_horizontal_uncertainty_km'],
+                                        x.attrs['source_depth_km'],
+                                        x.attrs['source_depth_uncertainty_km'],
+                                        x.attrs['source_magnitude'],
+                                        x.attrs['source_magnitude_type'],
+                                        x.attrs['source_magnitude_author'],
+                                        x.attrs['source_mechanism_strike_dip_rake'],
+                                        x.attrs['source_distance_deg'],
+                                        x.attrs['source_distance_km'],
+                                        x.attrs['back_azimuth_deg'],
+                                        x.attrs['snr_db'],
+                                        x.attrs['coda_end_sample'],
+                                        x.attrs['trace_start_time'],
+                                        x.attrs['trace_category'],
+                                        x.attrs['trace_name']]);
+                csvfile.flush()
+            except:
+                pass
 if __name__ == "__main__":
     easyQuake()
 
