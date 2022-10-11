@@ -2042,8 +2042,9 @@ def reduce_catalog(cat=None, num_arr=None, vert_unc=None):
             if len(event.preferred_origin().arrivals) >= num_arr:
                 temp_events.append(event)
         if vert_unc:
-            if event.preferred_origin().depth_errors.uncertainty < vert_unc:
-                temp_events.append(event)
+            if event.preferred_origin().depth_errors.uncertainty is not None:
+                if event.preferred_origin().depth_errors.uncertainty < vert_unc:
+                    temp_events.append(event)
 
     events = temp_events
     from obspy import Catalog
