@@ -608,10 +608,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         open_file.write(day_string)
     infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
-    #gpd_predict.py -V -P -I infile -O outflie
-    #os.system("gpd_predict.py -V -P -I %s -O %s")%(infile, outfile)
-    #gpd_predict(inputfile=infile,outputfile=outfile)
-    fileinassociate = outfile
+
     #remove this later as it is called in association module?
     if local:
         inv = Inventory()
@@ -627,26 +624,30 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
         fullpath1 = pathgpd+'/gpd_predict.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
             os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
             os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
-        queue_sta_lta(infile,outfile,dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
-        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+        machine_picker = 'STALTA'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
 
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, latitude=None, longitude=None, max_radius=None, model=None):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
 
@@ -671,7 +672,16 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
-        gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
+        if machine == True and machine_picker is None:
+            machine_picker = 'GPD'
+        if machine == True and machine_picker == 'GPD':
+            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        elif machine == True and machine_picker == 'EQTransformer':
+            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        else:
+            machine_picker = 'STALTA'
+            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'            
+            gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = nsta_declare, loc_uncert_thresh = 0.2)
