@@ -638,6 +638,14 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+    elif machine == True and machine_picker == 'PhaseNet':
+        #fullpath2 = pathEQT+'/mseed_predictor.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if fullpath_python:
+            #os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        else:
+            #os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -1430,9 +1438,10 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
     if machine:
-        fullpath1 = pathgpd+'/gpd_predict.py'
-        os.system(fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        #fullpath1 = pathgpd+'/gpd_predict.py'
+        os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)    # starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
