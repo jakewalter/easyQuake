@@ -641,9 +641,9 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     elif machine == True and machine_picker == 'PhaseNet':
         #fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
+        #if fullpath_python:
             #os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        else:
+        #else:
             #os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
