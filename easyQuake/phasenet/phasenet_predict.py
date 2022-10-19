@@ -19,31 +19,31 @@ from postprocess import (
     save_picks_json,
     save_prob_h5,
 )
-from pymongo import MongoClient
+#from pymongo import MongoClient
 from tqdm import tqdm
-from visulization import plot_waveform
+#from visulization import plot_waveform
 
 tf.compat.v1.disable_eager_execution()
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-username = "root"
-password = "quakeflow123"
+#username = "root"
+#password = "quakeflow123"
 # client = MongoClient(f"mongodb://{username}:{password}@127.0.0.1:27017")
-client = MongoClient(f"mongodb://{username}:{password}@quakeflow-mongodb-headless.default.svc.cluster.local:27017")
+#client = MongoClient(f"mongodb://{username}:{password}@quakeflow-mongodb-headless.default.svc.cluster.local:27017")
 
 # db = client["quakeflow"]
 # collection = db["waveform"]
 
 
-def upload_mongodb(picks):
-    db = client["quakeflow"]
-    collection = db["waveform"]
-    try:
-        collection.insert_many(picks)
-    except Exception as e:
-        print("Warning:", e)
-        collection.delete_many({"_id": {"$in": [p["_id"] for p in picks]}})
-        collection.insert_many(picks)
+#def upload_mongodb(picks):
+#    db = client["quakeflow"]
+#    collection = db["waveform"]
+#    try:
+#        collection.insert_many(picks)
+#    except Exception as e:
+#        print("Warning:", e)
+#        collection.delete_many({"_id": {"$in": [p["_id"] for p in picks]}})
+#        collection.insert_many(picks)
 
 
 def read_args():
@@ -164,23 +164,23 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
                 upload_waveform=args.upload_waveform,
             )
 
-            if args.upload_waveform:
-                upload_mongodb(picks_)
+#            if args.upload_waveform:
+#                upload_mongodb(picks_)
             picks.extend(picks_)
 
-            if args.plot_figure:
-                if not (isinstance(fname_batch, np.ndarray) or isinstance(fname_batch, list)):
-                    fname_batch = [fname_batch.decode().rstrip(".mseed") + "_" + x.decode() for x in station_batch]
-                else:
-                    fname_batch = [x.decode() for x in fname_batch]
-                pool.starmap(
-                    partial(
-                        plot_waveform,
-                        figure_dir=figure_dir,
-                    ),
-                    # zip(X_batch, pred_batch, [x.decode() for x in fname_batch]),
-                    zip(X_batch, pred_batch, fname_batch),
-                )
+            # if args.plot_figure:
+            #     if not (isinstance(fname_batch, np.ndarray) or isinstance(fname_batch, list)):
+            #         fname_batch = [fname_batch.decode().rstrip(".mseed") + "_" + x.decode() for x in station_batch]
+            #     else:
+            #         fname_batch = [x.decode() for x in fname_batch]
+            #     pool.starmap(
+            #         partial(
+            #             plot_waveform,
+            #             figure_dir=figure_dir,
+            #         ),
+            #         # zip(X_batch, pred_batch, [x.decode() for x in fname_batch]),
+            #         zip(X_batch, pred_batch, fname_batch),
+            #     )
 
             if args.save_prob:
                 # save_prob(pred_batch, fname_batch, prob_dir=prob_dir)
