@@ -762,7 +762,8 @@ class DataReader_pred(DataReader):
             station_id = meta["station_id"].split("/")[-1].rstrip("*")
         else:
             # station_id = base_name.split("/")[-1].rstrip("*")
-            station_id = os.path.basename(base_name).rstrip("*")
+            #station_id = os.path.basename(base_name).rstrip("*")
+            station_id = base_name[0].split('.')[1]
 
         if np.isnan(sample).any() or np.isinf(sample).any():
             logging.warning(f"Data error: Nan or Inf found in {base_name}")
