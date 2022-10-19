@@ -310,10 +310,10 @@ class DataReader:
         starttime = min([st.stats.starttime for st in mseed])
         endtime = max([st.stats.endtime for st in mseed])
         mseed = mseed.trim(starttime, endtime, pad=True, fill_value=0)
-        if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
-            logging.warning(
-                f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
-            )
+        # if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
+        #     logging.warning(
+        #         f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
+        #     )
 
         order = ["3", "2", "1", "E", "N", "Z"]
         order = {key: i for i, key in enumerate(order)}
