@@ -736,7 +736,7 @@ class DataReader_pred(DataReader):
         if self.format == "numpy":
             meta = self.read_numpy(os.path.join(self.data_dir, base_name))
         elif self.format == "mseed":
-            meta = self.read_mseed(os.path.join(self.data_dir, base_name))
+            meta = self.read_mseed(base_name)
         elif self.format == "sac":
             meta = self.read_sac(os.path.join(self.data_dir, base_name))
         elif self.format == "hdf5":
