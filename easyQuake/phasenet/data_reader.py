@@ -304,6 +304,7 @@ class DataReader:
         mseed.extend(obspy.read(fname[1]))
         mseed.extend(obspy.read(fname[2]))
         mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
+        print(fname[0])
         mseed = mseed.merge(fill_value=0)
         if self.highpass_filter > 0:
             mseed = mseed.filter("highpass", freq=self.highpass_filter)
@@ -345,10 +346,10 @@ class DataReader:
         starttime = min([st.stats.starttime for st in mseed])
         endtime = max([st.stats.endtime for st in mseed])
         mseed = mseed.trim(starttime, endtime, pad=True, fill_value=0)
-        if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
-            logging.warning(
-                f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
-            )
+        # if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
+        #     logging.warning(
+        #         f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
+        #     )
 
         order = ["3", "2", "1", "E", "N", "Z"]
         order = {key: i for i, key in enumerate(order)}
