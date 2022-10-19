@@ -28,16 +28,18 @@ from .phasepapy import fbpicker
 pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
 pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
 pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
+pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
 from .sta_lta.trigger_p_s import trigger_p_s
+#from .sta_lta.trigger_p_s import trigger_p_s
 
 import traceback
 import os
-st = os.stat(pathgpd+'/gpd_predict.py')
-st1 = os.stat(pathEQT+'/mseed_predictor.py')
-import stat
+#st = os.stat(pathgpd+'/gpd_predict.py')
+#st1 = os.stat(pathEQT+'/mseed_predictor.py')
+#import stat
 
 from multiprocessing import Pool
 from multiprocessing import cpu_count
@@ -45,7 +47,7 @@ from multiprocessing import cpu_count
 # set_start_method("spawn")
 # from multiprocessing import get_context
 
-import os
+#import os
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
@@ -429,7 +431,7 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
         os.remove(file1)
                     
 
-def gpd_pick_add(dbsession=None,fileinput=None,inventory=None):
+def pick_add(dbsession=None,fileinput=None,inventory=None):
     filepath = fileinput
     with open(filepath) as fp:
         line = fp.readline()
@@ -629,7 +631,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
             os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -637,20 +639,21 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     elif machine == True and machine_picker == 'PhaseNet':
-        #fullpath2 = pathEQT+'/mseed_predictor.py'
+        fullpath3 = pathphasenet+'/predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        #if fullpath_python:
-            #os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        #else:
-            #os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        if fullpath_python:
+            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
+            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s" % (pathphasenet, infile, outfile))
+        else:
+            os.system("predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s" % (pathphasenet, infile, outfile))
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
-        gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
 
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
@@ -686,10 +689,12 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         elif machine == True and machine_picker == 'EQTransformer':
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        elif machine == True and machine_picker == 'PhaseNet':
+            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         else:
             machine_picker = 'STALTA'
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'            
-            gpd_pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
+            pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = nsta_declare, loc_uncert_thresh = 0.2)
@@ -1440,7 +1445,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     if machine:
         #fullpath1 = pathgpd+'/gpd_predict.py'
         os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        gpd_pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
+        pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
 
     else:
         picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
@@ -1469,7 +1474,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
-        gpd_pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
+        pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
         session.close()
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
