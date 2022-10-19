@@ -641,13 +641,13 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet+'/predict.py'
+        fullpath3 = pathphasenet+'/phasenet_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
             #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
             os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s" % (pathphasenet, infile, outfile))
         else:
-            os.system("predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s" % (pathphasenet, infile, outfile))
+            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s" % (pathphasenet, infile, outfile))
         pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
         machine_picker = 'STALTA'

@@ -35,6 +35,7 @@ setuptools.setup(
             'create_new_project=ilifu_user_management.create_new_project:main',
             'gpd_predict=easyQuake.gpd_predict.gpd_predict:main',
             'mseed_predictor=easyQuake.EQTransformer.mseed_predictor:main',
+            'phasenet_predict=easyQuake.phasenet.phasenet_predict:main',
         ]
     },
 )
