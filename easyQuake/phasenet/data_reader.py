@@ -181,12 +181,18 @@ class DataReader:
             self.highpass_filter = kwargs["highpass_filter"]
         if format in ["numpy", "mseed", "sac"]:
             self.data_dir = kwargs["data_dir"]
-            try:
-                csv = pd.read_csv(kwargs["data_list"], header=0, sep="[,|\s+]", engine="python")
-            except:
-                csv = pd.read_csv(kwargs["data_list"], header=0, sep="\t")
-            self.data_list = csv["fname"]
-            self.num_data = len(self.data_list)
+            # try:
+            #     csv = pd.read_csv(kwargs["data_list"], header=0, sep="[,|\s+]", engine="python")
+            # except:
+            #     csv = pd.read_csv(kwargs["data_list"], header=0, sep="\t")
+            fdir = []
+            with open(kwargs["data_list"]) as f:
+                for line in f:
+                    tmp = line.split()
+                    fdir.append([tmp[0], tmp[1], tmp[2]])
+            nsta = len(fdir)
+            self.data_list = fdir
+            self.num_data = nsta
         elif format == "hdf5":
             self.h5 = h5py.File(kwargs["hdf5_file"], "r", libver="latest", swmr=True)
             self.h5_data = self.h5[kwargs["hdf5_group"]]
@@ -294,7 +300,9 @@ class DataReader:
 
     def read_mseed(self, fname):
 
-        mseed = obspy.read(fname)
+        mseed = obspy.read(fname[0])
+        mseed.extend(obspy.read(fname[1]))
+        mseed.extend(obspy.read(fname[2]))
         mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
         mseed = mseed.merge(fill_value=0)
         if self.highpass_filter > 0:
@@ -707,7 +715,7 @@ class DataReader_pred(DataReader):
         if self.format == "numpy":
             meta = self.read_numpy(os.path.join(self.data_dir, base_name))
         elif self.format == "mseed":
-            meta = self.read_mseed(os.path.join(self.data_dir, base_name))
+            meta = self.read_mseed(base_name)
         elif self.format == "sac":
             meta = self.read_sac(os.path.join(self.data_dir, base_name))
         elif self.format == "hdf5":
