@@ -303,6 +303,7 @@ class DataReader:
         mseed = obspy.read(fname[0])
         mseed.extend(obspy.read(fname[1]))
         mseed.extend(obspy.read(fname[2]))
+        mseed.resample(100)
         mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
         print(fname[0])
         mseed = mseed.merge(fill_value=0)
@@ -751,8 +752,8 @@ class DataReader_pred(DataReader):
         raw_amp[: meta["data"].shape[0], ...] = meta["data"][: self.X_shape[0], ...]
         sample = np.zeros(self.X_shape, dtype=self.dtype)
         sample[: meta["data"].shape[0], ...] = normalize_long(meta["data"])[: self.X_shape[0], ...]
-        if abs(meta["data"].shape[0] - self.X_shape[0]) > 1:
-            logging.warning(f"Data length mismatch in {base_name}: {meta['data'].shape[0]} != {self.X_shape[0]}")
+        # if abs(meta["data"].shape[0] - self.X_shape[0]) > 1:
+        #     logging.warning(f"Data length mismatch in {base_name}: {meta['data'].shape[0]} != {self.X_shape[0]}")
 
         if "t0" in meta:
             t0 = meta["t0"]
