@@ -645,7 +645,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
             #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" (pathphasenet, infile, outfile, dir1))
+            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
         else:
             os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
         pick_add(dbsession=session,fileinput=outfile,inventory=inv)
