@@ -167,6 +167,7 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
 #            if args.upload_waveform:
 #                upload_mongodb(picks_)
             picks.extend(picks_)
+            print(picks)
 
             # if args.plot_figure:
             #     if not (isinstance(fname_batch, np.ndarray) or isinstance(fname_batch, list)):
@@ -215,13 +216,13 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
             #     ]
             # else:
             df = df[
-                ["net", "sta", "chan_pick", "phase_time"]
+                ["network", "station_id", "chan_pick", "phase_type", "phase_time"]
             ]
             # if args.amplitude:
             #     df = df[["file_name","station_id","phase_index","phase_time","phase_prob","phase_amplitude", "phase_type","dt",]]
             # else:
             #     df = df[["file_name","station_id","phase_index","phase_time","phase_prob","phase_type","dt"]]
-            df.to_csv(os.path.join(args.result_dir, args.result_fname), header=None,index=False)
+            df.to_csv(os.path.join(args.result_dir, args.result_fname), header=None, sep=' ', index=False)
 
             print(
                 f"Done with {len(df[df['phase_type'] == 'P'])} P-picks and {len(df[df['phase_type'] == 'S'])} S-picks"

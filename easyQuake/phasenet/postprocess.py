@@ -141,15 +141,16 @@ def extract_picks(
                 )
                 for l, (phase_index, phase_prob) in enumerate(zip(idxs, probs)):
                     pick_time = begin_time + timedelta(seconds=phase_index * dt)
-                    net = get_record_information(file_name[0])['network']
+                    net = get_record_information(file_name[2].decode("utf-8"))['network']
                     if phases[k] == 'S':
-                        chan = get_record_information(file_name[1])['channel']
+                        chan = get_record_information(file_name[1].decode("utf-8"))['channel']
                     elif phases[k] == 'P':
-                        chan = get_record_information(file_name[0])['channel']
+                        chan = get_record_information(file_name[2].decode("utf-8"))['channel']
                     pick = {
                         "network": net,
                         "station_id": station_id,
                         "chan_pick": chan,
+                        "phase_type": phases[k],
                         "phase_time": pick_time.isoformat(timespec="milliseconds"),
                     }
 
