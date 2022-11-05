@@ -644,6 +644,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         fullpath3 = pathphasenet+'/phasenet_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
+            print(pathphasenet)
             #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
             os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
         else:
@@ -1359,7 +1360,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         plt.close(fig)
 
 
-def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
+def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, machine_picker=None, fullpath_python=None, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
     approxotime = UTCDateTime(approxorigintime)
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') -
@@ -1442,15 +1443,40 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     else:
         fdsnclient=Client()
         inv=fdsnclient.get_stations(starttime=starting,endtime=stopping,latitude=latitude,longitude=longitude,maxradius=max_radius,channel='*HZ',level='channel')
-    if machine:
-        #fullpath1 = pathgpd+'/gpd_predict.py'
-        os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        pick_add(dbsession=session,fileinput=fileinassociate,inventory=inv)
 
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    if machine == True and machine_picker == 'GPD':
+        fullpath1 = pathgpd+'/gpd_predict.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if fullpath_python:
+            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        else:
+            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+    elif machine == True and machine_picker == 'EQTransformer':
+        fullpath2 = pathEQT+'/mseed_predictor.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if fullpath_python:
+            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        else:
+            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+    elif machine == True and machine_picker == 'PhaseNet':
+        fullpath3 = pathphasenet+'/phasenet_predict.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if fullpath_python:
+            print(pathphasenet)
+            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
+            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+        else:
+            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     else:
-        picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
-        fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)    # starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
-    # stopping = starting + 86430
+        machine_picker = 'STALTA'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
     session.close()
 
 
