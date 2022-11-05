@@ -49,7 +49,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 def read_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", default=20, type=int, help="batch size")
+    parser.add_argument("--batch_size", default=8, type=int, help="batch size")
     parser.add_argument("--model_dir", help="Checkpoint directory (default: None)")
     parser.add_argument("--data_dir", default="", help="Input file directory")
     parser.add_argument("--data_list", default="", help="Input csv file")
