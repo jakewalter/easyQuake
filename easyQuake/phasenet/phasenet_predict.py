@@ -167,7 +167,7 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
 #            if args.upload_waveform:
 #                upload_mongodb(picks_)
             picks.extend(picks_)
-            print(picks)
+            #print(picks)
 
             # if args.plot_figure:
             #     if not (isinstance(fname_batch, np.ndarray) or isinstance(fname_batch, list)):

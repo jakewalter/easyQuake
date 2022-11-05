@@ -688,14 +688,21 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
             machine_picker = 'GPD'
         if machine == True and machine_picker == 'GPD':
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+
         elif machine == True and machine_picker == 'EQTransformer':
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+
         elif machine == True and machine_picker == 'PhaseNet':
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+
         else:
             machine_picker = 'STALTA'
             outfile = dir1+'/'+machine_picker.lower()+'_picks.out'            
             pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
+
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = nsta_declare, loc_uncert_thresh = 0.2)
