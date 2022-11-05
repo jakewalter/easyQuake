@@ -199,29 +199,29 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
             # df["timestamp"] = df["phase_time"]
             # df["prob"] = df["phase_prob"]
             # df["type"] = df["phase_type"]
-            if args.amplitude:
-                # df["amp"] = df["phase_amp"]
-                df = df[
-                    [
-                        "file_name",
-                        "begin_time",
-                        "station_id",
-                        "phase_index",
-                        "phase_time",
-                        "phase_score",
-                        "phase_amp",
-                        "phase_type",
-                    ]
-                ]
-            else:
-                df = df[
-                    ["file_name", "begin_time", "station_id", "phase_index", "phase_time", "phase_score", "phase_type"]
-                ]
+            # if args.amplitude:
+            #     # df["amp"] = df["phase_amp"]
+            #     df = df[
+            #         [
+            #             "file_name",
+            #             "begin_time",
+            #             "station_id",
+            #             "phase_index",
+            #             "phase_time",
+            #             "phase_score",
+            #             "phase_amp",
+            #             "phase_type",
+            #         ]
+            #     ]
+            # else:
+            df = df[
+                ["net", "sta", "chan_pick", "phase_time"]
+            ]
             # if args.amplitude:
             #     df = df[["file_name","station_id","phase_index","phase_time","phase_prob","phase_amplitude", "phase_type","dt",]]
             # else:
             #     df = df[["file_name","station_id","phase_index","phase_time","phase_prob","phase_type","dt"]]
-            df.to_csv(os.path.join(args.result_dir, args.result_fname), index=False)
+            df.to_csv(os.path.join(args.result_dir, args.result_fname), header=None,index=False)
 
             print(
                 f"Done with {len(df[df['phase_type'] == 'P'])} P-picks and {len(df[df['phase_type'] == 'S'])} S-picks"

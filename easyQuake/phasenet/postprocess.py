@@ -6,6 +6,8 @@ import json
 import matplotlib.pyplot as plt
 import logging
 from detect_peaks import detect_peaks
+from obspy.io.mseed.util import get_record_information
+
 
 # def extract_picks(preds, fnames=None, station_ids=None, t0=None, config=None):
 
@@ -139,15 +141,16 @@ def extract_picks(
                 )
                 for l, (phase_index, phase_prob) in enumerate(zip(idxs, probs)):
                     pick_time = begin_time + timedelta(seconds=phase_index * dt)
+                    net = get_record_information(file_name[0])['network']
+                    if phases[k] == 'S':
+                        chan = get_record_information(file_name[1])['channel']
+                    elif phases[k] == 'P':
+                        chan = get_record_information(file_name[0])['channel']
                     pick = {
-                        "file_name": file_name,
+                        "network": net,
                         "station_id": station_id,
-                        "begin_time": begin_time.isoformat(timespec="milliseconds"),
-                        "phase_index": int(phase_index),
+                        "chan_pick": chan,
                         "phase_time": pick_time.isoformat(timespec="milliseconds"),
-                        "phase_score": round(phase_prob, 3),
-                        "phase_type": phases[k],
-                        "dt": dt,
                     }
 
                     ## process waveform
