@@ -22,6 +22,7 @@ setuptools.setup(
         'h5py==2.10.0',
         'tqdm',
         'tensorflow-gpu==2.2',
+	'protobuf==3.20.*',
     ],
     include_package_data=True,
     classifiers=[
