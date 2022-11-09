@@ -501,9 +501,14 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     dir1 = project_folder+'/'+dirname
     #print(single_date.strftime("%Y%m%d"))
     #print(dir1+'/1dassociator_'+project_code+'.db')
-    if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
-        os.remove(dir1+'/1dassociator_'+project_code+'.db')
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    else:
+        machine_picker = 'STALTA'
+    
+    if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+        os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
 #    if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
 #        os.remove(dir1+'/tt_ex_1D_'+project_code+'.db')
 #    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
@@ -644,7 +649,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         fullpath3 = pathphasenet+'/phasenet_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
-            print(pathphasenet)
+            #print(pathphasenet)
             #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
             os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
         else:
@@ -659,10 +664,19 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
-
+    #1dassociator_'+machine_picker+'_'+project_code+'.db'
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    else:
+        machine_picker = 'STALTA'
+        
+    if delete_assoc:
+        if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+            os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
+    
     dir1 = project_folder+'/'+dirname
     print(single_date.strftime("%Y%m%d"))
     #print(dir1+'/1dassociator_'+project_code+'.db')
@@ -678,33 +692,18 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
-    if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
-        db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+
+    
+    if not os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+        db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
         engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
-        if machine == True and machine_picker is None:
-            machine_picker = 'GPD'
-        if machine == True and machine_picker == 'GPD':
-            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
 
-        elif machine == True and machine_picker == 'EQTransformer':
-            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
-
-        elif machine == True and machine_picker == 'PhaseNet':
-            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
-
-        else:
-            machine_picker = 'STALTA'
-            outfile = dir1+'/'+machine_picker.lower()+'_picks.out'            
-            pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
-
-
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
     assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = nsta_declare, loc_uncert_thresh = 0.2)
     print("aggregate")
     t0=datetime.utcnow()
@@ -957,15 +956,19 @@ def select_all_associated(conn, f0):
 
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, machine_picker=None):
+    if machine_picker is None:
+        machine_picker='*'
+    else:
+        machine_picker = machine_picker.lower()
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dass*'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
     else:
-        files = sorted(glob.glob(project_folder+'/*/1dass*'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
     if eventmode:
-        files = sorted(glob.glob(project_folder+'/1dass*'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/1dassociator_'+machine_picker+'_'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
@@ -2331,7 +2334,7 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                         st_1 = st_1a
                 else:
                     st_1 = st_1a
-                st_1.trim(UTCDateTime(pickP.split(' ')[-2])-30,UTCDateTime(pickP.split(' ')[-2])+30)
+                st_1.trim(UTCDateTime(pickP.split(' ')[-2])-60,UTCDateTime(pickP.split(' ')[-2])+60)
                 if int(st_1[0].stats.sampling_rate) != 100:
                     st_1.resample(100.0)
                 filename = samplename(st_1)
@@ -2349,7 +2352,7 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                 dsF.attrs['p_status'] = 'manual'
                 dsF.attrs['p_weight'] = 1
                 dsF.attrs['p_travel_sec'] = p_arriv_time
-                dsF.attrs['s_arrival_sample'] = int(100*(UTCDateTime(pickP.split(' ')[-2])-st_1[0].stats.starttime))
+                dsF.attrs['s_arrival_sample'] = int(100*(UTCDateTime(pickS.split(' ')[-2])-st_1[0].stats.starttime))
                 dsF.attrs['s_status'] = 'manual'
                 dsF.attrs['s_weight'] = 1
                 dsF.attrs['source_id'] = 'evid'
