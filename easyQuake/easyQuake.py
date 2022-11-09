@@ -503,9 +503,9 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     #print(dir1+'/1dassociator_'+project_code+'.db')
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
-    else:
+    if machine == False:
         machine_picker = 'STALTA'
-    
+    if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
         os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
 #    if os.path.exists(dir1+'/tt_ex_1D_'+project_code+'.db'):
@@ -666,18 +666,18 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
 def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
+        
     dir1 = project_folder+'/'+dirname
     print(single_date.strftime("%Y%m%d"))
     #1dassociator_'+machine_picker+'_'+project_code+'.db'
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
-    else:
+    if machine == False:
         machine_picker = 'STALTA'
         
     if delete_assoc:
         if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
             os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
-    
 
     #print(dir1+'/1dassociator_'+project_code+'.db')
 #    if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
