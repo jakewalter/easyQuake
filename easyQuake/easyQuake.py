@@ -677,7 +677,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
 #    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
     if os.path.exists(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db'):
         os.remove(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db')
-    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
+    db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     print(db_tt)
     if local:
         inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
