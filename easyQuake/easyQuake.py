@@ -952,15 +952,15 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     if machine_picker is None:
         machine_picker='*'
     else:
-        machine_picker = machine_picker.lower()
+        machine_picker = '_'+machine_picker.lower()
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
     else:
-        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
     if eventmode:
-        files = sorted(glob.glob(project_folder+'/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
