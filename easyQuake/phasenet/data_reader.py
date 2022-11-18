@@ -299,14 +299,16 @@ class DataReader:
         return meta
 
     def read_mseed(self, fname):
-
+        print(fname[0])
         mseed = obspy.read(fname[0])
         mseed.extend(obspy.read(fname[1]))
         mseed.extend(obspy.read(fname[2]))
         mseed.resample(100)
-        mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
-        print(fname[0])
         mseed = mseed.merge(fill_value=0)
+        for tr in mseed:
+            if isinstance(tr.data, np.ma.masked_array):
+                tr.data = tr.data.filled()
+        mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
         if self.highpass_filter > 0:
             mseed = mseed.filter("highpass", freq=self.highpass_filter)
         starttime = min([st.stats.starttime for st in mseed])

@@ -627,7 +627,10 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
             os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -635,7 +638,10 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
     elif machine == True and machine_picker == 'PhaseNet':
         fullpath3 = pathphasenet+'/phasenet_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -645,12 +651,18 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
         else:
             os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
 
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
