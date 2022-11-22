@@ -205,7 +205,7 @@ def main():
             if filter_data:
                 st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
             if decimate_data:
-                st.interpolate(100.0)
+                st.resample(100.0)
             st.merge(fill_value='interpolate')
             print(st)
             for tr in st:

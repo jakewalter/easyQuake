@@ -89,11 +89,17 @@ for single_date in daterange(start_date, end_date):
     dirname = single_date.strftime("%Y%m%d")
     download_mseed(dirname=dirname, project_folder=project_folder, single_date=single_date, minlat=lat_a, maxlat=lat_b, minlon=lon_a, maxlon=lon_b)
     detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, single_date=single_date, machine=True,local=True)
-    # run it with EQTransformer instead of GPD picker
+    #run it with EQTransformer instead of GPD picker
     #detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, machine=True, machine_picker='EQTransformer', local=True, single_date=single_date)
+    #PhaseNet
+    #detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, machine=True, machine_picker='PhaseNet', local=True, single_date=single_date)
     association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True)
+    #association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True, machine_picker='EQTransformer')
+    #association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True, machine_picker='PhaseNet')
 
 cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code)
+#cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code, machine_picker='EQTransformer')
+#cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code, machine_picker='PhaseNet')
 cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=True)
 cat.write('catalog_idaho.xml',format='QUAKEML')
 
@@ -136,6 +142,8 @@ python idaho_example.py
 ```
 ## Version brief notes
 
+Version 1.3 (11/22/2022) = PhaseNet now included, in addition to GPD and EQTransformer pickers. Numerous other bugs squashed.
+
 Version 1.2 (8/1/2022) - Rewrote the non-ML picker to be easier to work with (recursive_sta_lta from obpsy) and include input of those parameters within detection_continuous function.
 
 Version 0.9 (2/23/2022) - Modules to cut easyQuake event waveforms from continuous data (cut_event_waveforms) and module for converting easyQuake catalog (or any QuakeML-formatted catalog) to HDF5 (quakeML_to_hdf5) for training new ML models
@@ -152,7 +160,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## Acknowledgments
 
-* code was used or otherwise changed to suit our purposes from obspy (https://github.com/obspy/obspy/wiki), GPD (https://github.com/interseismic/generalized-phase-detection), PhasePApy (https://github.com/austinholland/PhasePApy), EQTransformer (https://github.com/smousavi05/EQTransformer) and others
+* code was used or otherwise changed to suit our purposes from obspy (https://github.com/obspy/obspy/wiki), GPD (https://github.com/interseismic/generalized-phase-detection), PhasePApy (https://github.com/austinholland/PhasePApy), EQTransformer (https://github.com/smousavi05/EQTransformer), PhaseNet (https://github.com/AI4EPS/PhaseNet), and others
 * would not be possible without the robust documentation in the obspy project
 * this work was developed at the Oklahoma Geological Survey
 
