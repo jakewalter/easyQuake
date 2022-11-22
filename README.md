@@ -30,15 +30,15 @@ Letters, 92(1): 555–563, https://doi.org/10.1785/0220200226
 ```
 
 ## Requirements
-This code leverages machine-learning for earthquake detection with the choice of either the GPD (https://github.com/interseismic/generalized-phase-detection) or EQTransformer (https://github.com/smousavi05/EQTransformer) pickers. You should have suitable hardware to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nvidia compute cards and modest multi-core desktop with consumer gaming nvidia card (e.g. Geforce 1050 Ti). The event-mode can be run efficiently enough on a laptop.
+This code leverages machine-learning for earthquake detection with the choice of the GPD (https://github.com/interseismic/generalized-phase-detection), EQTransformer (https://github.com/smousavi05/EQTransformer), or PhaseNet (https://github.com/AI4EPS/PhaseNet) pickers. You should have suitable hardware to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nvidia compute cards and modest multi-core desktop with consumer gaming nvidia card (e.g. Geforce 1050 Ti). The event-mode can be run efficiently enough on a laptop.
 
-* Requires nvidia-cuda-toolkit, obspy, keras==2.3.1, tensorflow-gpu==2.1 (if using multiple GPUs only tensorflow 1.15 is tested), basemap
-* I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.1```
-* Because tensorflow-gpu 2.1 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
+* Most tested configuration includes nvidia-cuda-toolkit, obspy, keras, tensorflow-gpu==2.2, basemap
+* I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.2```
+* Because tensorflow-gpu 2.2 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
 ```
 conda create -n easyquake python=3.7 anaconda
 conda activate easyquake
-conda install tensorflow-gpu==2.1
+conda install tensorflow-gpu==2.2
 conda install keras
 conda install obspy -c conda-forge
 pip install easyQuake
@@ -94,6 +94,7 @@ for single_date in daterange(start_date, end_date):
     #PhaseNet
     #detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, machine=True, machine_picker='PhaseNet', local=True, single_date=single_date)
     association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True)
+    ### IMPORTANT - must call the specific picker to create association and catalogs specific to that picker within each dayfolder!!
     #association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True, machine_picker='EQTransformer')
     #association_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, maxdist=maxdist, maxkm=maxkm, single_date=single_date, local=True, machine_picker='PhaseNet')
 
