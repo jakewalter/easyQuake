@@ -623,6 +623,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     if machine == True and machine_picker == 'GPD':
         fullpath1 = pathgpd+'/gpd_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
         if fullpath_python:
             os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         else:
@@ -634,6 +636,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     elif machine == True and machine_picker == 'EQTransformer':
         fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
         if fullpath_python:
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
@@ -645,6 +649,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     elif machine == True and machine_picker == 'PhaseNet':
         fullpath3 = pathphasenet+'/phasenet_predict.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
         if fullpath_python:
             #print(pathphasenet)
             #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
@@ -658,6 +664,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
         queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
@@ -1536,12 +1544,13 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     except:
         pass
     engine_assoc.dispose()
-    cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True)
-    cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=False, eventmode=True)
+    cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
+    if len(cat)>0:
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=False, eventmode=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+str(idx1) + ".xml"
+        filename = dirname+'_'+machine_picker.lower() + ".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
 
 
