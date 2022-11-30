@@ -1387,7 +1387,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     dirname = str(approxotime.year)+str(approxotime.month).zfill(2)+str(approxotime.day).zfill(2)+str(approxotime.hour).zfill(2)+str(approxotime.minute).zfill(2)+str(approxotime.second).zfill(2)
     #starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0') -
     starting = approxotime - 60
-    stopping = approxotime + 120
+    stopping = approxotime + 360
     dir1 = project_folder+'/'+dirname
     print(dir1)
     if downloadwaveforms:
@@ -1516,17 +1516,22 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
-    if not os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
-        db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+    
+    if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+        os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
+    if not os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+        db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
         engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
         tables1D.Base.metadata.create_all(engine_assoc)
         Session=sessionmaker(bind=engine_assoc)
         session=Session()
-        pick_add(dbsession=session,fileinput=dir1+'/gpd_picks.out',inventory=inventory)
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
         session.close()
 
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
-    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 4, loc_uncert_thresh = 0.2)
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
+    
+    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 3, loc_uncert_thresh = 0.2)
     print("aggregate")
     t0=datetime.utcnow()
       # Identify candidate events (Pick Aggregation)
@@ -1546,7 +1551,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1,plot_event=False, eventmode=True)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False, eventmode=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
