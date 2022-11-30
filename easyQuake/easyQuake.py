@@ -1394,9 +1394,10 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         download_mseed_event_radial(dirname=dirname, project_folder=project_folder, starting=starting, stopping = stopping, lat1=latitude, lon1=longitude, maxrad=max_radius)
     #print(single_date.strftime("%Y%m%d"))
     #print(dir1+'/1dassociator_'+project_code+'.db')
-    if os.path.exists(dir1+'/1dassociator_'+project_code+'.db'):
-        os.remove(dir1+'/1dassociator_'+project_code+'.db')
-    db_assoc='sqlite:///'+dir1+'/1dassociator_'+project_code+'.db'
+    if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
+        os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
+
+    db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
     engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
@@ -1517,8 +1518,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     
-    if os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
-        os.remove(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')
+
     if not os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
         engine_assoc=create_engine(db_assoc, echo=False, connect_args={'check_same_thread': False})
@@ -1531,7 +1531,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
     
-    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = 3, loc_uncert_thresh = 0.2)
+    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 10, nsta_declare = 3, loc_uncert_thresh = 0.2)
     print("aggregate")
     t0=datetime.utcnow()
       # Identify candidate events (Pick Aggregation)

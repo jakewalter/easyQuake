@@ -1,1 +1,1 @@
-from easyQuake.phasenet import predict
+from easyQuake.phasenet import phasenet_predict
