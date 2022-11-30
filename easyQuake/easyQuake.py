@@ -393,6 +393,101 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
                 for i in range(len(picks)):
                     new_pick=tables1D.Pick(scnl,picks[i].datetime,polarity[i],snr[i],uncert[i],t_create)
                     dbsession.add(new_pick)
+
+
+def make_dayfile(dir1):
+    filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
+    stations = set()
+    for file1 in filelist:
+        station = file1.split('.')[1]
+        net = file1.split('.')[0].split('/')[-1]
+        netsta = net+'.'+station
+        print(file1.split('.')[1])
+        stations.add(netsta)
+        
+    day_strings = []
+    for stationin in stations:
+        station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
+        station3a = [None,None,None]
+        if len(station3)>3:
+            #print(station3)
+            ind1 = np.empty((len(station3),1))
+            ind1[:] = np.nan
+            for idxs, station1 in enumerate(station3):
+                if get_chan3(station1) == 'HHZ':
+                    ind1[idxs] = 2
+                elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
+                    ind1[idxs] = 0
+                elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
+                    ind1[idxs] = 1
+                #print(idxs)
+                #if ind1:
+                #    station3a[ind1] = station1
+            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
+            for idxsa, ind2a in enumerate(ind1):
+                if ~np.isnan(ind2a[0]):
+                    #print(ind2a)
+                    #print(station3a)
+                    station3a[int(ind2a[0])] = station3[idxsa]
+        else:
+            for station1 in station3:
+                if get_chan1(station1)  == 'Z':
+                    ind1 = 2
+                elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
+                    ind1 = 0
+                elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
+                    ind1 = 1
+                #print(ind1)
+                station3a[ind1] = station1
+        if all(elem is None for elem in station3a): #check location code
+            ind1 = np.empty((len(station3),1))
+            ind1[:] = np.nan
+            
+            for station1 in station3:
+                if station1.split('.')[2] == '00':
+                    if get_chan1(station1)  == 'Z':
+                        ind1 = 2
+                    elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
+                        ind1 = 0
+                    elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
+                        ind1 = 1
+                    #print(ind1)
+                    station3a[ind1] = station1       
+        if any(elem is None for elem in station3a):
+            if make3: #make single vertical comp, 3 channels
+                if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
+                    st = read(station3a[-1])
+                    st[0].stats.channel = st[0].stats.channel[0:2]+'E'
+                    if len(station3a[-1].split('__')) == 1:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E.mseed')
+                    else:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    if len(station3a[-1].split('__')) == 1:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N.mseed')
+                    else:
+                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
+                    station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
+                    station3a = [None,None,None]
+                    for station1 in station3:
+                        if get_chan1(station1)  == 'Z':
+                            ind1 = 2
+                        elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
+                            ind1 = 0
+                        elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
+                            ind1 = 1
+                        #print(ind1)
+                        station3a[ind1] = station1
+                    print(station3a)
+
+        if any(elem is None for elem in station3a):
+            continue
+            #continue
+        day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
+
+    day_string = "\n".join(day_strings)
+
+    with open(dir1+'/dayfile.in', "w") as open_file:
+        open_file.write(day_string)
                     
 def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10):
     #add sta/lta stuff
@@ -512,98 +607,11 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
-    filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
-    stations = set()
-    for file1 in filelist:
-        station = file1.split('.')[1]
-        net = file1.split('.')[0].split('/')[-1]
-        netsta = net+'.'+station
-        print(file1.split('.')[1])
-        stations.add(netsta)
+
     #### create infile
-    day_strings = []
-    for stationin in stations:
-        station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-        station3a = [None,None,None]
-        if len(station3)>3:
-            #print(station3)
-            ind1 = np.empty((len(station3),1))
-            ind1[:] = np.nan
-            for idxs, station1 in enumerate(station3):
-                if get_chan3(station1) == 'HHZ':
-                    ind1[idxs] = 2
-                elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
-                    ind1[idxs] = 0
-                elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
-                    ind1[idxs] = 1
-                #print(idxs)
-                #if ind1:
-                #    station3a[ind1] = station1
-            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
-            for idxsa, ind2a in enumerate(ind1):
-                if ~np.isnan(ind2a[0]):
-                    #print(ind2a)
-                    #print(station3a)
-                    station3a[int(ind2a[0])] = station3[idxsa]
-        else:
-            for station1 in station3:
-                if get_chan1(station1)  == 'Z':
-                    ind1 = 2
-                elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-                    ind1 = 0
-                elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-                    ind1 = 1
-                #print(ind1)
-                station3a[ind1] = station1
-        if all(elem is None for elem in station3a): #check location code
-            ind1 = np.empty((len(station3),1))
-            ind1[:] = np.nan
-            
-            for station1 in station3:
-                if station1.split('.')[2] == '00':
-                    if get_chan1(station1)  == 'Z':
-                        ind1 = 2
-                    elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-                        ind1 = 0
-                    elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-                        ind1 = 1
-                    #print(ind1)
-                    station3a[ind1] = station1       
-        if any(elem is None for elem in station3a):
-            if make3: #make single vertical comp, 3 channels
-                if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
-                    st = read(station3a[-1])
-                    st[0].stats.channel = st[0].stats.channel[0:2]+'E'
-                    if len(station3a[-1].split('__')) == 1:
-                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E.mseed')
-                    else:
-                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
-                    if len(station3a[-1].split('__')) == 1:
-                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N.mseed')
-                    else:
-                        st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
-                    station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-                    station3a = [None,None,None]
-                    for station1 in station3:
-                        if get_chan1(station1)  == 'Z':
-                            ind1 = 2
-                        elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-                            ind1 = 0
-                        elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-                            ind1 = 1
-                        #print(ind1)
-                        station3a[ind1] = station1
-                    print(station3a)
+    
+    infile = make_dayfile(dir1)
 
-        if any(elem is None for elem in station3a):
-            continue
-            #continue
-        day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
-
-    day_string = "\n".join(day_strings)
-
-    with open(dir1+'/dayfile.in', "w") as open_file:
-        open_file.write(day_string)
     infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
 
@@ -1402,58 +1410,61 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
-    filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
-    stations = set()
-    for file1 in filelist:
-        station = file1.split('.')[1]
-        net = file1.split('.')[0].split('/')[-1]
-        netsta = net+'.'+station
-        print(file1.split('.')[1])
-        stations.add(netsta)
-    #### create infile
-    day_strings = []
-    for stationin in stations:
-        station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-        station3a = [None,None,None]
-        if len(station3)>3:
-            #print(station3)
-            ind1 = np.empty((len(station3),1))
-            ind1[:] = np.nan
-            for idxs, station1 in enumerate(station3):
-                if get_chan3(station1) == 'HHZ':
-                    ind1[idxs] = 2
-                elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
-                    ind1[idxs] = 0
-                elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
-                    ind1[idxs] = 1
-                #print(idxs)
-                #if ind1:
-                #    station3a[ind1] = station1
-            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
-            for idxsa, ind2a in enumerate(ind1):
-                if ~np.isnan(ind2a[0]):
-                    #print(ind2a)
-                    #print(station3a)
-                    station3a[int(ind2a[0])] = station3[idxsa]
-        else:
-            for station1 in station3:
-                if get_chan1(station1)  == 'Z':
-                    ind1 = 2
-                elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-                    ind1 = 0
-                elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-                    ind1 = 1
-                #print(ind1)
-                station3a[ind1] = station1
-        if any(elem is None for elem in station3a):
-            continue
-        day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
+    # filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
+    # stations = set()
+    # for file1 in filelist:
+    #     station = file1.split('.')[1]
+    #     net = file1.split('.')[0].split('/')[-1]
+    #     netsta = net+'.'+station
+    #     print(file1.split('.')[1])
+    #     stations.add(netsta)
+    # #### create infile
+    # day_strings = []
+    # for stationin in stations:
+    #     station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
+    #     station3a = [None,None,None]
+    #     if len(station3)>3:
+    #         #print(station3)
+    #         ind1 = np.empty((len(station3),1))
+    #         ind1[:] = np.nan
+    #         for idxs, station1 in enumerate(station3):
+    #             if get_chan3(station1) == 'HHZ':
+    #                 ind1[idxs] = 2
+    #             elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
+    #                 ind1[idxs] = 0
+    #             elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
+    #                 ind1[idxs] = 1
+    #             #print(idxs)
+    #             #if ind1:
+    #             #    station3a[ind1] = station1
+    #         #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
+    #         for idxsa, ind2a in enumerate(ind1):
+    #             if ~np.isnan(ind2a[0]):
+    #                 #print(ind2a)
+    #                 #print(station3a)
+    #                 station3a[int(ind2a[0])] = station3[idxsa]
+    #     else:
+    #         for station1 in station3:
+    #             if get_chan1(station1)  == 'Z':
+    #                 ind1 = 2
+    #             elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
+    #                 ind1 = 0
+    #             elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
+    #                 ind1 = 1
+    #             #print(ind1)
+    #             station3a[ind1] = station1
+    #     if any(elem is None for elem in station3a):
+    #         continue
+    #     day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
 
-    day_string = "\n".join(day_strings)
+    # day_string = "\n".join(day_strings)
 
-    with open(dir1+'/dayfile.in', "w") as open_file:
-        open_file.write(day_string)
-    infile = dir1+'/dayfile.in'
+    # with open(dir1+'/dayfile.in', "w") as open_file:
+    #     open_file.write(day_string)
+    
+    infile = make_dayfile(dir1)
+
+    #infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
     fileinassociate = outfile
 
