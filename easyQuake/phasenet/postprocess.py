@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import json
 import matplotlib.pyplot as plt
 import logging
-from detect_peaks import detect_peaks
+from .detect_peaks import detect_peaks
 from obspy.io.mseed.util import get_record_information
 
 
