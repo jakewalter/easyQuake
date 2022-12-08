@@ -589,6 +589,7 @@ def make_dayfile(dir1, make3):
 
     with open(dir1+'/dayfile.in', "w") as open_file:
         open_file.write(day_string)
+    return dir1+'/dayfile.in'
         
 
 def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0):
@@ -1464,8 +1465,8 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
     # with open(dir1+'/dayfile.in', "w") as open_file:
     #     open_file.write(day_string)
-    
-    infile = make_dayfile(dir1)
+    make3 = True
+    infile = make_dayfile(dir1, make3)
 
     #infile = dir1+'/dayfile.in'
     outfile = dir1+'/gpd_picks.out'
