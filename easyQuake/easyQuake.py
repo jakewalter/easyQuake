@@ -26,7 +26,7 @@ jwalter@ou.edu
 #sys.path.append("/home/jwalter/syncpython")
 from .phasepapy import fbpicker
 pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
-pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
+pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/mseed_predictor'
 pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
 
@@ -1414,57 +1414,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
-    # filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
-    # stations = set()
-    # for file1 in filelist:
-    #     station = file1.split('.')[1]
-    #     net = file1.split('.')[0].split('/')[-1]
-    #     netsta = net+'.'+station
-    #     print(file1.split('.')[1])
-    #     stations.add(netsta)
-    # #### create infile
-    # day_strings = []
-    # for stationin in stations:
-    #     station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-    #     station3a = [None,None,None]
-    #     if len(station3)>3:
-    #         #print(station3)
-    #         ind1 = np.empty((len(station3),1))
-    #         ind1[:] = np.nan
-    #         for idxs, station1 in enumerate(station3):
-    #             if get_chan3(station1) == 'HHZ':
-    #                 ind1[idxs] = 2
-    #             elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
-    #                 ind1[idxs] = 0
-    #             elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
-    #                 ind1[idxs] = 1
-    #             #print(idxs)
-    #             #if ind1:
-    #             #    station3a[ind1] = station1
-    #         #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
-    #         for idxsa, ind2a in enumerate(ind1):
-    #             if ~np.isnan(ind2a[0]):
-    #                 #print(ind2a)
-    #                 #print(station3a)
-    #                 station3a[int(ind2a[0])] = station3[idxsa]
-    #     else:
-    #         for station1 in station3:
-    #             if get_chan1(station1)  == 'Z':
-    #                 ind1 = 2
-    #             elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-    #                 ind1 = 0
-    #             elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-    #                 ind1 = 1
-    #             #print(ind1)
-    #             station3a[ind1] = station1
-    #     if any(elem is None for elem in station3a):
-    #         continue
-    #     day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
 
-    # day_string = "\n".join(day_strings)
-
-    # with open(dir1+'/dayfile.in', "w") as open_file:
-    #     open_file.write(day_string)
     make3 = True
     infile = make_dayfile(dir1, make3)
 
@@ -1496,6 +1446,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
+            print(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
