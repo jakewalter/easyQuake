@@ -1402,6 +1402,10 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     stopping = approxotime + 360
     dir1 = project_folder+'/'+dirname
     print(dir1)
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    if machine == False:
+        machine_picker = 'STALTA'
     if downloadwaveforms:
         download_mseed_event_radial(dirname=dirname, project_folder=project_folder, starting=starting, stopping = stopping, lat1=latitude, lon1=longitude, maxrad=max_radius)
     #print(single_date.strftime("%Y%m%d"))
