@@ -129,7 +129,7 @@ class SCNL():
                 self.station,self.channel,self.network=input
 
 
-def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False):
+def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
     starttime = starting
@@ -148,6 +148,9 @@ def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=N
     #os.system("mv %s %s" % (original1,mseed1))
     mdl = MassDownloader()
     mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
+    if raspberry_shake:
+        mdl = MassDownloader('RASPISHAKE')
+        mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
 
 def download_mseed_event(dirname=None, project_folder=None, starting=None, stopping = None, minlat=None, maxlat=None, minlon=None, maxlon=None, maxrad=None):
     starttime = starting
