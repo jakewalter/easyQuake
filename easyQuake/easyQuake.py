@@ -149,7 +149,7 @@ def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=N
     mdl = MassDownloader()
     mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
     if raspberry_shake:
-        mdl = MassDownloader('RASPISHAKE')
+        mdl = MassDownloader(['RASPISHAKE'])
         mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
 
 def download_mseed_event(dirname=None, project_folder=None, starting=None, stopping = None, minlat=None, maxlat=None, minlon=None, maxlon=None, maxrad=None):
