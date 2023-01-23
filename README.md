@@ -120,6 +120,10 @@ Most recent updates, recorded for the 2021 SSA Annual meeting: https://www.youtu
 
 Recorded for the fall 2020 Virtual SSA Eastern Section meeting: https://www.youtube.com/watch?v=coS2OwTWO3Y
 
+## About EasyQuake
+
+Stay up to date on the latest description of EasyQuake contents: https://easyquake.readthedocs.io/en/latest/About.html
+
 ## Running easyQuake with SLURM
 
 If you have access to shared computing resources that utilize SLURM, you can drive easyQuake by making a bash script to run the example code or any code (thanks to Xiaowei Chen at OU). Save the following to a drive_easyQuake.sh and then run it
