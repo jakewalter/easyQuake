@@ -1346,6 +1346,12 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         picktimes = []
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
+            try:
+              st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
+            except:
+              if pick.waveform_id.channel_code[-1]=="E":
+                pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "1"
+              elif pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "2"
             st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
             #arrivals.append(arrv)
             picks.append(pick.phase_hint)
