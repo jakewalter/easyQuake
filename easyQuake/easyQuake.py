@@ -26,7 +26,7 @@ jwalter@ou.edu
 #sys.path.append("/home/jwalter/syncpython")
 from .phasepapy import fbpicker
 pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
-pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/mseed_predictor'
+pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
 pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
 
@@ -719,7 +719,27 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
-
+    if not os.path.exists(dir1+'/station_list.csv'):
+        stalat = []
+        stalon = []
+        staname = []
+        netname = []
+        elevs = []
+        for net in inventory:
+            for sta in net:
+                stalat.append(sta.latitude)
+                stalon.append(sta.longitude)
+                staname.append(sta.code)
+                netname.append(net.code)
+                elevs.append(sta.elevation)
+        stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
+        stadf = stadf.drop_duplicates()
+        stadf.to_csv(dir1+'/station_list.csv')
+        # check if there is actually data there?
+        # dayfile = pd.read_csv(dir1+'/dayfile.in', sep=" ", header=None)
+        # for idx1 in dayfile.index:
+        #     print(".".join(dayfile.iloc[idx1][0].split('/')[-1].split('.')[0:2]))
+        #     match = stadf[stadf['netsta'].str.contains(".".join(dayfile.iloc[idx1][0].split('/')[-1].split('.')[0:2]))
     
     if not os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
