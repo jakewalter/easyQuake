@@ -713,7 +713,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     if os.path.exists(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db'):
         os.remove(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db')
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
-    print(db_tt)
+    #print(db_tt)
     if local:
         inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     else:
@@ -734,7 +734,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
                 elevs.append(sta.elevation)
         stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
         stadf = stadf.drop_duplicates()
-        stadf.to_csv(dir1+'/station_list.csv')
+        stadf.to_csv(dir1+'/station_list.csv',index_col=False)
         # check if there is actually data there?
         # dayfile = pd.read_csv(dir1+'/dayfile.in', sep=" ", header=None)
         # for idx1 in dayfile.index:
@@ -1819,7 +1819,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
     if vel_model is None:
         velmodel = pathhyp+'/standard.crh'
         os.system("cp %s %s" % (velmodel,project_folder))
-        vel_model = 'standard.crh'
+        vel_model = project_folder+'standard.crh'
 
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
