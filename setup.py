@@ -15,6 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'basemap',
+        'cartopy',
         'keras==2.4.3',
         'obspy',
         'pandas',
