@@ -15,7 +15,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'basemap',
-        'keras==2.3.1',
+        'keras==2.4.3',
         'obspy',
         'pandas',
         'tensorflow==2.4',
