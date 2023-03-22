@@ -7,9 +7,9 @@ https://github.com/smousavi05/EQTransformer/blob/master/EQTransformer/core/mseed
 Remove plotting, as not needed
 """
 
-from keras import backend as K
-from keras.models import load_model
-from keras.optimizers import Adam
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 import numpy as np
 import math
