@@ -54,6 +54,26 @@ First, if you have a graphic card that supports CUDA, you should check the CUDA 
 https://www.tensorflow.org/install/source
 ```
 
+Our workstation works with a Nvidia RTX A4000, compatible with TensorFlow 2.4, so we'll need to install CUDA and cuDNN according to this version, which in our case is CUDA 11.0 and cuDNN 8.0.
+
+We use the following commands to create a conda environment with an especific version of CUDA and cuDNN:
+
+```
+conda create --name easyquake python=3.7
+conda activate easyquake
+conda install -c conda-forge cudatoolkit=11.0 cudnn=8.0
+```
+
+
+
+```
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+Sign out and sign back in via SSH or close and re-open your terminal window. Reactivate your conda session.
+
+
 ## Running easyQuake
 
 The first example is a simple one in "event mode" - try it:
