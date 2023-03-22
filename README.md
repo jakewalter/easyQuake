@@ -45,6 +45,15 @@ conda install obspy -c conda-forge
 pip install easyQuake
 ```
 
+## Customizing easyQuake installation on your own workstation
+As explained before, easyQuake has been tested on a multi-core desktop with a Nvidia GeForce 1050 Ti card. However, you may find that the standar configuration during installation leads to errors due to incompatibilities among the different versions of CUDA, TensorFlow, Keras, etc. Because of this, we recommend to create a conda environvent with the especific version of CUDA and cuDNN. 
+
+First, if you have a graphic card that supports CUDA, you should check the CUDA and cuDNN versions compatible with TensorFlow in this webpage:
+
+```
+https://www.tensorflow.org/install/source
+```
+
 ## Running easyQuake
 
 The first example is a simple one in "event mode" - try it:
