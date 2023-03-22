@@ -36,7 +36,8 @@ This code leverages machine-learning for earthquake detection with the choice of
 * I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.2```
 * Because tensorflow-gpu 2.2 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
 ```
-conda create -n easyquake python=3.7 anaconda
+#conda create -n easyquake python=3.7 anaconda
+conda create -n easyquake python=3.7
 conda activate easyquake
 conda install tensorflow-gpu==2.2
 conda install keras
