@@ -1351,7 +1351,8 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
             except:
               if pick.waveform_id.channel_code[-1]=="E":
                 pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "1"
-              elif pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "2"
+              elif pick.waveform_id.channel_code[-1]=="N": 
+                pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "2"
             st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
             #arrivals.append(arrv)
             picks.append(pick.phase_hint)
