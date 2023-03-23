@@ -47,7 +47,6 @@ from multiprocessing import cpu_count
 # set_start_method("spawn")
 # from multiprocessing import get_context
 
-#import os
 from obspy import UTCDateTime
 from obspy import Inventory, read_inventory
 from obspy.clients.fdsn import Client
