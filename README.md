@@ -45,18 +45,18 @@ conda install obspy -c conda-forge
 pip install easyQuake
 ```
 
-## Customizing easyQuake installation on your own workstation
-As explained before, easyQuake has been tested on a multi-core desktop with a Nvidia GeForce 1050 Ti card. However, you may find that the standar configuration during installation leads to errors due to incompatibilities among the different versions of CUDA, TensorFlow, Keras, etc. Because of this, we recommend to create a conda environvent with the especific version of CUDA and cuDNN. 
+## Customizing easyQuake installation on your workstation
+As explained before, easyQuake has been tested on a multi-core desktop with an Nvidia GeForce 1050 Ti card. However, you may find that the standard configuration during installation leads to errors due to incompatibilities among the different versions of CUDA, TensorFlow, Keras, etc. Because of this, we recommend creating a Conda environment with the specific version of CUDA and cuDNN.
 
-First, if you have a graphic card that supports CUDA, you should check the CUDA and cuDNN versions compatible with TensorFlow in this webpage:
+First, if you have a graphic card that supports CUDA, you should check the CUDA and cuDNN versions compatible with TensorFlow on this webpage:
 
 ```
 https://www.tensorflow.org/install/source
 ```
 
-Our workstation works with a Nvidia RTX A4000, compatible with TensorFlow 2.4, so we'll need to install CUDA and cuDNN according to this version, which in our case is CUDA 11.0 and cuDNN 8.0.
+Our workstation works with an Nvidia RTX A4000, compatible with TensorFlow 2.4, so we'll need to install CUDA and cuDNN according to this version, which in our case is CUDA 11.0 and cuDNN 8.0.
 
-We use the following commands to create a conda environment with an especific version of CUDA and cuDNN:
+We use the following commands to create a Conda environment with a specific version of CUDA and cuDNN:
 
 ```
 conda create --name easyquake python=3.7
@@ -64,14 +64,12 @@ conda activate easyquake
 conda install -c conda-forge cudatoolkit=11.0 cudnn=8.0
 ```
 
-
-
 ```
 mkdir -p $CONDA_PREFIX/etc/conda/activate.d
 echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
 ```
 
-Sign out and sign back in via SSH or close and re-open your terminal window. Reactivate your conda session.
+Sign out and sign back in via SSH or close and re-open your terminal window. Reactivate your Conda session.
 
 
 ## Running easyQuake
