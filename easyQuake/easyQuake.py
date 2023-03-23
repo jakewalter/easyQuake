@@ -1645,6 +1645,21 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 
 #
 #
+def quakeml_to_nlloc(cat=None):
+  
+  nllobs_dir = "nllobs"
+  dir_path = os.path.join(os.getcwd(), nllobs_dir)
+  
+  try:
+    os.mkdir(dir_path)
+  except:
+    pass
+  
+  for idx, x in enumerate(cat):
+    name = str(idx) + ".nllobs"
+    obs_file = os.path.join(dir_path, name)
+    catalog[idx].write(obs_file, format="NLLOC_OBS")
+
 def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=None, project_code=None):
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
