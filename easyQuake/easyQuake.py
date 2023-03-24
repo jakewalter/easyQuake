@@ -686,7 +686,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=None, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
         
