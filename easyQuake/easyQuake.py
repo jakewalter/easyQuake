@@ -1819,7 +1819,9 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
     if vel_model is None:
         velmodel = pathhyp+'/standard.crh'
         os.system("cp %s %s" % (velmodel,project_folder))
-        vel_model = project_folder+'standard.crh'
+        vel_model = project_folder+'/'+'standard.crh'
+    else:
+        vel_model = project_folder+'/'+vel_model
 
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
@@ -2235,6 +2237,27 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     plt.show()
     plt.savefig('gr_plot.png')
 
+def make_station_list_csv(project_folder=None):
+    files = sorted(glob.glob(project_folder+'/*/dailyinventory.xml'))
+    for file in files:
+        dir1 = project_folder+'/'+file.split('/')[-2]
+        if not os.path.exists(dir1+'/station_list.csv'):
+            inventory = read_inventory(dir1+'/dailyinventory.xml')
+            stalat = []
+            stalon = []
+            staname = []
+            netname = []
+            elevs = []
+            for net in inventory:
+                for sta in net:
+                    stalat.append(sta.latitude)
+                    stalon.append(sta.longitude)
+                    staname.append(sta.code)
+                    netname.append(net.code)
+                    elevs.append(sta.elevation)
+            stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
+            stadf = stadf.drop_duplicates()
+            stadf.to_csv(dir1+'/station_list.csv',index=False)
 
 def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
     #make a training dataset in STEAD format for retraining data
