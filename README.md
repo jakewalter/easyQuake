@@ -71,6 +71,26 @@ echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFI
 
 Sign out and sign back in via SSH or close and re-open your terminal window. Reactivate your Conda session.
 
+```
+conda deactivate
+conda activate easyquake
+cd easyQuake
+pip install .
+```
+
+There is an issue related to PhaseNet installation. You must modidify the file "phasenet_predict" located in ~/anaconda3/envs/your_environment/bin:
+
+```
+#!/home/your_user/anaconda3/envs/your_environment/bin/python
+# -*- coding: utf-8 -*-
+import re
+import sys
+from easyQuake.phasenet.phasenet_predict import main
+from easyQuake.phasenet.phasenet_predict import read_args
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(main(read_args()))
+```
 
 ## Running easyQuake
 
