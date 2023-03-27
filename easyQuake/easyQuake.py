@@ -734,7 +734,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
                 elevs.append(sta.elevation)
         stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
         stadf = stadf.drop_duplicates()
-        stadf.to_csv(dir1+'/station_list.csv',index_col=False)
+        stadf.to_csv(dir1+'/station_list.csv',index=False)
         # check if there is actually data there?
         # dayfile = pd.read_csv(dir1+'/dayfile.in', sep=" ", header=None)
         # for idx1 in dayfile.index:
