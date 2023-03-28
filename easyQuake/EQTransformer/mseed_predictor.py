@@ -555,17 +555,17 @@ def _mseed2nparry(args, fdir, i, time_slots, comp_types):
     return meta, time_slots, comp_types, data_set
 
 
-detection_threshold=0.3
-P_threshold=0.1
-S_threshold=0.1
-loss_weights=[0.03, 0.40, 0.58]
-loss_types=['binary_crossentropy', 'binary_crossentropy', 'binary_crossentropy']
-normalization_mode='std'
-batch_size=500
-overlap = 0.3
-gpuid=None
-gpu_limit=None
-overwrite=False
+#detection_threshold=0.3
+#P_threshold=0.1
+#S_threshold=0.1
+#loss_weights=[0.03, 0.40, 0.58]
+#loss_types=['binary_crossentropy', 'binary_crossentropy', 'binary_crossentropy']
+#normalization_mode='std'
+#batch_size=500
+#overlap = 0.3
+#gpuid=None
+#gpu_limit=None
+#overwrite=False
 
 
 #try:
@@ -691,25 +691,71 @@ def main():
         default=None,
         help='path where EQTransformer lives')
 
+    #model_type = "EqT_model_conservative.h5"
+    model_type = "EqT_original_model.h5"    
+    
     args1 = parser.parse_args()
     input_model=args1.F+"/EqT_model.h5"
 
+    if model_type=="EqT_model_conservative.h5":
 
-    args = {
-    "I": args1.I,
-    "O": args1.O,
-    "input_model": input_model,
-    "detection_threshold": detection_threshold,
-    "P_threshold": P_threshold,
-    "S_threshold": S_threshold,
-    "loss_weights": loss_weights,
-    "loss_types": loss_types,
-    "normalization_mode": normalization_mode,
-    "overlap": overlap,
-    "batch_size": batch_size,
-    "gpuid": gpuid,
-    "gpu_limit": gpu_limit
-    }
+        detection_threshold=0.2
+        P_threshold=0.05
+        S_threshold=0.05
+        loss_weights=[0.03, 0.40, 0.58]
+        loss_types=['binary_crossentropy', 'binary_crossentropy', 'binary_crossentropy']
+        normalization_mode='std'
+        batch_size=500
+        overlap = 0.3
+        gpuid=None
+        gpu_limit=None
+        overwrite=False     
+
+        args = {
+        "I": args1.I,
+        "O": args1.O,
+        "input_model": input_model,
+        "detection_threshold": detection_threshold,
+        "P_threshold": P_threshold,
+        "S_threshold": S_threshold,
+        "loss_weights": loss_weights,
+        "loss_types": loss_types,
+        "normalization_mode": normalization_mode,
+        "overlap": overlap,
+        "batch_size": batch_size,
+        "gpuid": gpuid,
+        "gpu_limit": gpu_limit
+        }
+
+    elif model_type=="EqT_original_model.h5":
+
+        detection_threshold=0.3
+        P_threshold=0.3
+        S_threshold=0.5
+        loss_weights=[0.03, 0.40, 0.58]
+        loss_types=['binary_crossentropy', 'binary_crossentropy', 'binary_crossentropy']
+        normalization_mode='std'
+        batch_size=500
+        overlap = 0.3
+        gpuid=None
+        gpu_limit=None
+        overwrite=False     
+
+        args = {
+        "I": args1.I,
+        "O": args1.O,
+        "input_model": input_model,
+        "detection_threshold": detection_threshold,
+        "P_threshold": P_threshold,
+        "S_threshold": S_threshold,
+        "loss_weights": loss_weights,
+        "loss_types": loss_types,
+        "normalization_mode": normalization_mode,
+        "overlap": overlap,
+        "batch_size": batch_size,
+        "gpuid": gpuid,
+        "gpu_limit": gpu_limit
+        }
 
     if args['gpuid']:
         os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(args['gpuid'])
