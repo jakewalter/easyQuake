@@ -1897,11 +1897,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                 else:
                     hypo71_string += "\n"
 
-        try:
-            if os.path.exists(project_folder+'/out.sum'):
-                os.system('rm '+project_folder+'/out.sum')
-        except:
-            pass
+        if os.path.exists(project_folder+'/out.sum'):
+            os.system('rm '+project_folder+'/out.sum')
         fcur = open(project_folder+'/pha','w')
         fcur.write(str(hypo71_string))
         fcur.close()
