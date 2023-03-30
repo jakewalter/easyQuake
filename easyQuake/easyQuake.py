@@ -130,6 +130,35 @@ class SCNL():
 
 
 def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
+    """
+    Downloads seismic data in miniSEED format from IRIS DMC within a specified geographic and temporal domain.
+    
+    Args:
+    dirname (str): Name of directory where miniSEED files will be stored. If None, the directory will be named after the specified date.
+    project_folder (str): Name of project folder where miniSEED files will be stored. If None, files will be stored in the current directory.
+    single_date (datetime): Date in YYYY-MM-DD format specifying the day for which data will be downloaded.
+    minlat (float): Minimum latitude for the geographic domain.
+    maxlat (float): Maximum latitude for the geographic domain.
+    minlon (float): Minimum longitude for the geographic domain.
+    maxlon (float): Maximum longitude for the geographic domain.
+    dense (bool): Whether to download data with high temporal and spatial resolution. If True, data with minimum inter-station distance of 1 meter will be downloaded. Otherwise, data with minimum inter-station distance of 5000 meters will be downloaded.
+    raspberry_shake (bool): Whether to download data from Raspberry Shake stations in addition to the standard IRIS DMC stations.
+    
+    Returns:
+    None: The function only downloads miniSEED files and does not return any values.
+    
+    Raises:
+    None: The function does not raise any exceptions.
+    
+    Example:
+    To download miniSEED files for January 1, 2023 in the geographic domain bounded by 40 to 42 degrees latitude and -120 to -118 degrees longitude with high temporal and spatial resolution and save them in a directory called "data" within a project folder called "project":
+    
+    python
+    Copy code
+    >>> date = datetime.datetime(2023, 1, 1)
+    >>> download_mseed(dirname="data", project_folder="project", single_date=date, minlat=40, maxlat=42, minlon=-120, maxlon=-118, dense=True, raspberry_shake=False)
+    
+    """
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
     starttime = starting
@@ -250,6 +279,25 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
 
 def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1, model=None):
     """
+    This function builds travel-time lookup tables for seismic stations located in a specified directory using a specified model. The function takes several optional arguments, including the directory name, project folder, channel codes, database, maximum distance, source depth, delta distance, and model.
+
+    The function begins by creating a connection to an SQLalchemy database and creating the necessary tables. It then reads in the station inventory from the specified directory and populates the station table in the database with the relevant information.
+    
+    The function then uses the specified travel-time model or the default IASP91 model to calculate travel times for each distance between 0 and the specified maximum distance, in increments of the specified delta distance. For each distance, the function calculates the minimum travel time for P- and S-waves and stores this information in the travel time table in the database.
+    
+    The function returns the station inventory.
+    
+    Args:
+        dirname (str, optional): The directory containing the station inventory files. Defaults to None.
+        project_folder (str, optional): The project folder containing the station inventory directory. Defaults to None.
+        channel_codes (list of str, optional): The channel codes to be included. Defaults to ['EH', 'BH', 'HH', 'HN'].
+        db (str, optional): The SQLAlchemy database connection string. Defaults to None.
+        maxdist (float, optional): The maximum distance for which to calculate travel times, in km. Defaults to 800.0.
+        source_depth (float, optional): The depth of the seismic source, in km. Defaults to 5.0.
+        delta_distance (int, optional): The spacing between distances for which to calculate travel times, in km. Defaults to 1.
+        model (str, optional): The name of the travel-time model to use. Defaults to None.
+    Returns:
+        inv (Inventory): The station inventory, populated with information from the specified directory.
     """
     # Create a connection to an sqlalchemy database
     tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
@@ -596,6 +644,38 @@ def make_dayfile(dir1, make3):
         
 
 def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0):
+    """
+    Continuous detection of seismic events using single-station waveform data.
+    
+    Args:
+    
+        dirname (str, optional): The directory name where the data will be stored.
+        project_folder (str, optional): The project directory where the data will be stored.
+        project_code (str, optional): The project code name.
+        local (bool, optional): If True, read in data from a local directory. If False, read in data from an online database.
+        machine (bool, optional): If True, use an automated detection algorithm. If False, use a manual detection algorithm.
+        machine_picker (str, optional): The name of the automated detection algorithm to use. Only used if machine=True. Defaults to 'GPD'.
+        single_date (datetime.datetime, optional): The date and time to start detection.
+        make3 (bool, optional): Whether to split data into 3-hour chunks. Defaults to True.
+        latitude (float, optional): The latitude of the location where data is to be collected. Only used if local=False.
+        longitude (float, optional): The longitude of the location where data is to be collected. Only used if local=False.
+        max_radius (float, optional): The maximum distance, in degrees, from the latitude and longitude to search for stations. Only used if local=False.
+        fullpath_python (str, optional): The path to the Python executable. Only used if machine=True.
+        filtmin (float, optional): The minimum frequency for the filter.
+        filtmax (float, optional): The maximum frequency for the filter.
+        t_sta (float, optional): The length of the short-term average window for the STA/LTA algorithm.
+        t_lta (float, optional): The length of the long-term average window for the STA/LTA algorithm.
+        trigger_on (float, optional): The threshold for triggering an event.
+        trigger_off (float, optional): The threshold for ending an event.
+        trig_horz (float, optional): The horizontal distance between events required for them to be considered separate.
+        trig_vert (float, optional): The vertical distance between events required for them to be considered separate.
+    Returns:
+        None
+    
+    This function performs continuous detection of seismic events using waveform data from a single station. It creates an SQLite database for storing the detection results, and uses automated detection algorithms (GPD, EQTransformer, or PhaseNet), or alternatively, STA/LTA.
+    """
+    
+
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -691,6 +771,30 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
 def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
+    """
+    association_continuous: A function that performs association of seismic events with continuous data
+    
+    Args:
+        dirname (str): Name of the directory where the project is located.
+        project_folder (str): Name of the project folder.
+        project_code (str): Project code name.
+        maxdist (float): Maximum distance to search for stations (km).
+        maxkm (float): Maximum epicentral distance for association (km).
+        single_date (datetime): A datetime object that represents a single date.
+        local (bool): Flag to indicate if the TT tables will be built from local data or will be downloaded from IRIS.
+        nsta_declare (int): Minimum number of stations required to declare an event.
+        delta_distance (float): Distance increment to create the TT tables (km).
+        machine (bool): Flag to indicate which picking algorithm will be used.
+        machine_picker (str): Name of the picking algorithm to be used.
+        latitude (float): Latitude of the epicenter.
+        longitude (float): Longitude of the epicenter.
+        max_radius (float): Maximum radius to search for stations.
+        model (str): Velocity model to use in the TT tables.
+        delete_assoc (bool): Flag to indicate if the old association database will be deleted.
+    
+    Returns:
+        None
+    """
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
         
@@ -1051,6 +1155,21 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 
 
 def polarity(tr,pickP=None):
+    """
+    This function determines the polarity of a given seismogram trace, with respect to a given pickP value.
+    It calculates the standard deviation of the trace and checks whether the difference between the value at pickP
+    and the next maximum or minimum exceeds a threshold. If so, it determines the polarity as positive or negative,
+    otherwise it sets the polarity as undecidable.
+    
+    :param tr: ObsPy Trace object containing the seismogram data.
+    :type tr: obspy.core.trace.Trace
+    :param pickP: The time in seconds after the trace start time at which the seismic arrival
+    of interest (e.g. the P-wave) occurs. If not provided, defaults to None.
+    :type pickP: float or None
+    :return: The polarity of the seismogram trace as a string, which can be either "positive", "negative", or "undecidable".
+    :rtype: str
+    
+    """
     dt=tr.stats.delta
     #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt)
     index0=int(round((pickP-tr.stats.starttime)/dt,0))
@@ -1075,6 +1194,23 @@ def polarity(tr,pickP=None):
 
 
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
+    """
+    Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
+    
+    Args:
+        cat (obspy.Catalog or None): The catalog of events for which to compute magnitudes. If None,
+            a message is printed and the function returns immediately. Default is None.
+        project_folder (str or None): The path to the project folder where the data files are stored.
+            If None, a message is printed and the function returns immediately. Default is None.
+        plot_event (bool): Whether to plot the event waveform data. Default is False.
+        eventmode (bool): Whether the given project_folder is a daily or single event folder. If True,
+            then project_folder should be the path to the daily folder. Default is False.
+        cutoff_dist (float): The maximum distance from the event epicenter to consider for magnitude
+            computation, in kilometers. Default is 200.
+    
+    Returns:
+        None: The magnitudes are saved in QuakeML format by writing an additional event magnitude to the Event object.
+    """
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
@@ -1300,6 +1436,25 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
 
 
 def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
+    """
+    Writes earthquake event data to an XML file in the specified format.
+    
+    Args:
+    - catalog: an obspy Catalog object containing earthquake event data
+    - project_folder: a string specifying the path to the project folder where the XML file should be written
+    - format: a string specifying the format of the XML file (default is 'QUAKEML')
+    
+    Returns:
+    - None
+    
+    Example:
+    >>> cat = obspy.read_events('data.xml')
+    >>> single_event_xml(catalog=cat, project_folder='project_folder', format='QUAKEML')
+    
+    This function creates a folder named after the specified format (e.g. 'quakeml') within the specified project folder.
+    For each earthquake event in the catalog, a corresponding XML file is created within the format folder using the 
+    event's resource ID as the filename. If the format folder does not exist, it will be created.
+    """
     xmlspath = project_folder+'/'+format.lower()
     if not os.path.exists(xmlspath):
         os.makedirs(xmlspath)
@@ -1332,6 +1487,33 @@ def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
 
 
 def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
+    """
+    Fixes the picks in a catalog by checking actual waveform data
+    
+    Parameters
+    catalog : obspy.core.event.Catalog
+    The catalog containing the events and picks.
+    project_folder : str
+    The path to the project folder.
+    filename : str, optional
+    The path to the output QUAKEML file.
+    
+    Returns
+    obspy.core.event.Catalog
+    A new catalog with the fixed picks.
+    
+    Notes
+    This function assumes that waveform data is stored in MiniSEED files in the
+    following directory structure:
+    project_folder/YYYYMMDD/network.station.location.channel.mseed
+    
+    If the waveform data for a pick is not found, the function attempts to fix the
+    pick by searching for waveform data for the same station and channel on the
+    same day, and updating the channel code accordingly in the QuakeML file.
+    
+    The function modifies a copy of the input catalog, leaving the original
+    catalog unchanged.
+    """
     cat2 = catalog.copy()
     for event in cat2:
         print(event.preferred_origin().time)
@@ -1351,6 +1533,26 @@ def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
 
 
 def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False):
+    """
+    The function cut_event_waveforms takes an earthquake catalog, and cuts and plots the waveform data for each event within a specified time range. The waveform data is read from mseed files located in a specified directory. The function saves the waveform data and plots in a new subdirectory under the project folder. If filteryes is set to True, the waveform data is also filtered.
+
+    Parameters:
+    
+        catalog : obspy.core.event.Catalog
+        An earthquake catalog object containing event and waveform data.
+        project_folder : str
+        The path of the project folder where the waveform files are located and output should be saved.
+        length : int
+        The length of the waveform data to be extracted in seconds.
+        filteryes : bool
+        Whether or not to filter the waveform data. Default is True.
+        plotevent : bool
+        Whether or not to plot the waveforms for each event. Default is False.
+    Returns:
+    
+        cat2 : obspy.core.event.Catalog
+    The same input earthquake catalog object with any changes made to waveform data.
+    """
     dirname = project_folder+'/events'
     if not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -1553,6 +1755,30 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
 
 def simple_cat_df(cat=None, uncertainty=False):
+    """
+    This function takes in an ObsPy Catalog object containing earthquake events and returns a pandas DataFrame
+    containing various attributes of the events.
+    
+    Parameters:
+        cat (obspy.Catalog): Catalog object containing earthquake events.
+        uncertainty (bool): Whether to include origin uncertainty parameters in the returned DataFrame. Default is False.
+        
+    Returns:
+        pandas.DataFrame: DataFrame containing the following columns:
+        - origintime (datetime): Origin time of the event.
+        - latitude (float): Latitude of the event.
+        - longitude (float): Longitude of the event.
+        - depth (float): Depth of the event.
+        - magnitude (float): Magnitude of the event.
+        - type (str): Magnitude type of the event.
+        - horizontal_error (float): Horizontal uncertainty of the event. Only included if uncertainty is True.
+        - vertical_error (float): Vertical uncertainty of the event. Only included if uncertainty is True.
+        - num_arrivals (int): Number of arrivals used to locate the event. Only included if uncertainty is True.
+        - rms (float): Root-mean-square of the residuals of the event's origin time, latitude, longitude, and depth.
+        Only included if uncertainty is True.
+        - azimuthal_gap (float): Azimuthal gap of the event. Only included if uncertainty is True.
+        - id (str): Resource identifier of the event.
+    """
     times = []
     lats = []
     lons = []
@@ -1617,6 +1843,22 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 #
 #
 def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=None, project_code=None):
+    """
+    This function converts a catalog in QuakeML format into input files for HypoDD. It creates a file containing event and phase information and a file containing station location metadata. If specified, it downloads station metadata from the FDSN web service.
+    
+    Args:
+        cat: obspy catalog object. A catalog of seismic events in QuakeML format.
+        download_station_metadata: bool. If True, download station location metadata from the FDSN web service.
+        project_folder: str. The path to the project folder where the input files will be saved. If not provided, the current working directory is used.
+        project_code: str. The name of the project. The files will be named using this code.
+        
+    Returns:
+        None. The function writes the input files to disk.
+        
+    Raises:
+        No exceptions are raised by this function. Any errors encountered are printed to the console.
+
+    """
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
     #for idx0, t0 in enumerate(catdf.index):
@@ -1738,36 +1980,6 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
             open_file.write(station_string)
 
 
-#    station_dat_file = project_folder+'/'+'station.dat'
-#
-#    #station_strings = []
-#    #for key, value in self.stations.iteritems():
-#    #    station_strings.append("%s %.6f %.6f %i" % (key, value["latitude"],
-#    #        value["longitude"], value["elevation"]))
-#    #station_string = "\n".join(station_strings)
-#    #with open(station_dat_file, "w") as open_file:
-#    #    open_file.write(station_string)
-#    #self.log("Created station.dat input file.")
-#
-#
-#    starttime = UTCDateTime("2010-01-01T00:00:00.000")
-#    endtime = UTCDateTime("2022-01-01T00:00:00.000")
-#    #line = [(-98.15, 35.88),(-98.05, 35.8)] # Cushing area
-#
-#    client = Client('IRIS')
-#    inva = client.get_stations(starttime=starttime, endtime=endtime,network="*", loc="*", channel="*",minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon,level="station")
-#    station_strings = []
-#    for sta in stations:
-#        print(sta)
-#        inva1 = inva.select(station=sta)
-#        if len(inva1.networks) > 0:
-#            station_strings.append("%s %.6f %.6f %i" % (sta, inva1[0][0].latitude, inva1[0][0].longitude, inva1[0][0].elevation))
-#        #inva1[0][0].latitude
-#    station_string = "\n".join(station_strings)
-#    with open(station_dat_file, "w") as open_file:
-#        open_file.write(station_string)
-
-
 
 
 def plot_hypodd_catalog(file=None,fancy_plot=False):
@@ -1816,6 +2028,20 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
 
 
 def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None):
+    """
+    Generate a hypoinverse input file (pha file) for earthquake locations from an obspy Catalog object.
+    The function creates a pha file containing P and S picks, and a run.hyp file containing
+    necessary parameters to perform location analysis. It requires a velocity model to be specified.
+    
+    Parameters:
+        cat (obspy.Catalog object): Obspy Catalog object containing earthquake events.
+        project_folder (str): Path to the project folder.
+        vel_model (str): Name of the velocity model to be used. Default is "standard.crh".
+        fullpath_hyp (str): Optional path for the hypoinverse compiled program.
+    
+    Returns:
+        None
+    """
     if vel_model is None:
         velmodel = pathhyp+'/standard.crh'
         os.system("cp %s %s" % (velmodel,project_folder))
@@ -2257,6 +2483,18 @@ def make_station_list_csv(project_folder=None):
             stadf.to_csv(dir1+'/station_list.csv',index=False)
 
 def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
+    """
+    Convert seismic waveform data associated with each earthquake event in the `cat` object into HDF5 format. If `makecsv` is set to `True`, a CSV file of the event information will be created in the `project_folder` directory.
+
+    Parameters:
+        cat (obspy.core.event.Catalog): An ObsPy Catalog object containing earthquake event information.
+        project_folder (str): The path of the directory where the output HDF5 and CSV files will be saved.
+        makecsv (bool): If True, a CSV file of the event information will be created in the `project_folder` directory.
+
+    Returns:
+        None
+    """
+
     #make a training dataset in STEAD format for retraining data
     output_merge = project_folder+'/merge.hdf5'
     if os.path.exists(project_folder+'/merge.hdf5'):
