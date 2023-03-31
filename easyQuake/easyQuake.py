@@ -2130,7 +2130,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         fcur.close()
 
         frun = open(project_folder+'/run.hyp','w')
-        frun.write("crh 1 "+vel_model)
+        frun.write("crh 1 '"+vel_model+"'")
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
