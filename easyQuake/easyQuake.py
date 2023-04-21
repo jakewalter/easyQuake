@@ -2501,6 +2501,57 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                 csvfile.flush()
             except:
                 pass
+            
+def total_picks_catalog(start_date=None, end_date=None, project_folder=None, machine_picker=None, outfile=None):
+    print("Creating total picks catalog after " + machine_picker + " detection.")
+    total_picks_out = outfile
+    path_save_total = os.path.join(project_folder, total_picks_out)
+    #print(path_save_total)
+    if os.path.exists(path_save_total):
+        os.remove(path_save_total)
+        f1 = open(path_save_total, "a+")
+    else:
+        f1 = open(path_save_total, "a+")
+
+    for single_date in daterange(start_date, end_date):
+        #print(single_date.strftime("%Y-%m-%d"))
+        dirname = single_date.strftime("%Y%m%d")
+
+        if machine_picker=="EQTransformer":
+
+            pick_out_file = "eqtransformer_picks.out"
+
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+
+            f2 = open(day_picks_out, "r")
+
+            f1.write(f2.read())
+            f2.close()
+
+        if machine_picker=="PhaseNet":
+
+            pick_out_file = "phasenet_picks.out"
+
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+
+            f2 = open(day_picks_out, "r")
+
+            f1.write(f2.read())
+            f2.close()
+
+        if machine_picker=="GPD":
+
+            pick_out_file = "gpd_picks.out"
+
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+
+            f2 = open(day_picks_out, "r")
+
+            f1.write(f2.read())
+            f2.close()
+
+    f1.close()           
+              
 if __name__ == "__main__":
     easyQuake()
 
