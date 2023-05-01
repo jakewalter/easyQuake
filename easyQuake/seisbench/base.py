@@ -1,7 +1,7 @@
 import easyQuake
-import easyQuake.seisbench_gpd as util
-#import easyQuake.seisbench_gpd as sbm
-from easyQuake.seisbench_gpd import log_lifecycle
+import easyQuake.seisbench as util
+#import easyQuake.seisbench as sbm
+from easyQuake.seisbench import log_lifecycle
 
 from abc import abstractmethod, ABC
 from pathlib import Path
@@ -241,7 +241,7 @@ class SeisBenchModel(nn.Module):
             util.download_http(remote_weight_path, weight_path)
             util.download_http(remote_metadata_path, metadata_path, progress_bar=False)
 
-        easyQuake.seisbench_gpd.callback_if_uncached(
+        easyQuake.seisbench.callback_if_uncached(
             [weight_path, metadata_path],
             download_callback,
             force=force,
@@ -256,7 +256,7 @@ class SeisBenchModel(nn.Module):
         """
         remote_weight_name = f"{name}.pt.v{version_str}"
         remote_metadata_name = f"{name}.json.v{version_str}"
-        remote_listing = easyQuake.seisbench_gpd.ls_webdav(cls._remote_path())
+        remote_listing = easyQuake.seisbench.ls_webdav(cls._remote_path())
         if remote_metadata_name not in remote_listing:
             # Version not in repository under version name, check file without version suffix
             if f"{name}.json" in remote_listing:
@@ -399,7 +399,7 @@ class SeisBenchModel(nn.Module):
 
         if remote:
             remote_path = cls._remote_path()
-            files = easyQuake.seisbench_gpd.ls_webdav(remote_path)
+            files = easyQuake.seisbench.ls_webdav(remote_path)
             remote_versions = cls._get_versions_from_files(name, files)
 
             if "" in remote_versions:

@@ -1,4 +1,4 @@
-from easyQuake.seisbench_gpd import *
+from easyQuake.seisbench import *
 from .annotations import Detection, Pick
 from .decorators import log_lifecycle
 from .files import (
@@ -76,7 +76,7 @@ else:
 # Version number
 __version__ = pkg_resources.get_distribution("easyQuake").version
 
-logger = _logging.getLogger("easyQuake.seisbench_gpd")
+logger = _logging.getLogger("easyQuake.seisbench")
 _ch = _logging.StreamHandler()
 _ch.setFormatter(
     _logging.Formatter("%(asctime)s | %(name)s | %(levelname)s | %(message)s")

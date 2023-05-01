@@ -1,5 +1,5 @@
 import easyQuake
-import easyQuake.seisbench_gpd as util
+import easyQuake.seisbench as util
 import requests
 import ftplib
 from tqdm import tqdm
