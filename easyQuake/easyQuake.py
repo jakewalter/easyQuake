@@ -1107,7 +1107,7 @@ def select_all_associated(conn, f0):
 
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, machine_picker=None):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, daymode=False, single_date=None, machine_picker=None):
     if machine_picker is None:
         machine_picker='*'
     else:
@@ -1120,6 +1120,9 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         hypo_station(project_folder, project_code)
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+    if daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
+
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
@@ -1934,11 +1937,18 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                 weight = phase_weighting(pick.waveform_id.station_code, pick.phase_hint.upper(),
                                          pick.time,
                                          arrv.time_residual)
-                pick_string = string.format(
-                    station_id=pick.waveform_id.station_code,
-                    travel_time=travel_time,
-                    weight=weight,
-                    phase=pick.phase_hint.upper())
+                if len(pick.waveform_id.station_code) == 5:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
+                elif len(pick.waveform_id.station_code) == 4:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.network_code+'.'+pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
                 event_strings.append(pick_string)
 
 
