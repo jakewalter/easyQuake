@@ -275,10 +275,15 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     # Now we have to build our traveltime lookup tables
     # We will use IASP91 here but obspy.taup does let you build your own model
     if model is not None:
+        models_folder = "/home/jlsanchezroldan/anaconda3/envs/easyquake/lib/python3.7/site-packages/easyQuake/velocity_model"
         filename = model
         #vmodel = VelocityModel.read_tvel_file(filename)
         if os.path.exists(project_folder+'/'+f"{filename[:-5]}.npz"):
             velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
+        elif filename == "pyrenees_model":
+            model_name = filename + ".npz"
+            if os.path.exists(os.path.join(models_folder, model_name)):
+                veldmod = TauPyModel(model=os.path.join(models_folder, model_name))
         else:
             taup_model = build_taup_model(filename, output_folder=os.getcwd())
             velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
