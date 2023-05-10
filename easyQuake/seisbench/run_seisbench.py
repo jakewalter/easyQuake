@@ -67,6 +67,8 @@ def main():
     # Load the model
     version_str = '1'  # Specify the version string of the model you want to load
     loaded_model = sbm.GPD.load(model_path, version_str=version_str)
+    
+    loaded_model.cuda()
 
 
 
