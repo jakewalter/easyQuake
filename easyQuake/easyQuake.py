@@ -29,6 +29,7 @@ pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
 pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
 pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
+pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
@@ -643,7 +644,7 @@ def make_dayfile(dir1, make3):
     return dir1+'/dayfile.in'
         
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None):
     """
     Continuous detection of seismic events using single-station waveform data.
     
@@ -669,6 +670,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         trigger_off (float, optional): The threshold for ending an event.
         trig_horz (float, optional): The horizontal distance between events required for them to be considered separate.
         trig_vert (float, optional): The vertical distance between events required for them to be considered separate.
+        seisbenchmodel (str, optional): The full path and model name of the seisbench trained model
     Returns:
         None
     
@@ -756,6 +758,22 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
+    elif machine == True and machine_picker == 'Seisbench':
+        fullpath3 = pathseisbench+'/run_seisbench.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        if fullpath_python:
+            #print(pathphasenet)
+            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
+            os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        else:
+            os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
+        
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -1107,7 +1125,7 @@ def select_all_associated(conn, f0):
 
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, machine_picker=None):
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, daymode=False, single_date=None, machine_picker=None):
     if machine_picker is None:
         machine_picker='*'
     else:
@@ -1120,6 +1138,9 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         hypo_station(project_folder, project_code)
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+    if daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
+
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
@@ -1934,11 +1955,18 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                 weight = phase_weighting(pick.waveform_id.station_code, pick.phase_hint.upper(),
                                          pick.time,
                                          arrv.time_residual)
-                pick_string = string.format(
-                    station_id=pick.waveform_id.station_code,
-                    travel_time=travel_time,
-                    weight=weight,
-                    phase=pick.phase_hint.upper())
+                if len(pick.waveform_id.station_code) == 5:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
+                elif len(pick.waveform_id.station_code) == 4:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.network_code+'.'+pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
                 event_strings.append(pick_string)
 
 
@@ -2056,7 +2084,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
             stas.append(pick.waveform_id.station_code)
-            picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
+            if arrv.phase == 'P' or arrv.phase == 'S':
+                picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
             #print(stalistall)
         stalist = list(set(stas))
         hypo71_string = ""

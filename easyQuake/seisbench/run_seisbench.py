@@ -13,7 +13,7 @@ import easyQuake.seisbench as sbm
 from obspy import Inventory, read_inventory
 import glob
 
-
+import traceback
 
 
 import argparse as ap
@@ -179,43 +179,48 @@ def main():
                 # Iterate through the detections and write each one to the output file
             for detection in detections:
                 # Extract the detection attributes
-                trace_id = detection.trace_id
-                #start_time = detection.start_time
+                trace_id1 = detection.trace_id.split('.')[:-1]
+                #start_time = detection.start_time[0]
                 #end_time = detection.end_time
                 peak_time = detection.peak_time
-                peak_value = detection.peak_value
+                #peak_value = detection.peak_value
                 phase = detection.phase
                 #channel = trace_id_channel_mapping[trace_id]
                 channel = None
-                for tr in st:
-                    if tr.id.startswith(trace_id):
-                        channel = tr.stats.channel
-                        break
+                # for tr in st:
+                #     if tr.id.startswith(detection.trace_id):
+                #         channel = tr.stats.channel
+                #         break
 
-                if channel is None:
-                    print(f"Channel not found for trace_id: {trace_id}")
-                    continue
+                # if channel is None:
+                #     print(f"Channel not found for trace_id: {trace_id1}")
+                #     continue
 
 
                 # Assign the channel based on the phase
                 if phase == "P":
-                    channel = "BHZ"
-                elif phase == "S":
-                    if "BHN" in [tr.stats.channel for tr in st if tr.id.startswith(trace_id)]:
-                        channel = "BHN"
+                    channel = st[0].stats.channel[0:2]+'Z'
+                if phase == "S":
+                    st2 = st.select(channel='HHE')
+                    if len(st2) == 1:
+                        channel = st[0].stats.channel[0:2]+'E'
                     else:
-                        channel = "BHE"
+                        channel = st[0].stats.channel[0:2]+'2'
+                #     if "BHN" in [tr.stats.channel for tr in st if tr.id.startswith(trace_id)]:
+                #         channel = "BHN"
+                #     else:
+                #         channel = "BHE"
 
                 # Combine trace_id with the channel
-                trace_id_with_channel = f"{trace_id}{channel}"
+                #trace_id_with_channel = f"{trace_id}{channel}"
 
                 # Format the output line
                 #ofile.write("%s %s %s S %s\n" % (net, sta, chan_pick_s, stamp_pick.isoformat()))
-                output_line = f"{' '.join(trace_id_with_channel.split('.'))} {phase} {peak_time} {peak_value}\n"
+                output_line = f"{' '.join(trace_id1)} {channel} {phase} {peak_time}\n"
         
                 # Write the detection attributes to the output file
                 ofile.write(output_line)
-                print(output_line.strip())
+                #print(output_line.strip())
             
                 
                 
@@ -287,7 +292,9 @@ def main():
                 #             ax[i].axvline(s_pick-st[0].stats.starttime, c='b', lw=0.5)
                 #     plt.tight_layout()
                 #     plt.show()
-        except:
+        except Exception:
+            print('Station issue')
+            traceback.print_exc()
             pass
     ofile.close()
     
