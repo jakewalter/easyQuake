@@ -40,6 +40,7 @@ setuptools.setup(
             'gpd_predict=easyQuake.gpd_predict.gpd_predict:main',
             'mseed_predictor=easyQuake.EQTransformer.mseed_predictor:main',
             'phasenet_predict=easyQuake.phasenet.phasenet_predict:main',
+            'run_seisbench=easyQuake.seisbench.run_seisbench:main',
         ]
     },
 )
