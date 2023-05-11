@@ -283,7 +283,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
         elif filename == "pyrenees_model":
             model_name = filename + ".npz"
             if os.path.exists(os.path.join(models_folder, model_name)):
-                veldmod = TauPyModel(model=os.path.join(models_folder, model_name))
+                velmod = TauPyModel(model=os.path.join(models_folder, model_name))
         else:
             taup_model = build_taup_model(filename, output_folder=os.getcwd())
             velmod = TauPyModel(model=project_folder+'/'+f"{filename[:-5]}.npz")
