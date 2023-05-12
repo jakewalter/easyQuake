@@ -1139,7 +1139,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
     if daymode:
-        files = sorted(glob.glob(project_folder+'/'+single_date+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
 
     f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
