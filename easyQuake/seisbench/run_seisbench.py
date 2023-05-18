@@ -70,7 +70,7 @@ def main():
     loaded_model = sbm.GPD.load(model_path, version_str=version_str)
     
     loaded_model.cuda()
-
+    torch.set_num_threads(2)
 
 
     # # Set the path to the parent directory containing the subdirectories with the streams
