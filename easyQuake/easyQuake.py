@@ -907,14 +907,19 @@ def create_connection(db_file):
     return None
 
 
-def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None):
+def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None, daymode=None, single_date=None):
     hypo71_string_sta = ""
     station_strings = []
-    f1 = open(project_folder+'/'+'sta','w')
+    if daymode:
+        f1 = open(project_folder+'/'+'sta'+single_date.strftime("%Y%m%d"),'w')
+    else:
+        f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')
     #for stas in temp:
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/tt*'+project_code+'.db'))
+    elif daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/tt*'+project_code+'.db'))
     else:
         files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
     #print(files)
@@ -968,7 +973,13 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
 
                 #print(hypo71_string_sta)
     station_string = "\n".join(station_strings)
-    with open(project_folder+'/'+'station.dat', "w") as open_file:
+    if catalog_year:
+        station_filename = project_folder+'/'+year+'station.dat'
+    elif daymode:
+        station_filename = project_folder+'/'+single_date.strftime("%Y%m%d")+'station.dat'
+    else:
+        station_filename = project_folder+'/'+'station.dat'
+    with open(station_filename, "w") as open_file:
         open_file.write(station_string)
     f1.write(str(hypo71_string_sta))
     f1.close()
@@ -1133,15 +1144,21 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
-    else:
-        files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db'))
-        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+year+'_'+project_code,'w')
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+project_code,'w')
     if daymode:
-        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        hypo_station(project_folder, project_code,single_date, daymode=True)
+        f0 = open(project_folder+'/pha_'+single_date.strftime("%Y%m%d")+'_'+project_code,'w')
+    if (catalog_year is False) and (daymode is False) and (eventmode is False):
+        files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+project_code,'w')
 
-    f0 = open(project_folder+'/pha_'+project_code,'w')
+    
     dfs2 = pd.DataFrame()
     stalistall1 = []
     cat = Catalog()
@@ -1167,12 +1184,12 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 #                pass
         conn.close()
     f0.close()
-    if catalog_year:
-        cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
-    else:
-        if not eventmode:
-            cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
-    return cat, dfs2
+    # if catalog_year:
+    #     cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
+    # else:
+    #     if not eventmode:
+    #         cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
+    return cat
 
 
 def polarity(tr,pickP=None):
@@ -2055,7 +2072,7 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
     plt.show()
 
 
-def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, single_date=None):
     """
     Generate a hypoinverse input file (pha file) for earthquake locations from an obspy Catalog object.
     The function creates a pha file containing P and S picks, and a run.hyp file containing
@@ -2151,14 +2168,23 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
 
                 else:
                     hypo71_string += "\n"
-
-        if os.path.exists(project_folder+'/out.sum'):
-            os.system('rm '+project_folder+'/out.sum')
-        fcur = open(project_folder+'/pha','w')
+        
+        if daymode:
+            outfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.sum'
+            phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
+            runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'      
+        else:    
+            outfile = project_folder+'/out.sum'
+            phafile = project_folder+'/pha'
+            runfile = project_folder+'/run.hyp'
+        
+        if os.path.exists(outfile):
+            os.system('rm '+outfile)
+        fcur = open(phafile,'w')
         fcur.write(str(hypo71_string))
         fcur.close()
 
-        frun = open(project_folder+'/run.hyp','w')
+        frun = open(runfile,'w')
         frun.write("crh 1 '"+vel_model+"'")
         frun.write("\n")
         frun.write('h71 3 2 2')
@@ -2189,14 +2215,14 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.close()
         try:
             if fullpath_hyp:
-                os.system("cat %s/run.hyp | %s/hyp2000" % (project_folder, fullpath_hyp))
+                os.system("cat %s | %s/hyp2000" % (runfile, fullpath_hyp))
             else:
-                os.system("cat %s/run.hyp | hyp2000" % (project_folder))
+                os.system("cat %s | hyp2000" % (runfile))
         except:
             pass
 
         try:
-            lines = open(project_folder+'/out.sum').readlines()
+            lines = open(outfile).readlines()
             for line in lines:
                 if line.startswith("   DATE"):
                     print(' ')
@@ -2515,7 +2541,7 @@ def make_station_list_csv(project_folder=None):
 def daymode_catalog(project_folder=None,project_code=None,single_date=None, machine_picker=None,fullpath_hyp=None):
     cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code,daymode=True,single_date=single_date,machine_picker=machine_picker)
     cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=False)
-    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp)
+    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp,daymode=True,single_date=single_date)
     cat.write(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.xml',format='QUAKEML')
     cat2 = simple_cat_df(cat,True)
     cat2.to_csv(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.csv')
