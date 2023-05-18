@@ -2172,11 +2172,13 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         if daymode:
             outfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.sum'
             phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
-            runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'      
+            runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
+            stafile = project_folder+'/sta'+single_date.strftime("%Y%m%d")
         else:    
             outfile = project_folder+'/out.sum'
             phafile = project_folder+'/pha'
             runfile = project_folder+'/run.hyp'
+            stafile = project_folder+'/sta'
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
@@ -2189,9 +2191,10 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
-        frun.write("sta '"+project_folder+"/sta'")
+        #frun.write("sta '"+project_folder+"/sta'")
+        frun.write("sta '"+stafile+"'")
         frun.write("\n")
-        frun.write("phs '"+project_folder+"/pha'")
+        frun.write("phs '"+phafile+"'")
         frun.write("\n")
         frun.write('pos 1.78')
         frun.write("\n")
@@ -2207,7 +2210,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.write("\n")
         frun.write('fil')
         frun.write("\n")
-        frun.write('sum out.sum')
+        frun.write("sum '"+outfile+"'")
         frun.write("\n")
         frun.write('loc')
         frun.write("\n")
