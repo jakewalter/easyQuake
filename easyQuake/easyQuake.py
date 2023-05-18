@@ -2511,6 +2511,16 @@ def make_station_list_csv(project_folder=None):
             stadf = stadf.drop_duplicates()
             stadf.to_csv(dir1+'/station_list.csv',index=False)
 
+
+def daymode_catalog(project_folder=None,project_code=None,single_date=None, machine_picker=None,fullpath_hyp=None):
+    cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code,daymode=True,single_date=single_date,machine_picker=machine_picker)
+    cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=False)
+    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp)
+    cat.write(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.xml',format='QUAKEML')
+    cat2 = simple_cat_df(cat,True)
+    cat2.to_csv(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.csv')
+
+
 def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
     """
     Convert seismic waveform data associated with each earthquake event in the `cat` object into HDF5 format. If `makecsv` is set to `True`, a CSV file of the event information will be created in the `project_folder` directory.
