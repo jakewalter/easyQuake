@@ -1189,7 +1189,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     # else:
     #     if not eventmode:
     #         cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
-    return cat
+    return cat, dfs2
 
 
 def polarity(tr,pickP=None):
