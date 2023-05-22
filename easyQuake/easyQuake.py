@@ -974,7 +974,7 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
                 #print(hypo71_string_sta)
     station_string = "\n".join(station_strings)
     if catalog_year:
-        station_filename = project_folder+'/'+year+'station.dat'
+        station_filename = project_folder+'/'+str(year)+'station.dat'
     elif daymode:
         station_filename = project_folder+'/'+single_date.strftime("%Y%m%d")+'station.dat'
     else:
