@@ -1144,7 +1144,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
-        f0 = open(project_folder+'/pha_'+year+'_'+project_code,'w')
+        f0 = open(project_folder+'/pha_'+str(year)+'_'+project_code,'w')
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
