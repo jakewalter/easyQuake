@@ -1147,6 +1147,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         f0 = open(project_folder+'/pha_'+str(year)+'_'+project_code,'w')
     if eventmode:
         files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+<<<<<<< HEAD
         hypo_station(project_folder, project_code)
         f0 = open(project_folder+'/pha_'+project_code,'w')
     if daymode:
@@ -1159,6 +1160,12 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         f0 = open(project_folder+'/pha_'+project_code,'w')
 
     
+=======
+    if daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date+'/1dassociator'+machine_picker+'_'+project_code+'.db'))    
+
+    f0 = open(project_folder+'/pha_'+project_code,'w')
+>>>>>>> master
     dfs2 = pd.DataFrame()
     stalistall1 = []
     cat = Catalog()
