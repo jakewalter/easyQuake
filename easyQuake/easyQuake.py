@@ -88,7 +88,7 @@ fmtS = "%12s%1sS%1s%1i\n"
 
 
 fmt = "%6s%02i%05.2f%1s%03i%05.2f%1s%4i\n"
-
+qu
 
 #min_proba = 0.993 # Minimum softmax probability for phase detection
 ## try 0.992 if you have the computing power
@@ -912,6 +912,8 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
     station_strings = []
     if daymode:
         f1 = open(project_folder+'/'+'sta'+single_date.strftime("%Y%m%d"),'w')
+    elif catalog_year:
+        f1 = open(project_folder+'/'+'sta'+str(year),'w')
     else:
         f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')
@@ -1163,7 +1165,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
         f0 = open(project_folder+'/pha_'+project_code,'w')
 
     
-    f0 = open(project_folder+'/pha_'+project_code,'w')
+    #f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
     cat = Catalog()
