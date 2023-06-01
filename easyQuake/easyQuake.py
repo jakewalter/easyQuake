@@ -88,7 +88,7 @@ fmtS = "%12s%1sS%1s%1i\n"
 
 
 fmt = "%6s%02i%05.2f%1s%03i%05.2f%1s%4i\n"
-qu
+
 
 #min_proba = 0.993 # Minimum softmax probability for phase detection
 ## try 0.992 if you have the computing power
