@@ -1137,28 +1137,28 @@ def select_all_associated(conn, f0):
     return dfs1, stalistall, cat1, f0
 
 def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, daymode=False, single_date=None, machine_picker=None):
-    if machine_picker is None:
-        machine_picker='*'
-    else:
-        machine_picker = '_'+machine_picker.lower()
+    # if machine_picker is None:
+    #     machine_picker='*'
+    # else:
+    #     machine_picker = '_'+machine_picker.lower()
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
         if machine_picker == 'GPD':
-            files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+project_code+'.db'))
+            files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
         f0 = open(project_folder+'/pha_'+str(year)+'_'+project_code,'w')
     if eventmode:
-        files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
         f0 = open(project_folder+'/pha_'+project_code,'w')
     if daymode:
-        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
         hypo_station(project_folder, project_code, single_date=single_date, daymode=True)
         f0 = open(project_folder+'/pha_'+single_date.strftime("%Y%m%d")+'_'+project_code,'w')
     if (catalog_year is False) and (daymode is False) and (eventmode is False):
-        files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
         if machine_picker == 'GPD':
-            files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
+            files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker.lower()+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
         f0 = open(project_folder+'/pha_'+project_code,'w')
 
