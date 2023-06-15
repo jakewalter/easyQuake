@@ -1237,6 +1237,17 @@ def polarity(tr,pickP=None):
             polarity='undecidable polarity'
     return polarity
 
+def sp_ratio(tr,pickP=None):
+    """
+    This function determines the SP ratio of a given seismogram trace
+    
+    """
+    #TODO
+    return sp_ratio
+
+
+
+
 
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
     """
@@ -1406,7 +1417,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                                 stamag.resource_id = ResourceIdentifier(id=res_id)
                                 stamag.origin_id = origin.resource_id
                                 stamag.waveform_id = pick.waveform_id
-                                stamag.mag = ml
+                                stamag.mag = ml_iaspei
                                 stamag.station_magnitude_type = 'ML'
                                 stamag.amplitude_id = amp.resource_id
                                 ## add them to the event
@@ -1625,45 +1636,49 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
         
         if plotevent:
-            if filteryes:
-                st.filter('highpass',freq=1)
-                st = st.slice(origin.time-10, origin.time + length)
-            import matplotlib.pyplot as plt
-            fig = plt.figure(figsize=(10,10))
-            axes = fig.subplots(len(st), 1, sharex=True)
-            lines, labels = ([], [])
-            min_x = []
-            max_x = []
-            for ax, tr, p , pt in zip(axes, st, picks, picktimes):
-                    x = np.arange(0, tr.stats.endtime - tr.stats.starttime + tr.stats.delta, tr.stats.delta)
-                    y = tr.data
-                    x = np.array([(tr.stats.starttime + _x).datetime for _x in x])
-                    min_x1, max_x1 = (x[0], x[-1])
-                    ax.plot(x, y, 'k', linewidth=1.2)
-                    if 'P' in p.upper():
-                        pcolor = 'red'
-                        label = 'P-pick'
-                    if 'S' in p.upper():
-                        pcolor = 'blue'
-                        label = 'S-pick'
-                    ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
-                              linestyle='--', label=label)
-                    line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
-                              linestyle='-', label='origin')
-                    ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
-                    ax.yaxis.tick_right()
-                    #ind1 = nearest(x,pt.datetime)
-                    ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
-                    min_x.append(min_x1)
-                    max_x.append(max_x1)
-                    labels.append(label)
-                    lines.append(line)
-            axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
-            #axes[-1].set_xlabel("Time")
-            plt.subplots_adjust(hspace=0)
-            fig.legend(lines, labels)
-            fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
-            plt.close(fig)
+            try:
+                
+                if filteryes:
+                    st.filter('highpass',freq=1)
+                    st = st.slice(origin.time-10, origin.time + length)
+                import matplotlib.pyplot as plt
+                fig = plt.figure(figsize=(10,10))
+                axes = fig.subplots(len(st), 1, sharex=True)
+                lines, labels = ([], [])
+                min_x = []
+                max_x = []
+                for ax, tr, p , pt in zip(axes, st, picks, picktimes):
+                        x = np.arange(0, tr.stats.endtime - tr.stats.starttime + tr.stats.delta, tr.stats.delta)
+                        y = tr.data
+                        x = np.array([(tr.stats.starttime + _x).datetime for _x in x])
+                        min_x1, max_x1 = (x[0], x[-1])
+                        ax.plot(x, y, 'k', linewidth=1.2)
+                        if 'P' in p.upper():
+                            pcolor = 'red'
+                            label = 'P-pick'
+                        if 'S' in p.upper():
+                            pcolor = 'blue'
+                            label = 'S-pick'
+                        ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
+                                  linestyle='--', label=label)
+                        line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
+                                  linestyle='-', label='origin')
+                        ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
+                        ax.yaxis.tick_right()
+                        #ind1 = nearest(x,pt.datetime)
+                        ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
+                        min_x.append(min_x1)
+                        max_x.append(max_x1)
+                        labels.append(label)
+                        lines.append(line)
+                axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
+                #axes[-1].set_xlabel("Time")
+                plt.subplots_adjust(hspace=0)
+                fig.legend(lines, labels)
+                fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
+                plt.close(fig)
+            except:
+                pass
 
 
 def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, machine_picker=None, fullpath_python=None, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
