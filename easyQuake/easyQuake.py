@@ -1616,7 +1616,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         picktimes = []
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
-            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
+            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
             #arrivals.append(arrv)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
@@ -2361,15 +2361,19 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
     return cat
 
 
-
-def quakeml_to_growclust(project_folder=None, project_code=None):
+def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_file='station.dat', dt_file='dt.cc',download_station_metadata=False):
     #run quakeml_to_hypodd first
-    with open(project_folder+'/phase.dat', 'r') as in_f: 
+    #event list is the 
+    with open(project_folder+'/'+phase_file, 'r') as in_f: 
         with open(project_folder+'/evlist.txt', 'w') as out_f: 
-            for ln in in_f: 
+            for ln in in_f:
                 if ln.startswith('#'): 
                     out_f.write('{}\n'.format(' '.join(ln.split()[1:])))
-    with open(project_folder+'/station.dat', 'r') as in_f: 
+    
+    #temp = pd.read_csv('stlist.txt',delimiter=r"\s+",header=None)                 
+    #temp = temp.drop_duplicates(subset=[0], keep="first")    
+    #temp.to_csv('test.txt', index=False, sep=' ')            
+    with open(project_folder+'/'+station_file, 'r') as in_f: 
         with open(project_folder+'/stlist.txt' , 'w') as out_f: 
             for ln in in_f:
                 #print(ln[2])
@@ -2377,20 +2381,85 @@ def quakeml_to_growclust(project_folder=None, project_code=None):
                     out_f.write('{}'.format(ln[3:]))
                 else:
                     out_f.write('{}'.format(ln))
-
-    with open(project_folder+'/dt.cc', 'r') as in_f: 
-        with open(project_folder+'/xcordata.txt' , 'w') as out_f: 
-            for ln in in_f: 
+                    
+    with open(project_folder+'/'+dt_file, 'r') as in_f:
+        with open(project_folder+'/dtcc.txt' , 'w') as out_f: 
+            temp = []
+            for ln in in_f:
+                if ln.startswith('#'):
+                    out_f.write('{}'.format(ln))
                 if ln[2] == '.':
-                    if len(ln[3:].split(' ')[0]) == 4:
-                        out_f.write('{}{}'.format('   ',ln[3:]))
-                    elif len(ln[3:].split(' ')[0]) == 5:
-                        out_f.write('{}{}'.format('  ',ln[3:]))
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            out_f.write('{}'.format(ln[3:]))
                 else:
-                    if ln[0] != '#':
-                        out_f.write('{}{}'.format('   ',ln))
-                    else:
-                        out_f.write(ln) 
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            out_f.write('{}'.format(ln))
+    
+
+    if download_station_metadata:
+        temp = pd.read_csv(project_folder+'/evlist.txt',delimiter=r"\s+",header=None)
+        times = []
+        for i in temp.index:
+            times.append(UTCDateTime(temp.iloc[i,0],temp.iloc[i,1],temp.iloc[i,2],temp.iloc[i,3],temp.iloc[i,4],temp.iloc[i,5]))
+        tmin = np.array(times).min() 
+        tmax = np.array(times).max() 
+        latmed = temp[6].median()
+        lonmed = temp[7].median()
+        station_dat_file = project_folder+'/stlist.txt'
+        stalist=set()
+        with open(project_folder+'/'+dt_file, 'r') as in_f: 
+            for ln in in_f:
+                #print(ln[2])
+                if not ln.startswith('#'): 
+                    stalist.add(ln.split(' ')[0])
+        print('Downloading station location metadata')
+        client = Client()
+        station_strings = []
+        for sta in stalist:
+            print(sta)
+            try:
+                net, sta1 = sta.split('.')
+            except:
+                sta1 = sta
+                net = '*'
+                pass
+            #sta1 = sta
+            try:
+                inva = client.get_stations(starttime=tmin, endtime=tmax, network=net, station=sta1, level='station')
+            except:
+                inva = None
+                pass
+            if inva is not None:
+                dists = []
+                netnames = []
+                for net in inva:
+                    for sta in net:
+                        dists.append(gps2dist_azimuth(sta.latitude, sta.longitude, latmed, lonmed)[0])
+                        netnames.append(net.code)
+                rightnet = inva.select(network=netnames[np.where(dists==np.min(dists))[0][0]])
+                station_lat = rightnet[0][np.where(dists==np.min(dists))[0][0]].latitude
+                station_lon = rightnet[0][np.where(dists==np.min(dists))[0][0]].longitude
+                station_elev = rightnet[0][np.where(dists==np.min(dists))[0][0]].elevation
+                station_strings.append("%s %.6f %.6f %i" % (sta1,  station_lat,  station_lon,  station_elev))
+            #inva1[0][0].latitude
+        station_string = "\n".join(set(station_strings))
+        with open(station_dat_file, "w") as open_file:
+            open_file.write(station_string)
+    # with open(project_folder+'/'+dt_file, 'r') as in_f: 
+    #     with open(project_folder+'/xcordata.txt' , 'w') as out_f: 
+    #         for ln in in_f: 
+    #             if ln[2] == '.':
+    #                 if len(ln[3:].split(' ')[0]) == 4:
+    #                     out_f.write('{}{}'.format('   ',ln[3:]))
+    #                 elif len(ln[3:].split(' ')[0]) == 5:
+    #                     out_f.write('{}{}'.format('  ',ln[3:]))
+    #             else:
+    #                 if ln[0] != '#':
+    #                     out_f.write('{}{}'.format('   ',ln))
+    #                 else:
+    #                     out_f.write(ln) 
 
 
     
