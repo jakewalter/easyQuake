@@ -1608,6 +1608,10 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
     
         cat2 : obspy.core.event.Catalog
     The same input earthquake catalog object with any changes made to waveform data.
+    
+    RUN fix_picks first
+    TODO association plot - change event name down to second
+    
     """
     dirname = project_folder+'/events'
     if not os.path.exists(dirname):
@@ -1655,27 +1659,28 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                         ax.plot(x, y, 'k', linewidth=1.2)
                         if 'P' in p.upper():
                             pcolor = 'red'
-                            label = 'P-pick'
+                        #    label = 'P-pick'
                         if 'S' in p.upper():
                             pcolor = 'blue'
-                            label = 'S-pick'
+                        #    label = 'S-pick'
                         ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
-                                  linestyle='--', label=label)
+                                  linestyle='--')
                         line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
-                                  linestyle='-', label='origin')
-                        ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
+                                  linestyle='-')
+                        #ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
                         ax.yaxis.tick_right()
                         #ind1 = nearest(x,pt.datetime)
                         ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
                         min_x.append(min_x1)
                         max_x.append(max_x1)
-                        labels.append(label)
+                        #labels.append(label)
                         lines.append(line)
                 axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
                 #axes[-1].set_xlabel("Time")
                 plt.subplots_adjust(hspace=0)
                 fig.legend(lines, labels)
                 fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
+                plt.title('M '+str(ev.preferred_magnitude().mag)+' '+str(origin.time))
                 plt.close(fig)
             except:
                 pass
@@ -2096,7 +2101,7 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
     plt.show()
 
 
-def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, single_date=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, catalog_year=True, year=None, single_date=None):
     """
     Generate a hypoinverse input file (pha file) for earthquake locations from an obspy Catalog object.
     The function creates a pha file containing P and S picks, and a run.hyp file containing
@@ -2198,6 +2203,11 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
             phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
             runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
             stafile = project_folder+'/sta'+single_date.strftime("%Y%m%d")
+        elif catalog_year:
+            outfile = project_folder+'/'+str(year)+'out.sum'
+            phafile = project_folder+'/'+str(year)+'pha'
+            runfile = project_folder+'/'+str(year)+'run.hyp'
+            stafile = project_folder+'/sta'+str(year)
         else:    
             outfile = project_folder+'/out.sum'
             phafile = project_folder+'/pha'
@@ -2588,7 +2598,6 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     axs[1, 1].set(ylabel = 'Earthquakes M>'+str(min_mag)+' per day')
     plt.show()
 
-    plt.figure()
     plt.savefig('freq_plot.png')
 
     rangemin = np.floor(np.min(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
@@ -2645,7 +2654,7 @@ def daymode_catalog(project_folder=None,project_code=None,single_date=None, mach
 def yearmode_catalog(project_folder=None,project_code=None, year=None, machine_picker=None,fullpath_hyp=None):
     cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code, catalog_year=True, year=year, machine_picker=machine_picker)
     cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=False)
-    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp)
+    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp, catalog_year=True, year=year)
     cat.write(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+str(year)+'.xml',format='QUAKEML')
     cat2 = simple_cat_df(cat,True)
     cat2.to_csv(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+str(year)+'.csv')
