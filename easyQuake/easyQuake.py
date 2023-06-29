@@ -2105,7 +2105,7 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
     plt.show()
 
 
-def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, catalog_year=True, year=None, single_date=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, catalog_year=False, year=None, single_date=None):
     """
     Generate a hypoinverse input file (pha file) for earthquake locations from an obspy Catalog object.
     The function creates a pha file containing P and S picks, and a run.hyp file containing
