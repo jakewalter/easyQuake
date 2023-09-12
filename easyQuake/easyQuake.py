@@ -75,7 +75,7 @@ from datetime import datetime
 
 
 from obspy import Stream
-from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier
+from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
 
@@ -1238,22 +1238,201 @@ def polarity(tr,pickP=None):
         elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
             polarity='negative'
         else:
-            polarity='undecidable polarity'
+            polarity='undecidable'
     return polarity
 
-def sp_ratio(tr,pickP=None):
+
+
+
+def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
     """
     This function determines the SP ratio of a given seismogram trace
     
+    3c, rotate, Pamp - first peak for P, Samp - max S displacement amplitude on any component
+    
+    Following Hardebeck and Shearer 2003, but using Shelly et al, 2022 peak-to-peak amplitudes approach for calculating P amplitude (slightly smaller S-P ratios result)
+    
+    st3,inv,pick,event.picks,event
     """
-    #TODO
-    return sp_ratio
+    st3 = st3.merge()
+    st3.detrend('demean')
+    st3.taper(max_percentage=None,max_length=5)
+    pre_filt = (0.05, 0.06, 30.0, 35.0)
+    st3.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt, zero_mean=True)
+    st3.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
+    
+    epid, az, baz = gps2dist_azimuth(event.preferred_origin().latitude, event.preferred_origin().longitude, inv[0][0].latitude, inv[0][0].longitude)
+    #rotate to radial/transverse
+    #check if it is Z12 rather than ZNE
+    if len(st3.select(channel='*[ZNE]')) == 1:
+        st3.rotate(method="->ZNE",inventory=inv)
+        st3.rotate(method="NE->RT", back_azimuth=baz)
+    #already ZNE
+    elif len(st3) == 3:
+        st3.rotate(method="NE->RT", back_azimuth=baz)
+    
+    for p in all_picks:
+        if p.waveform_id.station_code == pickP.waveform_id.station_code:
+            pickS = p
+    
+    # ML pickers tend to pick the peaks in the data so this is adjusted to straddle the pick time
+    pickindP = (pickP.time - st3[0].stats.starttime)*st3[0].stats.sampling_rate-1
+    pwin = 2*st3[0].stats.sampling_rate # 2 sec window
+    # sum of radial and transverse components
+    pampdata = st3[1].data + st3[2].data
+    #pampdata = np.sqrt(st3[1].data**2 + st3[2].data**2)   
+    pamp = np.max(pampdata[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pamp_min = np.min(pampdata[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    halfpamp = (pamp-pamp_min)/2
+    
+    pickindS = (pickS.time - st3[0].stats.starttime)*st3[0].stats.sampling_rate-1
+    swin = 2*st3[0].stats.sampling_rate # 2 sec window
+    # sum of radial and transverse components
+    samp = np.max([np.max(st3[0].data[int(pickindS):int(pickindS + swin)]), np.max(st3[1].data[int(pickindS):int(pickindS + swin)]), np.max(st3[2].data[int(pickindS):int(pickindS + swin)])])
+    
+    
+    sp_ratio = samp/pamp # just for checking - this is original way of calculating it but we won't use it
+    sp_ratio_half = samp/halfpamp
+
+    return sp_ratio_half
+
+
+def select_3comp_remove_response(project_folder=None,strday=None,pick=None):
+    try:
+        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+    except:
+        try:
+            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+        except:
+            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            try:
+                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            except:
+                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                pass
+#                    try:
+#                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+#                    except:
+#                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+        pass
+    st3.merge(fill_value='interpolate')
+    print(st3)
+    for tr in st3:
+        if isinstance(tr.data, np.ma.masked_array):
+            tr.data = tr.data.filled()
+    st = st3.select(channel='[EHB]H[EN12]')
+    for tr in st3:
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        if len(inventory_local)>0:
+            inv = read_inventory(inventory_local[0])
+        else:
+            try:
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                if not inv:
+                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                    if not inv:
+                        print('Getting response from DMC')
+                        starttime = UTCDateTime(origin.time-10)
+                        endtime = UTCDateTime(origin.time+10)
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+
+            except:
+                print('Station metadata error')
+                print('Getting response from DMC')
+                starttime = UTCDateTime(origin.time-10)
+                endtime = UTCDateTime(origin.time+10)
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                #starttime = UTCDateTime(origin.time-10)
+                #endtime = UTCDateTime(origin.time+10)
+                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                pass
+                #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+        tr.stats.network = inv[0].code
+        tr.stats.location = inv[0][0][0].location_code
+        pre_filt = (0.05, 0.06, 30.0, 35.0)
+        tr.trim(pick.time-30, pick.time+120)
+
+
+        #tr.demean()
+        tr.detrend()
+        tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True)
+        #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
+        tr.simulate(paz_simulate=paz_wa, water_level=10)
+        
+    return st3, inv
+
+def select_3comp_include_response(project_folder=None,strday=None,pick=None):
+    """
+    Finds the appropriate traces and right response file, but makes no attempt to remove, etc.
+    """
+    try:
+        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+    except:
+        try:
+            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+        except:
+            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            try:
+                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            except:
+                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                pass
+#                    try:
+#                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+#                    except:
+#                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+        pass
+    st3.merge(fill_value='interpolate')
+    print(st3)
+    for tr in st3:
+        if isinstance(tr.data, np.ma.masked_array):
+            tr.data = tr.data.filled()
+    st = st3.select(channel='[EHB]H[EN12]')
+    for tr in st3:
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        if len(inventory_local)>0:
+            inv = read_inventory(inventory_local[0])
+        else:
+            try:
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                if not inv:
+                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                    if not inv:
+                        print('Getting response from DMC')
+                        starttime = UTCDateTime(origin.time-10)
+                        endtime = UTCDateTime(origin.time+10)
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+
+            except:
+                print('Station metadata error')
+                print('Getting response from DMC')
+                starttime = UTCDateTime(origin.time-10)
+                endtime = UTCDateTime(origin.time+10)
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                #starttime = UTCDateTime(origin.time-10)
+                #endtime = UTCDateTime(origin.time+10)
+                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                pass
+                #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+        tr.stats.network = inv[0].code
+        tr.stats.location = inv[0][0][0].location_code
+        #pre_filt = (0.05, 0.06, 30.0, 35.0)
+        tr.trim(pick.time-30, pick.time+120)
 
 
 
+        
+    return st3, inv
 
-
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
     """
     Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
     
@@ -1303,149 +1482,88 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 ### make Amplitude
                 st3 = []
                 try:
-                    try:
-                        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
-                        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
-                    except:
-                        try:
-                            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
-                        except:
-                            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                            try:
-                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                            except:
-                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                                pass
-    #                    try:
-    #                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
-    #                    except:
-    #                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                        pass
+                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick)
 
-        #            pazs = glob.glob('/data/tx/ContWaveform/'+strday+'/SACPZ.'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]')
-                    #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
-                    try:
-                        st3.merge(fill_value='interpolate')
-                        print(st3)
-                        for tr in st3:
-                            if isinstance(tr.data, np.ma.masked_array):
-                                tr.data = tr.data.filled()
-                        st = st3.select(channel='[EHB]H[EN12]')
-                        for tr in st3:
-                            inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-                            if len(inventory_local)>0:
-                                inv = read_inventory(inventory_local[0])
-                            else:
-                                try:
-                                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                                    inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
-                                    if not inv:
-                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                                        if not inv:
-                                            print('Getting response from DMC')
-                                            starttime = UTCDateTime(origin.time-10)
-                                            endtime = UTCDateTime(origin.time+10)
-                                            inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                    tr1 = st3.select(channel='[EHB]HZ')[0]
 
-                                except:
-                                    print('Station metadata error')
-                                    print('Getting response from DMC')
-                                    starttime = UTCDateTime(origin.time-10)
-                                    endtime = UTCDateTime(origin.time+10)
-                                    inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                                    #starttime = UTCDateTime(origin.time-10)
-                                    #endtime = UTCDateTime(origin.time+10)
-                                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                                    pass
-                                    #                    paz = [x for x in pazs if tr.stats.channel in x]
-        #                    attach_paz(tr, paz[0])
-                            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                            tr.stats.network = inv[0].code
-                            tr.stats.location = inv[0][0][0].location_code
-                            pre_filt = (0.05, 0.06, 30.0, 35.0)
-                            tr.trim(pick.time-30, pick.time+120)
+                    sta_lat = inv[0][0].latitude
+                    sta_lon = inv[0][0].longitude
+                    epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
+                    epi_dist = epi_dist / 1000
+                    tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
+                    tr1.trim(pick.time-20,pick.time+60)
+                    st2 += tr1
+                    st.trim(pick.time-1,pick.time+5)
+                    ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
+                    for idx2,ampl in enumerate(ampls):
 
+                        amp = Amplitude()
+                        res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
+                        #res_id = ResourceIdentifier(prefix='Amplitude')
+                        #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                        amp.resource_id = ResourceIdentifier(id=res_id)
+                        amp.pick_id = pick.resource_id
+                        amp.waveform_id = pick.waveform_id
+                        amp.type = 'ML'
+                        amp.generic_amplitude = ampl
+                        amp.evaluation_mode = 'automatic'
 
-                            #tr.demean()
-                            tr.detrend()
-                            tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True)
-                            #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
-                            tr.simulate(paz_simulate=paz_wa, water_level=10)
+                        if epi_dist < 60:
+                            a = 0.018
+                            b = 2.17
+                        else:
+                            a = 0.0038
+                            b = 3.02
+                        ml = np.log10(ampl * 1000) + a * epi_dist + b
 
+                        ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
+                        print(ml, ml_iaspei)
 
-                            #tr = tr.filter('bandpass', freqmin=fminbp, freqmax=fmaxbp, zerophase=True)
-                        #st.trim(pick.time-5,pick.time+10)
-                        tr1 = st3.select(channel='[EHB]HZ')[0]
-
-                        sta_lat = inv[0][0].latitude
-                        sta_lon = inv[0][0].longitude
-                        epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
-                        epi_dist = epi_dist / 1000
-                        tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
-                        tr1.trim(pick.time-20,pick.time+60)
-                        st2 += tr1
-                        st.trim(pick.time-1,pick.time+5)
-                        ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
-                        for idx2,ampl in enumerate(ampls):
-
-                            amp = Amplitude()
-                            res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
-                            #res_id = ResourceIdentifier(prefix='Amplitude')
+                        if epi_dist < cutoff_dist:
+                            mags.append(ml)
+                            mags_iaspei.append(ml_iaspei)
+                            #### make StationMagnitude
+                            stamag = StationMagnitude()
+                            res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
+                            #res_id = ResourceIdentifier(prefix='StationMagnitude')
                             #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
-                            amp.resource_id = ResourceIdentifier(id=res_id)
-                            amp.pick_id = pick.resource_id
-                            amp.waveform_id = pick.waveform_id
-                            amp.type = 'ML'
-                            amp.generic_amplitude = ampl
-                            amp.evaluation_mode = 'automatic'
-
-                            if epi_dist < 60:
-                                a = 0.018
-                                b = 2.17
-                            else:
-                                a = 0.0038
-                                b = 3.02
-                            ml = np.log10(ampl * 1000) + a * epi_dist + b
-
-                            ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
-                            print(ml, ml_iaspei)
-
-                            if epi_dist < cutoff_dist:
-                                mags.append(ml)
-                                mags_iaspei.append(ml_iaspei)
-                                #### make StationMagnitude
-                                stamag = StationMagnitude()
-                                res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
-                                #res_id = ResourceIdentifier(prefix='StationMagnitude')
-                                #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
-                                stamag.resource_id = ResourceIdentifier(id=res_id)
-                                stamag.origin_id = origin.resource_id
-                                stamag.waveform_id = pick.waveform_id
-                                stamag.mag = ml_iaspei
-                                stamag.station_magnitude_type = 'ML'
-                                stamag.amplitude_id = amp.resource_id
-                                ## add them to the event
-                                event.station_magnitudes.append(stamag)
-                            else:
-                                print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
-                            event.amplitudes.append(amp)
-                    except Exception:
-                        print(traceback.format_exc())#input("push")
-                        print('Something went wrong here')
-                        pass
-                except:
+                            stamag.resource_id = ResourceIdentifier(id=res_id)
+                            stamag.origin_id = origin.resource_id
+                            stamag.waveform_id = pick.waveform_id
+                            stamag.mag = ml_iaspei
+                            stamag.station_magnitude_type = 'ML'
+                            stamag.amplitude_id = amp.resource_id
+                            ## add them to the event
+                            event.station_magnitudes.append(stamag)
+                        else:
+                            print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
+                        event.amplitudes.append(amp)
+                except Exception:
+                    print(traceback.format_exc())#input("push")
+                    print('Something went wrong here')
                     pass
 
         for pick in event.picks:
             if pick.phase_hint == 'P':
                 tr = st2.select(station=pick.waveform_id.station_code)
-                try:
-                    tr = tr[0]
-                    pol = polarity(tr,pick.time)
-                    pick.polarity = pol
-                    print(pol)
-                except:
-                    pass
+                #try:
+                tr = tr[0]
+                pol = polarity(tr,pick.time)
+                pick.polarity = pol
+                print(pol)
+                if estimate_sp:
+                    if pol == 'positive' or 'negative':
+                        st3, inv = select_3comp_include_response(project_folder,strday,pick)
+                        #st3 = st.select(station=pick.waveform_id.station_code)
+                        sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
+                        pick.comments = Comment(text='sp_ratio:{0}'.format(sp_ratio1))
+                        
+                            
+                        
+                        
+                        
+                # except:
+                #     pass
 
 
 
@@ -1592,7 +1710,7 @@ def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
     return cat2
 
 
-def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False):
+def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False, cutall=False):
     """
     The function cut_event_waveforms takes an earthquake catalog, and cuts and plots the waveform data for each event within a specified time range. The waveform data is read from mseed files located in a specified directory. The function saves the waveform data and plots in a new subdirectory under the project folder. If filteryes is set to True, the waveform data is also filtered.
 
@@ -1633,15 +1751,30 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         #arrivals = []
         picks = []
         picktimes = []
+        stacheck = set()
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
             st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
             #arrivals.append(arrv)
+            stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
             #stas.append(pick.waveform_id.station_code)
+        if cutall:
+            st3 = Stream()
+            st2 = read(project_folder+'/'+strday+'/*mseed') or read(project_folder+'/'+strday+'/*SAC')
+            for tr2 in st2:
+                if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
+                    st3 += tr2
+            st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
+
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
+        
+        os.system('cp '+project_folder+'/'+strday+'/*dailyinventory.xml '+dirname+'/'+str(ev.resource_id).split('/')[-1]+'_inv.xml')
+        #os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        
         
         if plotevent:
             try:
@@ -2327,9 +2460,9 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                 for i in range(len(lines)):
                 # check which type of phase
                     if lines[i][32] == "P":
-                        type = "P"
+                        type1 = "P"
                     elif lines[i][32] == "S":
-                        type = "S"
+                        type1 = "S"
                     else:
                         continue
                     # get values from line
@@ -2358,7 +2491,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                         polarity = None
                     res = float(lines[i][61:66])
                     weight = float(lines[i][68:72])
-                    phase_hint = type
+                    phase_hint = type1
                     for p in event.picks:
                         if station is not None and station != p.waveform_id.station_code[-4:]:
                             continue
@@ -2390,7 +2523,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
     return cat
 
 
-def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_file='station.dat', dt_file='dt.cc',download_station_metadata=False):
+def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_file='station.dat', dt_file='dt.cc',cc_threshold = 0.6, download_station_metadata=False):
     #run quakeml_to_hypodd first
     #event list is the 
     with open(project_folder+'/'+phase_file, 'r') as in_f: 
@@ -2398,6 +2531,27 @@ def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_fi
             for ln in in_f:
                 if ln.startswith('#'): 
                     out_f.write('{}\n'.format(' '.join(ln.split()[1:])))
+                    
+    stacheck = set()
+    with open(project_folder+'/'+dt_file, 'r') as in_f:
+        with open(project_folder+'/dtcc.txt' , 'w') as out_f: 
+            temp = []
+            #if float(ln.split()[-2])>0.6:
+            for ln in in_f:
+                if ln.startswith('#'):
+                    out_f.write('{}'.format(ln))
+                if ln[2] == '.':
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            if float(ln.split()[-2])>cc_threshold:
+                                out_f.write('{}'.format(ln[3:]))
+                                stacheck.add(ln[3:].split()[0])
+                else:
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            if float(ln.split()[-2])>cc_threshold:
+                                out_f.write('{}'.format(ln))
+                                stacheck.add(ln.split()[0])
     
     #temp = pd.read_csv('stlist.txt',delimiter=r"\s+",header=None)                 
     #temp = temp.drop_duplicates(subset=[0], keep="first")    
@@ -2407,24 +2561,13 @@ def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_fi
             for ln in in_f:
                 #print(ln[2])
                 if ln[2] == '.':
-                    out_f.write('{}'.format(ln[3:]))
+                    if ln[3:].split()[0] in stacheck:
+                        out_f.write('{}'.format(ln[3:]))
                 else:
-                    out_f.write('{}'.format(ln))
+                    if ln.split()[0] in stacheck:
+                        out_f.write('{}'.format(ln))
                     
-    with open(project_folder+'/'+dt_file, 'r') as in_f:
-        with open(project_folder+'/dtcc.txt' , 'w') as out_f: 
-            temp = []
-            for ln in in_f:
-                if ln.startswith('#'):
-                    out_f.write('{}'.format(ln))
-                if ln[2] == '.':
-                    if not ln.startswith('#'):
-                        if np.abs(float(ln.split()[1]))<1:
-                            out_f.write('{}'.format(ln[3:]))
-                else:
-                    if not ln.startswith('#'):
-                        if np.abs(float(ln.split()[1]))<1:
-                            out_f.write('{}'.format(ln))
+
     
 
     if download_station_metadata:
@@ -2511,6 +2654,46 @@ def reduce_catalog(cat=None, num_arr=None, vert_unc=None):
     from obspy import Catalog
     cat2 = Catalog(events=events)
     return cat2
+
+def duplicate_remove(cat=None,seconds=5):
+    """
+    Look for possible duplicate events by identifying earthquakes within X seconds of one another
+    
+    Parameters:
+        cat (obspy.Catalog object): Obspy Catalog object containing earthquake events.
+        seconds (float): Inter-event minimum time
+    
+    Returns:
+        Catalog that is likely smaller
+    """
+    time_seconds = seconds
+    times = [e.preferred_origin().time.datetime for e in list(cat.events)]
+    li = []
+    for i in range(len(times)):
+          li.append([times[i],i])
+    li.sort()
+    sort_index = []
+    #sorted((d for d in times))
+    for x in li:
+          sort_index.append(x[1])
+
+    events = list(cat.events)
+    temp_events = []
+    for idx1 in range(len(sort_index)):
+        #print(event)
+        event = events[sort_index[idx1]]
+        #print(sort_index[idx1])
+        temp_events.append(event)
+    events2 = temp_events
+    cat2 = Catalog(events=events2)
+    catdf2 = simple_cat_df(cat2, True)
+
+    catdf2['delta'] = (catdf2['origintime']-catdf2['origintime'].shift()).fillna(pd.Timedelta(seconds=100))
+    notdups = catdf2[catdf2.delta > pd.Timedelta(seconds=time_seconds)].index
+    events3 = list(cat2.events)
+    cat3 = Catalog(events=[events3[i] for i in notdups])
+    return cat3
+
 
 
 def plot_map_catalog(cat=None, filename=None, points=False):
