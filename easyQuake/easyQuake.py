@@ -2893,35 +2893,23 @@ def total_picks_catalog(start_date=None, end_date=None, project_folder=None, mac
         dirname = single_date.strftime("%Y%m%d")
 
         if machine_picker=="EQTransformer":
-
             pick_out_file = "eqtransformer_picks.out"
-
             day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
-
             f2 = open(day_picks_out, "r")
-
             f1.write(f2.read())
             f2.close()
 
         if machine_picker=="PhaseNet":
-
             pick_out_file = "phasenet_picks.out"
-
             day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
-
             f2 = open(day_picks_out, "r")
-
             f1.write(f2.read())
             f2.close()
 
         if machine_picker=="GPD":
-
             pick_out_file = "gpd_picks.out"
-
             day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
-
             f2 = open(day_picks_out, "r")
-
             f1.write(f2.read())
             f2.close()
             
