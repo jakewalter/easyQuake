@@ -1063,8 +1063,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
-    #client = Client() #Esta linea se ha comentado para evitar el error de la función cuando trabaja sin conexión a red. Client() necesita conectarse a la red FDSN a través de ObsPy para descargar los datos de estaciones y usar los parámetros para el cálculo de magnitud cuando no se los ofrecemos nosotros.
-
+    client = Client() #Comment this line when working without Internet connection.
     for event in cat:
         origin = event.origins[0]
         print(origin)
@@ -1328,8 +1327,7 @@ def mblg_ign_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=Fa
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
-    #client = Client() #Esta linea se ha comentado para evitar el error de la función cuando trabaja sin conexión a red. Client() necesita conectarse a la red FDSN a través de ObsPy para descargar los datos de estaciones y usar los parámetros para el cálculo de magnitud cuando no se los ofrecemos nosotros.
-
+    client = Client() #Comment this line when working without Internet connection
     for event in cat:
         origin = event.origins[0]
         print(origin)
