@@ -1298,6 +1298,8 @@ def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
 
 
 def select_3comp_remove_response(project_folder=None,strday=None,pick=None):
+    paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
+
     try:
         st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
         #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
@@ -1392,7 +1394,7 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None):
     for tr in st3:
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
-    st = st3.select(channel='[EHB]H[EN12]')
+    
     for tr in st3:
         inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
         if len(inventory_local)>0:
@@ -1450,7 +1452,6 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
     Returns:
         None: The magnitudes are saved in QuakeML format by writing an additional event magnitude to the Event object.
     """
-    paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     print('Computing magnitudes')
     client = Client()
@@ -1473,10 +1474,12 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         for idx1, pick in enumerate(event.picks):
             strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
             if eventmode:
-                strday = str(project_folder.split('/')[-1])
+                #strday = str(project_folder.split('/')[-1])
+                strday = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
             print(strday)
-            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
             
             if pick.phase_hint == 'S':
                 ### make Amplitude
@@ -1493,6 +1496,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
                     tr1.trim(pick.time-20,pick.time+60)
                     st2 += tr1
+                    st = st3.select(channel='[EHB]H[EN12]')
                     st.trim(pick.time-1,pick.time+5)
                     ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
                     for idx2,ampl in enumerate(ampls):
