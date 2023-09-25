@@ -221,6 +221,15 @@ You can use the easyQuake utility::
         quakeml_to_growclust(project_folder='.')
 
 
+HypoDD or Growclust relative relocation
+---------------------------------------
+Focal mechanisms::
+       
+        git clone https://github.com/jakewalter/hashpy.git
+        cd hashpy
+        pip install .
+        
+
 Tips for Success
 ================
 
