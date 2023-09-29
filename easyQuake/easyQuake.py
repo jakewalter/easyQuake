@@ -1297,7 +1297,7 @@ def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
     return sp_ratio_half
 
 
-def select_3comp_remove_response(project_folder=None,strday=None,pick=None):
+def select_3comp_remove_response(project_folder=None,strday=None,pick=None,starttime=None,endtime=None):
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
     try:
@@ -1336,15 +1336,11 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None):
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
                         print('Getting response from DMC')
-                        starttime = UTCDateTime(origin.time-10)
-                        endtime = UTCDateTime(origin.time+10)
                         inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
 
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
-                starttime = UTCDateTime(origin.time-10)
-                endtime = UTCDateTime(origin.time+10)
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
@@ -1367,7 +1363,7 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None):
         
     return st3, inv
 
-def select_3comp_include_response(project_folder=None,strday=None,pick=None):
+def select_3comp_include_response(project_folder=None,strday=None,pick=None,starttime=None,endtime=None):
     """
     Finds the appropriate traces and right response file, but makes no attempt to remove, etc.
     """
@@ -1414,8 +1410,6 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None):
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
-                starttime = UTCDateTime(origin.time-10)
-                endtime = UTCDateTime(origin.time+10)
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
@@ -1433,6 +1427,7 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None):
 
         
     return st3, inv
+
 
 def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
     """
@@ -1485,7 +1480,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 ### make Amplitude
                 st3 = []
                 try:
-                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick)
+                    starttime_inv=origin.time-10
+                    endtime_inv=origin.time+10
+                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
@@ -1550,6 +1547,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         for pick in event.picks:
             if pick.phase_hint == 'P':
                 tr = st2.select(station=pick.waveform_id.station_code)
+                print(pick.waveform_id.station_code)
+                print(st2)
                 #try:
                 tr = tr[0]
                 pol = polarity(tr,pick.time)
@@ -1557,7 +1556,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 print(pol)
                 if estimate_sp:
                     if pol == 'positive' or 'negative':
-                        st3, inv = select_3comp_include_response(project_folder,strday,pick)
+                        st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
                         #st3 = st.select(station=pick.waveform_id.station_code)
                         sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
                         pick.comments = Comment(text='sp_ratio:{0}'.format(sp_ratio1))
@@ -1954,7 +1953,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False, eventmode=True)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False, eventmode=True,estimate_sp=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
