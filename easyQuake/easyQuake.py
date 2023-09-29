@@ -1336,11 +1336,13 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
                         print('Getting response from DMC')
+                        client = Client()
                         inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
 
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
+                client = Client()
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
@@ -1405,11 +1407,13 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
                         print('Getting response from DMC')
                         starttime = UTCDateTime(origin.time-10)
                         endtime = UTCDateTime(origin.time+10)
+                        client = Client()
                         inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
 
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
+                client = Client()
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
@@ -1449,7 +1453,6 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
     """
 
     print('Computing magnitudes')
-    client = Client()
 
     for event in cat:
         origin = event.origins[0]
@@ -1469,8 +1472,8 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         for idx1, pick in enumerate(event.picks):
             strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
             if eventmode:
-                #strday = str(project_folder.split('/')[-1])
-                strday = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+                strday = str(project_folder.split('/')[-1])
+                #strday = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
             strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
 
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
