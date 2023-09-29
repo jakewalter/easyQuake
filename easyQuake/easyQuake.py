@@ -1330,20 +1330,25 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
             inv = read_inventory(inventory_local[0])
         else:
             try:
-                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                try:
+                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                except:
+                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
+                    pass
                 inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
                 if not inv:
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
                         print('Getting response from DMC')
                         client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
                 client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
                 #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
@@ -1388,7 +1393,7 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
 #                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
         pass
     st3.merge(fill_value='interpolate')
-    print(st3)
+    #print(st3)
     for tr in st3:
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
@@ -1399,8 +1404,12 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
             inv = read_inventory(inventory_local[0])
         else:
             try:
-                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                try:
+                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                except:
+                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
+                    pass
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
                 if not inv:
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
@@ -1408,13 +1417,13 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
                         starttime = UTCDateTime(origin.time-10)
                         endtime = UTCDateTime(origin.time+10)
                         client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
             except:
                 print('Station metadata error')
                 print('Getting response from DMC')
                 client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
                 #starttime = UTCDateTime(origin.time-10)
                 #endtime = UTCDateTime(origin.time+10)
                 #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
@@ -1471,8 +1480,11 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         st2 = Stream()
         for idx1, pick in enumerate(event.picks):
             strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
-            if eventmode:
-                strday = str(project_folder.split('/')[-1])
+            #if eventmode:
+                #str(project_folder.split('/')[:-2]).join('/')
+                #strday = ('/').join(project_folder.split('/')[:-1])
+                #project_folder = ('/').join(project_folder.split('/')[:-1])
+                #print(strday)
                 #strday = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
             strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
 
@@ -1550,19 +1562,20 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         for pick in event.picks:
             if pick.phase_hint == 'P':
                 tr = st2.select(station=pick.waveform_id.station_code)
-                print(pick.waveform_id.station_code)
-                print(st2)
+                #print(pick.waveform_id.station_code)
+                #print(st2)
                 #try:
                 tr = tr[0]
                 pol = polarity(tr,pick.time)
                 pick.polarity = pol
                 print(pol)
                 if estimate_sp:
-                    if pol == 'positive' or 'negative':
-                        st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
-                        #st3 = st.select(station=pick.waveform_id.station_code)
-                        sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
-                        pick.comments = Comment(text='sp_ratio:{0}'.format(sp_ratio1))
+                    #if pol == 'positive' or pol == 'negative':
+                    st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                    #st3 = st.select(station=pick.waveform_id.station_code)
+                    sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
+                    print(str(sp_ratio1)+' s/p ratio')
+                    pick.comments = Comment(text='sp_ratio:{0}'.format(sp_ratio1))
                         
                             
                         
@@ -1956,7 +1969,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False, eventmode=True,estimate_sp=True)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
