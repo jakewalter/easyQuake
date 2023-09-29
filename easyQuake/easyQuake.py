@@ -1575,7 +1575,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     #st3 = st.select(station=pick.waveform_id.station_code)
                     sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
                     print(str(sp_ratio1)+' s/p ratio')
-                    pick.comments = Comment(text='sp_ratio:{0}'.format(sp_ratio1))
+                    pick.comments.append(Comment(text='sp_ratio:{0}'.format(sp_ratio1)))
                         
                             
                         
@@ -1973,7 +1973,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+machine_picker.lower() + ".xml"
+        filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
 
 
