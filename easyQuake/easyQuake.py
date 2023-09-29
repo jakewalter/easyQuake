@@ -1219,27 +1219,48 @@ def polarity(tr,pickP=None):
     :rtype: str
     
     """
-    dt=tr.stats.delta
+    #dt=tr.stats.delta
     #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt)
-    index0=int(round((pickP-tr.stats.starttime)/dt,0))
-    index=index0
-    pol_coeff = 5
-    pol_len = 5
+    #index0=int(round((pickP-tr.stats.starttime)/dt,0))
+    #index=index0
+    #pol_coeff = 10
+    #pol_len = 10
+    #polarity = 'undecidable'
+    # while True:
+    #     if index>=tr.stats.npts-1-2:
+    #         break
+    #     elif (tr[index+1]-tr[index])*(tr[index+2]-tr[index+1])>0:
+    #         index+=1
+    #     else:
+    #         break
+    #     if tr[index+1] - tr[index0] > 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
+    #         polarity='positive'
+    #     elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
+    #         polarity='negative'
+    #     else:
+    #         polarity='undecidable'
+    tr.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
     polarity = 'undecidable'
-    while True:
-        if index>=tr.stats.npts-1-2:
-            break
-        elif (tr[index+1]-tr[index])*(tr[index+2]-tr[index+1])>0:
-            index+=1
-        else:
-            break
-        if tr[index+1] - tr[index0] > 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
-            polarity='positive'
-        elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
-            polarity='negative'
-        else:
-            polarity='undecidable'
+    pwin = 2*tr.stats.sampling_rate # 2 sec window
+    pickindP = (pickP - tr.stats.starttime)*tr.stats.sampling_rate-1
+    pamp = np.max(tr.data[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pamp_min = np.min(tr.data[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pampt = np.where(tr.data==pamp)[0]
+    pampt_min = np.where(tr.data==pamp_min)[0]
+    if pampt<pampt_min:
+        polarity='positive'
+    elif pampt>pampt_min:
+        polarity='negative'
+    if pamp < 3*np.std(tr.data[int(pickindP-pwin*2):int(pickindP-pwin)]):
+        polarity='undecidable'
     return polarity
+
+                        #halfpamp = (pamp-pamp_min)/2
+                            # tempa = np.array(argrelextrema((st3[0].data), np.less))[0]
+                            # signa = -1
+                            # indexa1 = (np.where(st3[0].data[tempa]==np.min(st3[0].data[tempa])))
+                            # indexa = np.array(indexa1)[0][0]
+                            # maxamp = st3[0].data[tempa][indexa]
 
 
 
@@ -1325,7 +1346,7 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
             tr.data = tr.data.filled()
     st = st3.select(channel='[EHB]H[EN12]')
     for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
         if len(inventory_local)>0:
             inv = read_inventory(inventory_local[0])
         else:
@@ -1399,7 +1420,7 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
             tr.data = tr.data.filled()
     
     for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
         if len(inventory_local)>0:
             inv = read_inventory(inventory_local[0])
         else:
@@ -1561,11 +1582,11 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
 
         for pick in event.picks:
             if pick.phase_hint == 'P':
-                tr = st2.select(station=pick.waveform_id.station_code)
+                tr1 = st2.select(station=pick.waveform_id.station_code)
                 #print(pick.waveform_id.station_code)
                 #print(st2)
                 #try:
-                tr = tr[0]
+                tr = tr1[0].copy()
                 pol = polarity(tr,pick.time)
                 pick.polarity = pol
                 print(pol)
@@ -1574,7 +1595,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                     st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
                     #st3 = st.select(station=pick.waveform_id.station_code)
                     sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
-                    print(str(sp_ratio1)+' s/p ratio')
+                    print(str(sp_ratio1)+' s/p ratio '+pick.waveform_id.station_code)
                     pick.comments.append(Comment(text='sp_ratio:{0}'.format(sp_ratio1)))
                         
                             
