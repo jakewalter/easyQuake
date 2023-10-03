@@ -1585,25 +1585,25 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 tr1 = st2.select(station=pick.waveform_id.station_code)
                 #print(pick.waveform_id.station_code)
                 #print(st2)
-                #try:
-                tr = tr1[0].copy()
-                pol = polarity(tr,pick.time)
-                pick.polarity = pol
-                print(pol)
-                if estimate_sp:
-                    #if pol == 'positive' or pol == 'negative':
-                    st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
-                    #st3 = st.select(station=pick.waveform_id.station_code)
-                    sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
-                    print(str(sp_ratio1)+' s/p ratio '+pick.waveform_id.station_code)
-                    pick.comments.append(Comment(text='sp_ratio:{0}'.format(sp_ratio1)))
+                try:
+                    tr = tr1[0].copy()
+                    pol = polarity(tr,pick.time)
+                    pick.polarity = pol
+                    print(pol)
+                    if estimate_sp:
+                        #if pol == 'positive' or pol == 'negative':
+                        st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                        #st3 = st.select(station=pick.waveform_id.station_code)
+                        sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
+                        print(str(sp_ratio1)+' s/p ratio '+pick.waveform_id.station_code)
+                        pick.comments.append(Comment(text='sp_ratio:{0}'.format(sp_ratio1)))
                         
                             
                         
                         
                         
-                # except:
-                #     pass
+                except:
+                    pass
 
 
 
