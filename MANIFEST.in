@@ -3,4 +3,6 @@ include easyQuake/gpd_predict/*hdf5
 include easyQuake/hyp2000/*crh
 include easyQuake/EQTransformer/*h5
 include easyQuake/phasenet/model/*
+include easyQuake/phasenet/*
 include easyQuake/phasenet/model/190703-214543/*
+include easyQuake/seisbench/*

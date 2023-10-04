@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="easyQuake",
-    version="1.3.1",
+    version="1.3.4",
     author="Jake Walter",
     author_email="jakeiwalter@gmail.com",
     description="Simplified machine-learning driven earthquake detection, location, and analysis",
@@ -24,6 +24,9 @@ setuptools.setup(
         'tqdm',
         'tensorflow-gpu==2.4',
 	'protobuf==3.20.*',
+        'torch==1.7.1',
+        'torchmetrics==0.8.0',
+        'torchvision==0.8.2',
     ],
     include_package_data=True,
     classifiers=[
@@ -38,6 +41,7 @@ setuptools.setup(
             'gpd_predict=easyQuake.gpd_predict.gpd_predict:main',
             'mseed_predictor=easyQuake.EQTransformer.mseed_predictor:main',
             'phasenet_predict=easyQuake.phasenet.phasenet_predict:main',
+            'run_seisbench=easyQuake.seisbench.run_seisbench:main',
         ]
     },
 )

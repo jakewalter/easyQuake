@@ -29,6 +29,7 @@ pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
 pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
 pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
 pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
+pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
 
 from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
@@ -74,7 +75,7 @@ from datetime import datetime
 
 
 from obspy import Stream
-from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier
+from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
 
@@ -134,7 +135,36 @@ class SCNL():
                 self.station,self.channel,self.network=input
 
 
-def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False):
+def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
+    """
+    Downloads seismic data in miniSEED format from IRIS DMC within a specified geographic and temporal domain.
+    
+    Args:
+    dirname (str): Name of directory where miniSEED files will be stored. If None, the directory will be named after the specified date.
+    project_folder (str): Name of project folder where miniSEED files will be stored. If None, files will be stored in the current directory.
+    single_date (datetime): Date in YYYY-MM-DD format specifying the day for which data will be downloaded.
+    minlat (float): Minimum latitude for the geographic domain.
+    maxlat (float): Maximum latitude for the geographic domain.
+    minlon (float): Minimum longitude for the geographic domain.
+    maxlon (float): Maximum longitude for the geographic domain.
+    dense (bool): Whether to download data with high temporal and spatial resolution. If True, data with minimum inter-station distance of 1 meter will be downloaded. Otherwise, data with minimum inter-station distance of 5000 meters will be downloaded.
+    raspberry_shake (bool): Whether to download data from Raspberry Shake stations in addition to the standard IRIS DMC stations.
+    
+    Returns:
+    None: The function only downloads miniSEED files and does not return any values.
+    
+    Raises:
+    None: The function does not raise any exceptions.
+    
+    Example:
+    To download miniSEED files for January 1, 2023 in the geographic domain bounded by 40 to 42 degrees latitude and -120 to -118 degrees longitude with high temporal and spatial resolution and save them in a directory called "data" within a project folder called "project":
+    
+    python
+    Copy code
+    >>> date = datetime.datetime(2023, 1, 1)
+    >>> download_mseed(dirname="data", project_folder="project", single_date=date, minlat=40, maxlat=42, minlon=-120, maxlon=-118, dense=True, raspberry_shake=False)
+    
+    """
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
     starttime = starting
@@ -153,6 +183,9 @@ def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=N
     #os.system("mv %s %s" % (original1,mseed1))
     mdl = MassDownloader()
     mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
+    if raspberry_shake:
+        mdl = MassDownloader(['RASPISHAKE'])
+        mdl.download(domain, restrictions, threads_per_client=4, mseed_storage=mseed1,stationxml_storage=mseed1)
 
 def download_mseed_event(dirname=None, project_folder=None, starting=None, stopping = None, minlat=None, maxlat=None, minlon=None, maxlon=None, maxrad=None):
     starttime = starting
@@ -252,6 +285,25 @@ def build_tt_tables(lat1=None,long1=None,maxrad=None,starting=None, stopping=Non
 
 def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_codes=['EH','BH','HH','HN'],db=None,maxdist=800.,source_depth=5.,delta_distance=1, model=None):
     """
+    This function builds travel-time lookup tables for seismic stations located in a specified directory using a specified model. The function takes several optional arguments, including the directory name, project folder, channel codes, database, maximum distance, source depth, delta distance, and model.
+
+    The function begins by creating a connection to an SQLalchemy database and creating the necessary tables. It then reads in the station inventory from the specified directory and populates the station table in the database with the relevant information.
+    
+    The function then uses the specified travel-time model or the default IASP91 model to calculate travel times for each distance between 0 and the specified maximum distance, in increments of the specified delta distance. For each distance, the function calculates the minimum travel time for P- and S-waves and stores this information in the travel time table in the database.
+    
+    The function returns the station inventory.
+    
+    Args:
+        dirname (str, optional): The directory containing the station inventory files. Defaults to None.
+        project_folder (str, optional): The project folder containing the station inventory directory. Defaults to None.
+        channel_codes (list of str, optional): The channel codes to be included. Defaults to ['EH', 'BH', 'HH', 'HN'].
+        db (str, optional): The SQLAlchemy database connection string. Defaults to None.
+        maxdist (float, optional): The maximum distance for which to calculate travel times, in km. Defaults to 800.0.
+        source_depth (float, optional): The depth of the seismic source, in km. Defaults to 5.0.
+        delta_distance (int, optional): The spacing between distances for which to calculate travel times, in km. Defaults to 1.
+        model (str, optional): The name of the travel-time model to use. Defaults to None.
+    Returns:
+        inv (Inventory): The station inventory, populated with information from the specified directory.
     """
     # Create a connection to an sqlalchemy database
     tt_engine=create_engine(db,echo=False, connect_args={'check_same_thread': False})
@@ -599,7 +651,40 @@ def make_dayfile(dir1, make3):
     return dir1+'/dayfile.in'
         
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None):
+    """
+    Continuous detection of seismic events using single-station waveform data.
+    
+    Args:
+    
+        dirname (str, optional): The directory name where the data will be stored.
+        project_folder (str, optional): The project directory where the data will be stored.
+        project_code (str, optional): The project code name.
+        local (bool, optional): If True, read in data from a local directory. If False, read in data from an online database.
+        machine (bool, optional): If True, use an automated detection algorithm. If False, use a manual detection algorithm.
+        machine_picker (str, optional): The name of the automated detection algorithm to use. Only used if machine=True. Defaults to 'GPD'.
+        single_date (datetime.datetime, optional): The date and time to start detection.
+        make3 (bool, optional): Whether to split data into 3-hour chunks. Defaults to True.
+        latitude (float, optional): The latitude of the location where data is to be collected. Only used if local=False.
+        longitude (float, optional): The longitude of the location where data is to be collected. Only used if local=False.
+        max_radius (float, optional): The maximum distance, in degrees, from the latitude and longitude to search for stations. Only used if local=False.
+        fullpath_python (str, optional): The path to the Python executable. Only used if machine=True.
+        filtmin (float, optional): The minimum frequency for the filter.
+        filtmax (float, optional): The maximum frequency for the filter.
+        t_sta (float, optional): The length of the short-term average window for the STA/LTA algorithm.
+        t_lta (float, optional): The length of the long-term average window for the STA/LTA algorithm.
+        trigger_on (float, optional): The threshold for triggering an event.
+        trigger_off (float, optional): The threshold for ending an event.
+        trig_horz (float, optional): The horizontal distance between events required for them to be considered separate.
+        trig_vert (float, optional): The vertical distance between events required for them to be considered separate.
+        seisbenchmodel (str, optional): The full path and model name of the seisbench trained model
+    Returns:
+        None
+    
+    This function performs continuous detection of seismic events using waveform data from a single station. It creates an SQLite database for storing the detection results, and uses automated detection algorithms (GPD, EQTransformer, or PhaseNet), or alternatively, STA/LTA.
+    """
+    
+
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
 #    stopping = starting + 86430
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -681,6 +766,22 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
+    elif machine == True and machine_picker == 'Seisbench':
+        fullpath3 = pathseisbench+'/run_seisbench.py'
+        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        if fullpath_python:
+            #print(pathphasenet)
+            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
+            os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        else:
+            os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        try:
+            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        except:
+            pass
+        
     else:
         machine_picker = 'STALTA'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
@@ -696,6 +797,30 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
 def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=None, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
+    """
+    association_continuous: A function that performs association of seismic events with continuous data
+    
+    Args:
+        dirname (str): Name of the directory where the project is located.
+        project_folder (str): Name of the project folder.
+        project_code (str): Project code name.
+        maxdist (float): Maximum distance to search for stations (km).
+        maxkm (float): Maximum epicentral distance for association (km).
+        single_date (datetime): A datetime object that represents a single date.
+        local (bool): Flag to indicate if the TT tables will be built from local data or will be downloaded from IRIS.
+        nsta_declare (int): Minimum number of stations required to declare an event.
+        delta_distance (float): Distance increment to create the TT tables (km).
+        machine (bool): Flag to indicate which picking algorithm will be used.
+        machine_picker (str): Name of the picking algorithm to be used.
+        latitude (float): Latitude of the epicenter.
+        longitude (float): Longitude of the epicenter.
+        max_radius (float): Maximum radius to search for stations.
+        model (str): Velocity model to use in the TT tables.
+        delete_assoc (bool): Flag to indicate if the old association database will be deleted.
+    
+    Returns:
+        None
+    """
     starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
     stopping = starting + 86430
         
@@ -718,13 +843,33 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     if os.path.exists(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db'):
         os.remove(dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db')
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
-    print(db_tt)
+    #print(db_tt)
     if local:
         inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     else:
         inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
-
+    if not os.path.exists(dir1+'/station_list.csv'):
+        stalat = []
+        stalon = []
+        staname = []
+        netname = []
+        elevs = []
+        for net in inventory:
+            for sta in net:
+                stalat.append(sta.latitude)
+                stalon.append(sta.longitude)
+                staname.append(sta.code)
+                netname.append(net.code)
+                elevs.append(sta.elevation)
+        stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
+        stadf = stadf.drop_duplicates()
+        stadf.to_csv(dir1+'/station_list.csv',index=False)
+        # check if there is actually data there?
+        # dayfile = pd.read_csv(dir1+'/dayfile.in', sep=" ", header=None)
+        # for idx1 in dayfile.index:
+        #     print(".".join(dayfile.iloc[idx1][0].split('/')[-1].split('.')[0:2]))
+        #     match = stadf[stadf['netsta'].str.contains(".".join(dayfile.iloc[idx1][0].split('/')[-1].split('.')[0:2]))
     
     if not os.path.exists(dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'):
         db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
@@ -770,14 +915,21 @@ def create_connection(db_file):
     return None
 
 
-def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None):
+def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None, daymode=None, single_date=None):
     hypo71_string_sta = ""
     station_strings = []
-    f1 = open(project_folder+'/'+'sta','w')
+    if daymode:
+        f1 = open(project_folder+'/'+'sta'+single_date.strftime("%Y%m%d"),'w')
+    elif catalog_year:
+        f1 = open(project_folder+'/'+'sta'+str(year),'w')
+    else:
+        f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')
     #for stas in temp:
     if catalog_year:
         files = sorted(glob.glob(project_folder+'/'+str(year)+'*/tt*'+project_code+'.db'))
+    elif daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/tt*'+project_code+'.db'))
     else:
         files = sorted(glob.glob(project_folder+'/*/tt*'+project_code+'.db')) or glob.glob(project_folder+'/tt*'+project_code+'.db')
     #print(files)
@@ -831,7 +983,13 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
 
                 #print(hypo71_string_sta)
     station_string = "\n".join(station_strings)
-    with open(project_folder+'/'+'station.dat', "w") as open_file:
+    if catalog_year:
+        station_filename = project_folder+'/'+str(year)+'station.dat'
+    elif daymode:
+        station_filename = project_folder+'/'+single_date.strftime("%Y%m%d")+'station.dat'
+    else:
+        station_filename = project_folder+'/'+'station.dat'
+    with open(station_filename, "w") as open_file:
         open_file.write(station_string)
     f1.write(str(hypo71_string_sta))
     f1.close()
@@ -988,20 +1146,38 @@ def select_all_associated(conn, f0):
 
     return dfs1, stalistall, cat1, f0
 
-def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, machine_picker=None):
-    if machine_picker is None:
-        machine_picker='*'
-    else:
-        machine_picker = '_'+machine_picker.lower()
+def combine_associated(project_folder=None, project_code=None, catalog_year=False, year=None, hypoflag=False, eventmode=False, daymode=False, single_date=None, machine_picker=None):
+    # if machine_picker is None:
+    #     machine_picker='*'
+    # else:
+    #     machine_picker = '_'+machine_picker.lower()
     if catalog_year:
-        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
+        if machine_picker == 'GPD':
+            files = sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/'+str(year)+'*/1dassociator_'+project_code+'.db'))
         hypo_station(project_folder, project_code, catalog_year=True, year=year)
-    else:
-        files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db'))
-        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+str(year)+'_'+project_code,'w')
     if eventmode:
-        files = sorted(glob.glob(project_folder+'/1dassociator'+machine_picker+'_'+project_code+'.db'))
-    f0 = open(project_folder+'/pha_'+project_code,'w')
+        files = sorted(glob.glob(project_folder+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
+        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+project_code,'w')
+    if daymode:
+        files = sorted(glob.glob(project_folder+'/'+single_date.strftime("%Y%m%d")+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'))
+        hypo_station(project_folder, project_code, single_date=single_date, daymode=True)
+        f0 = open(project_folder+'/pha_'+single_date.strftime("%Y%m%d")+'_'+project_code,'w')
+    if (catalog_year is False) and (daymode is False) and (eventmode is False):
+        if machine_picker is None:
+            machine_picker='*'
+        else:
+            machine_picker = machine_picker.lower()
+        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        if machine_picker == 'GPD':
+            files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
+        hypo_station(project_folder, project_code)
+        f0 = open(project_folder+'/pha_'+project_code,'w')
+
+    
+    #f0 = open(project_folder+'/pha_'+project_code,'w')
     dfs2 = pd.DataFrame()
     stalistall1 = []
     cat = Catalog()
@@ -1027,43 +1203,295 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
 #                pass
         conn.close()
     f0.close()
-    if catalog_year:
-        cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
-    else:
-        if not eventmode:
-            cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
+    # if catalog_year:
+    #     cat.write(project_folder+'/'+project_code+'_'+str(year)+'_cat.xml',format="QUAKEML")
+    # else:
+    #     if not eventmode:
+    #         cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
 
 
 def polarity(tr,pickP=None):
-    dt=tr.stats.delta
+    """
+    This function determines the polarity of a given seismogram trace, with respect to a given pickP value.
+    It calculates the standard deviation of the trace and checks whether the difference between the value at pickP
+    and the next maximum or minimum exceeds a threshold. If so, it determines the polarity as positive or negative,
+    otherwise it sets the polarity as undecidable.
+    
+    :param tr: ObsPy Trace object containing the seismogram data.
+    :type tr: obspy.core.trace.Trace
+    :param pickP: The time in seconds after the trace start time at which the seismic arrival
+    of interest (e.g. the P-wave) occurs. If not provided, defaults to None.
+    :type pickP: float or None
+    :return: The polarity of the seismogram trace as a string, which can be either "positive", "negative", or "undecidable".
+    :rtype: str
+    
+    """
+    #dt=tr.stats.delta
     #t = np.arange(0, tr.stats.npts/tr.stats.sampling_rate, dt)
-    index0=int(round((pickP-tr.stats.starttime)/dt,0))
-    index=index0
-    pol_coeff = 5
-    pol_len = 5
+    #index0=int(round((pickP-tr.stats.starttime)/dt,0))
+    #index=index0
+    #pol_coeff = 10
+    #pol_len = 10
+    #polarity = 'undecidable'
+    # while True:
+    #     if index>=tr.stats.npts-1-2:
+    #         break
+    #     elif (tr[index+1]-tr[index])*(tr[index+2]-tr[index+1])>0:
+    #         index+=1
+    #     else:
+    #         break
+    #     if tr[index+1] - tr[index0] > 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
+    #         polarity='positive'
+    #     elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
+    #         polarity='negative'
+    #     else:
+    #         polarity='undecidable'
+    tr.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
     polarity = 'undecidable'
-    while True:
-        if index>=tr.stats.npts-1-2:
-            break
-        elif (tr[index+1]-tr[index])*(tr[index+2]-tr[index+1])>0:
-            index+=1
-        else:
-            break
-        if tr[index+1] - tr[index0] > 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
-            polarity='positive'
-        elif tr[index+1] - tr[index0] < 0 and abs(tr[index+1] - tr[index0]) > pol_coeff * np.std(tr[index0 - pol_len: index0]):
-            polarity='negative'
-        else:
-            polarity='undecidable polarity'
+    pwin = 2*tr.stats.sampling_rate # 2 sec window
+    pickindP = (pickP - tr.stats.starttime)*tr.stats.sampling_rate-1
+    pamp = np.max(tr.data[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pamp_min = np.min(tr.data[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pampt = np.where(tr.data==pamp)[0]
+    pampt_min = np.where(tr.data==pamp_min)[0]
+    if pampt<pampt_min:
+        polarity='positive'
+    elif pampt>pampt_min:
+        polarity='negative'
+    if pamp < 3*np.std(tr.data[int(pickindP-pwin*2):int(pickindP-pwin)]):
+        polarity='undecidable'
     return polarity
 
+                        #halfpamp = (pamp-pamp_min)/2
+                            # tempa = np.array(argrelextrema((st3[0].data), np.less))[0]
+                            # signa = -1
+                            # indexa1 = (np.where(st3[0].data[tempa]==np.min(st3[0].data[tempa])))
+                            # indexa = np.array(indexa1)[0][0]
+                            # maxamp = st3[0].data[tempa][indexa]
 
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
+
+
+
+def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
+    """
+    This function determines the SP ratio of a given seismogram trace
+    
+    3c, rotate, Pamp - first peak for P, Samp - max S displacement amplitude on any component
+    
+    Following Hardebeck and Shearer 2003, but using Shelly et al, 2022 peak-to-peak amplitudes approach for calculating P amplitude (slightly smaller S-P ratios result)
+    
+    st3,inv,pick,event.picks,event
+    """
+    st3 = st3.merge()
+    st3.detrend('demean')
+    st3.taper(max_percentage=None,max_length=5)
+    pre_filt = (0.05, 0.06, 30.0, 35.0)
+    st3.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt, zero_mean=True)
+    st3.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
+    
+    epid, az, baz = gps2dist_azimuth(event.preferred_origin().latitude, event.preferred_origin().longitude, inv[0][0].latitude, inv[0][0].longitude)
+    #rotate to radial/transverse
+    #check if it is Z12 rather than ZNE
+    if len(st3.select(channel='*[ZNE]')) == 1:
+        st3.rotate(method="->ZNE",inventory=inv)
+        st3.rotate(method="NE->RT", back_azimuth=baz)
+    #already ZNE
+    elif len(st3) == 3:
+        st3.rotate(method="NE->RT", back_azimuth=baz)
+    
+    for p in all_picks:
+        if p.waveform_id.station_code == pickP.waveform_id.station_code:
+            pickS = p
+    
+    # ML pickers tend to pick the peaks in the data so this is adjusted to straddle the pick time
+    pickindP = (pickP.time - st3[0].stats.starttime)*st3[0].stats.sampling_rate-1
+    pwin = 2*st3[0].stats.sampling_rate # 2 sec window
+    # sum of radial and transverse components
+    pampdata = st3[1].data + st3[2].data
+    #pampdata = np.sqrt(st3[1].data**2 + st3[2].data**2)   
+    pamp = np.max(pampdata[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    pamp_min = np.min(pampdata[int(pickindP-pwin/2):int(pickindP + pwin/2)])
+    halfpamp = (pamp-pamp_min)/2
+    
+    pickindS = (pickS.time - st3[0].stats.starttime)*st3[0].stats.sampling_rate-1
+    swin = 2*st3[0].stats.sampling_rate # 2 sec window
+    # sum of radial and transverse components
+    samp = np.max([np.max(st3[0].data[int(pickindS):int(pickindS + swin)]), np.max(st3[1].data[int(pickindS):int(pickindS + swin)]), np.max(st3[2].data[int(pickindS):int(pickindS + swin)])])
+    
+    
+    sp_ratio = samp/pamp # just for checking - this is original way of calculating it but we won't use it
+    sp_ratio_half = samp/halfpamp
+
+    return sp_ratio_half
+
+
+def select_3comp_remove_response(project_folder=None,strday=None,pick=None,starttime=None,endtime=None):
     paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
 
+    try:
+        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+    except:
+        try:
+            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+        except:
+            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            try:
+                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            except:
+                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                pass
+#                    try:
+#                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+#                    except:
+#                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+        pass
+    st3.merge(fill_value='interpolate')
+    print(st3)
+    for tr in st3:
+        if isinstance(tr.data, np.ma.masked_array):
+            tr.data = tr.data.filled()
+    st = st3.select(channel='[EHB]H[EN12]')
+    for tr in st3:
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        if len(inventory_local)>0:
+            inv = read_inventory(inventory_local[0])
+        else:
+            try:
+                #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                try:
+                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                except:
+                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
+                    pass
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                if not inv:
+                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                    if not inv:
+                        print('Getting response from DMC')
+                        client = Client()
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+
+            except:
+                print('Station metadata error')
+                print('Getting response from DMC')
+                client = Client()
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+                #starttime = UTCDateTime(origin.time-10)
+                #endtime = UTCDateTime(origin.time+10)
+                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                pass
+                #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+        tr.stats.network = inv[0].code
+        tr.stats.location = inv[0][0][0].location_code
+        pre_filt = (0.05, 0.06, 30.0, 35.0)
+        tr.trim(pick.time-30, pick.time+120)
+
+
+        #tr.demean()
+        tr.detrend()
+        tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True)
+        #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
+        tr.simulate(paz_simulate=paz_wa, water_level=10)
+        
+    return st3, inv
+
+def select_3comp_include_response(project_folder=None,strday=None,pick=None,starttime=None,endtime=None):
+    """
+    Finds the appropriate traces and right response file, but makes no attempt to remove, etc.
+    """
+    try:
+        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+    except:
+        try:
+            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+        except:
+            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            try:
+                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+            except:
+                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                pass
+#                    try:
+#                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+#                    except:
+#                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+        pass
+    st3.merge(fill_value='interpolate')
+    #print(st3)
+    for tr in st3:
+        if isinstance(tr.data, np.ma.masked_array):
+            tr.data = tr.data.filled()
+    
+    for tr in st3:
+        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+        if len(inventory_local)>0:
+            inv = read_inventory(inventory_local[0])
+        else:
+            try:
+                try:
+                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                except:
+                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
+                    pass
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+                if not inv:
+                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                    if not inv:
+                        print('Getting response from DMC')
+                        starttime = UTCDateTime(origin.time-10)
+                        endtime = UTCDateTime(origin.time+10)
+                        client = Client()
+                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+
+            except:
+                print('Station metadata error')
+                print('Getting response from DMC')
+                client = Client()
+                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+                #starttime = UTCDateTime(origin.time-10)
+                #endtime = UTCDateTime(origin.time+10)
+                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                pass
+                #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+        tr.stats.network = inv[0].code
+        tr.stats.location = inv[0][0][0].location_code
+        #pre_filt = (0.05, 0.06, 30.0, 35.0)
+        tr.trim(pick.time-30, pick.time+120)
+
+
+
+        
+    return st3, inv
+
+
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
+    """
+    Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
+    
+    Args:
+        cat (obspy.Catalog or None): The catalog of events for which to compute magnitudes. If None,
+            a message is printed and the function returns immediately. Default is None.
+        project_folder (str or None): The path to the project folder where the data files are stored.
+            If None, a message is printed and the function returns immediately. Default is None.
+        plot_event (bool): Whether to plot the event waveform data. Default is False.
+        eventmode (bool): Whether the given project_folder is a daily or single event folder. If True,
+            then project_folder should be the path to the daily folder. Default is False.
+        cutoff_dist (float): The maximum distance from the event epicenter to consider for magnitude
+            computation, in kilometers. Default is 200.
+    
+    Returns:
+        None: The magnitudes are saved in QuakeML format by writing an additional event magnitude to the Event object.
+    """
+
     print('Computing magnitudes')
-    client = Client() #Comment this line when working without Internet connection.
+
     for event in cat:
         origin = event.origins[0]
         print(origin)
@@ -1081,104 +1509,68 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
         st2 = Stream()
         for idx1, pick in enumerate(event.picks):
             strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
-            if eventmode:
-                strday = str(project_folder.split('/')[-1])
+            #if eventmode:
+                #str(project_folder.split('/')[:-2]).join('/')
+                #strday = ('/').join(project_folder.split('/')[:-1])
+                #project_folder = ('/').join(project_folder.split('/')[:-1])
+                #print(strday)
+                #strday = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
             print(strday)
-            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
             
             if pick.phase_hint == 'S':
                 ### make Amplitude
                 st3 = []
                 try:
-                    try:
-                        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
-                        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
-                    except:
-                        try:
-                            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
-                        except:
-                            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                            try:
-                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                            except:
-                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                                pass
-    #                    try:
-    #                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
-    #                    except:
-    #                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
-                        pass
+                    starttime_inv=origin.time-10
+                    endtime_inv=origin.time+10
+                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
 
-        #            pazs = glob.glob('/data/tx/ContWaveform/'+strday+'/SACPZ.'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]')
-                    #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
-                    try:
-                        st3.merge(fill_value='interpolate')
-                        print(st3)
-                        for tr in st3:
-                            if isinstance(tr.data, np.ma.masked_array):
-                                tr.data = tr.data.filled()
-                        st = st3.select(channel='[EHB]H[EN12]')
-                        for tr in st3:
-                            inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-                            if len(inventory_local)>0:
-                                inv = read_inventory(inventory_local[0])
-                            else:
-                                try:
-                                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                                    inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
-                                    if not inv:
-                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                                        if not inv:
-                                            print('Getting response from DMC')
-                                            starttime = UTCDateTime(origin.time-10)
-                                            endtime = UTCDateTime(origin.time+10)
-                                            inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                    tr1 = st3.select(channel='[EHB]HZ')[0]
 
-                                except:
-                                    print('Station metadata error')
-                                    print('Getting response from DMC')
-                                    starttime = UTCDateTime(origin.time-10)
-                                    endtime = UTCDateTime(origin.time+10)
-                                    inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                                    #starttime = UTCDateTime(origin.time-10)
-                                    #endtime = UTCDateTime(origin.time+10)
-                                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                                    pass
-                                    #                    paz = [x for x in pazs if tr.stats.channel in x]
-        #                    attach_paz(tr, paz[0])
-                            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-                            tr.stats.network = inv[0].code
-                            tr.stats.location = inv[0][0][0].location_code
-                            pre_filt = (0.05, 0.06, 30.0, 35.0)
-                            tr.trim(pick.time-30, pick.time+120)
+                    sta_lat = inv[0][0].latitude
+                    sta_lon = inv[0][0].longitude
+                    epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
+                    epi_dist = epi_dist / 1000
+                    tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
+                    tr1.trim(pick.time-20,pick.time+60)
+                    st2 += tr1
+                    st = st3.select(channel='[EHB]H[EN12]')
+                    st.trim(pick.time-1,pick.time+5)
+                    ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
+                    for idx2,ampl in enumerate(ampls):
 
+                        amp = Amplitude()
+                        res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
+                        #res_id = ResourceIdentifier(prefix='Amplitude')
+                        #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                        amp.resource_id = ResourceIdentifier(id=res_id)
+                        amp.pick_id = pick.resource_id
+                        amp.waveform_id = pick.waveform_id
+                        amp.type = 'ML'
+                        amp.generic_amplitude = ampl
+                        amp.evaluation_mode = 'automatic'
 
-                            #tr.demean()
-                            tr.detrend()
-                            tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True)
-                            #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
-                            tr.simulate(paz_simulate=paz_wa, water_level=10)
+                        if epi_dist < 60:
+                            a = 0.018
+                            b = 2.17
+                        else:
+                            a = 0.0038
+                            b = 3.02
+                        ml = np.log10(ampl * 1000) + a * epi_dist + b
 
+                        ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
+                        print(ml, ml_iaspei)
 
-                            #tr = tr.filter('bandpass', freqmin=fminbp, freqmax=fmaxbp, zerophase=True)
-                        #st.trim(pick.time-5,pick.time+10)
-                        tr1 = st3.select(channel='[EHB]HZ')[0]
-
-                        sta_lat = inv[0][0].latitude
-                        sta_lon = inv[0][0].longitude
-                        epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
-                        epi_dist = epi_dist / 1000
-                        tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
-                        tr1.trim(pick.time-20,pick.time+60)
-                        st2 += tr1
-                        st.trim(pick.time-1,pick.time+5)
-                        ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
-                        for idx2,ampl in enumerate(ampls):
-
-                            amp = Amplitude()
-                            res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
-                            #res_id = ResourceIdentifier(prefix='Amplitude')
+                        if epi_dist < cutoff_dist:
+                            mags.append(ml)
+                            mags_iaspei.append(ml_iaspei)
+                            #### make StationMagnitude
+                            stamag = StationMagnitude()
+                            res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
+                            #res_id = ResourceIdentifier(prefix='StationMagnitude')
                             #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
                             amp.resource_id = ResourceIdentifier(id=res_id)
                             amp.pick_id = pick.resource_id
@@ -1224,21 +1616,33 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             else:
                                 print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
                             event.amplitudes.append(amp)
-                    except Exception:
-                        print(traceback.format_exc())#input("push")
-                        print('Something went wrong here')
-                        pass
-                except:
+                except Exception:
+                    print(traceback.format_exc())#input("push")
+                    print('Something went wrong here')
                     pass
 
         for pick in event.picks:
             if pick.phase_hint == 'P':
-                tr = st2.select(station=pick.waveform_id.station_code)
+                tr1 = st2.select(station=pick.waveform_id.station_code)
+                #print(pick.waveform_id.station_code)
+                #print(st2)
                 try:
-                    tr = tr[0]
+                    tr = tr1[0].copy()
                     pol = polarity(tr,pick.time)
                     pick.polarity = pol
                     print(pol)
+                    if estimate_sp:
+                        #if pol == 'positive' or pol == 'negative':
+                        st3, inv = select_3comp_include_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                        #st3 = st.select(station=pick.waveform_id.station_code)
+                        sp_ratio1 = sp_ratio(st3,inv,pick,event.picks,event)
+                        print(str(sp_ratio1)+' s/p ratio '+pick.waveform_id.station_code)
+                        pick.comments.append(Comment(text='sp_ratio:{0}'.format(sp_ratio1)))
+                        
+                            
+                        
+                        
+                        
                 except:
                     pass
 
@@ -1662,6 +2066,25 @@ def mblg_ign_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=Fa
 
 
 def single_event_xml(catalog=None,project_folder=None, format="QUAKEML"):
+    """
+    Writes earthquake event data to an XML file in the specified format.
+    
+    Args:
+    - catalog: an obspy Catalog object containing earthquake event data
+    - project_folder: a string specifying the path to the project folder where the XML file should be written
+    - format: a string specifying the format of the XML file (default is 'QUAKEML')
+    
+    Returns:
+    - None
+    
+    Example:
+    >>> cat = obspy.read_events('data.xml')
+    >>> single_event_xml(catalog=cat, project_folder='project_folder', format='QUAKEML')
+    
+    This function creates a folder named after the specified format (e.g. 'quakeml') within the specified project folder.
+    For each earthquake event in the catalog, a corresponding XML file is created within the format folder using the 
+    event's resource ID as the filename. If the format folder does not exist, it will be created.
+    """
     xmlspath = project_folder+'/'+format.lower()
     if not os.path.exists(xmlspath):
         os.makedirs(xmlspath)
@@ -1694,6 +2117,33 @@ def join_all_xml(xml_folder=None, filename=None, format="QUAKEML"):
 
 
 def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
+    """
+    Fixes the picks in a catalog by checking actual waveform data
+    
+    Parameters
+    catalog : obspy.core.event.Catalog
+    The catalog containing the events and picks.
+    project_folder : str
+    The path to the project folder.
+    filename : str, optional
+    The path to the output QUAKEML file.
+    
+    Returns
+    obspy.core.event.Catalog
+    A new catalog with the fixed picks.
+    
+    Notes
+    This function assumes that waveform data is stored in MiniSEED files in the
+    following directory structure:
+    project_folder/YYYYMMDD/network.station.location.channel.mseed
+    
+    If the waveform data for a pick is not found, the function attempts to fix the
+    pick by searching for waveform data for the same station and channel on the
+    same day, and updating the channel code accordingly in the QuakeML file.
+    
+    The function modifies a copy of the input catalog, leaving the original
+    catalog unchanged.
+    """
     cat2 = catalog.copy()
     for event in cat2:
         print(event.preferred_origin().time)
@@ -1712,7 +2162,31 @@ def fix_picks_catalog(catalog=None, project_folder=None, filename=None):
     return cat2
 
 
-def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False):
+def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes=True, plotevent=False, cutall=False):
+    """
+    The function cut_event_waveforms takes an earthquake catalog, and cuts and plots the waveform data for each event within a specified time range. The waveform data is read from mseed files located in a specified directory. The function saves the waveform data and plots in a new subdirectory under the project folder. If filteryes is set to True, the waveform data is also filtered.
+
+    Parameters:
+    
+        catalog : obspy.core.event.Catalog
+        An earthquake catalog object containing event and waveform data.
+        project_folder : str
+        The path of the project folder where the waveform files are located and output should be saved.
+        length : int
+        The length of the waveform data to be extracted in seconds.
+        filteryes : bool
+        Whether or not to filter the waveform data. Default is True.
+        plotevent : bool
+        Whether or not to plot the waveforms for each event. Default is False.
+    Returns:
+    
+        cat2 : obspy.core.event.Catalog
+    The same input earthquake catalog object with any changes made to waveform data.
+    
+    RUN fix_picks first
+    TODO association plot - change event name down to second
+    
+    """
     dirname = project_folder+'/events'
     if not os.path.exists(dirname):
         os.makedirs(dirname)
@@ -1729,6 +2203,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         #arrivals = []
         picks = []
         picktimes = []
+        stacheck = set()
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
             try:
@@ -1740,53 +2215,70 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "2"
             st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
             #arrivals.append(arrv)
+            stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
             #stas.append(pick.waveform_id.station_code)
+        if cutall:
+            st3 = Stream()
+            st2 = read(project_folder+'/'+strday+'/*mseed') or read(project_folder+'/'+strday+'/*SAC')
+            for tr2 in st2:
+                if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
+                    st3 += tr2
+            st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
+
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
-        if filteryes:
-            st.filter('highpass',freq=1)
-            st = st.slice(origin.time-10, origin.time + length)
-        import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(10,10))
-        axes = fig.subplots(len(st), 1, sharex=True)
-        lines, labels = ([], [])
-        min_x = []
-        max_x = []
-        for ax, tr, p , pt in zip(axes, st, picks, picktimes):
-                x = np.arange(0, tr.stats.endtime - tr.stats.starttime + tr.stats.delta, tr.stats.delta)
-                y = tr.data
-                x = np.array([(tr.stats.starttime + _x).datetime for _x in x])
-                min_x1, max_x1 = (x[0], x[-1])
-                try:
-                    ax.plot(x, y, 'k', linewidth=1.2)
-                except:
-                    continue
-                if 'P' in p.upper():
-                    pcolor = 'red'
-                    label = 'P-pick'
-                if 'S' in p.upper():
-                    pcolor = 'blue'
-                    label = 'S-pick'
-                ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
-                          linestyle='--', label=label)
-                line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
-                          linestyle='-', label='origin')
-                ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
-                ax.yaxis.tick_right()
-                #ind1 = nearest(x,pt.datetime)
-                ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
-                min_x.append(min_x1)
-                max_x.append(max_x1)
-                labels.append(label)
-                lines.append(line)
-        axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
-        #axes[-1].set_xlabel("Time")
-        plt.subplots_adjust(hspace=0)
-        fig.legend(lines, labels)
-        fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
-        plt.close(fig)
+        
+        os.system('cp '+project_folder+'/'+strday+'/*dailyinventory.xml '+dirname+'/'+str(ev.resource_id).split('/')[-1]+'_inv.xml')
+        #os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        
+        
+        if plotevent:
+            try:
+                if filteryes:
+                    st.filter('highpass',freq=1)
+                    st = st.slice(origin.time-10, origin.time + length)
+                import matplotlib.pyplot as plt
+                fig = plt.figure(figsize=(10,10))
+                axes = fig.subplots(len(st), 1, sharex=True)
+                lines, labels = ([], [])
+                min_x = []
+                max_x = []
+                for ax, tr, p , pt in zip(axes, st, picks, picktimes):
+                        x = np.arange(0, tr.stats.endtime - tr.stats.starttime + tr.stats.delta, tr.stats.delta)
+                        y = tr.data
+                        x = np.array([(tr.stats.starttime + _x).datetime for _x in x])
+                        min_x1, max_x1 = (x[0], x[-1])
+                        ax.plot(x, y, 'k', linewidth=1.2)
+                        if 'P' in p.upper():
+                            pcolor = 'red'
+                        #    label = 'P-pick'
+                        if 'S' in p.upper():
+                            pcolor = 'blue'
+                        #    label = 'S-pick'
+                        ax.axvline(x=pt.datetime, color=pcolor, linewidth=2,
+                                  linestyle='--')
+                        line = ax.axvline(x=origin.time.datetime, color='k', linewidth=1,
+                                  linestyle='-')
+                        #ax.set_ylabel(tr.id, rotation=0, horizontalalignment="right")
+                        ax.yaxis.tick_right()
+                        #ind1 = nearest(x,pt.datetime)
+                        ax.set_ylim([np.max(np.abs(y))*-1.1,np.max(np.abs(y))*1.1])
+                        min_x.append(min_x1)
+                        max_x.append(max_x1)
+                        #labels.append(label)
+                        lines.append(line)
+                axes[-1].set_xlim([np.min(min_x), np.max(max_x)])
+                #axes[-1].set_xlabel("Time")
+                plt.subplots_adjust(hspace=0)
+                fig.legend(lines, labels)
+                fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
+                plt.title('M '+str(ev.preferred_magnitude().mag)+' '+str(origin.time))
+                plt.close(fig)
+            except:
+                pass
 
 
 def detection_association_event(project_folder=None, project_code=None, maxdist = None, maxkm=None, local=True, machine=True, machine_picker=None, fullpath_python=None, approxorigintime=None, downloadwaveforms=True, delta_distance=1, latitude=None, longitude=None, max_radius=None):
@@ -1797,6 +2289,10 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     stopping = approxotime + 360
     dir1 = project_folder+'/'+dirname
     print(dir1)
+    if machine == True and machine_picker is None:
+        machine_picker = 'GPD'
+    if machine == False:
+        machine_picker = 'STALTA'
     if downloadwaveforms:
         download_mseed_event_radial(dirname=dirname, project_folder=project_folder, starting=starting, stopping = stopping, lat1=latitude, lon1=longitude, maxrad=max_radius)
     #print(single_date.strftime("%Y%m%d"))
@@ -1809,57 +2305,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     tables1D.Base.metadata.create_all(engine_assoc)
     Session=sessionmaker(bind=engine_assoc)
     session=Session()
-    # filelist = glob.glob(dir1+'/*mseed') or glob.glob(dir1+'/*SAC')
-    # stations = set()
-    # for file1 in filelist:
-    #     station = file1.split('.')[1]
-    #     net = file1.split('.')[0].split('/')[-1]
-    #     netsta = net+'.'+station
-    #     print(file1.split('.')[1])
-    #     stations.add(netsta)
-    # #### create infile
-    # day_strings = []
-    # for stationin in stations:
-    #     station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
-    #     station3a = [None,None,None]
-    #     if len(station3)>3:
-    #         #print(station3)
-    #         ind1 = np.empty((len(station3),1))
-    #         ind1[:] = np.nan
-    #         for idxs, station1 in enumerate(station3):
-    #             if get_chan3(station1) == 'HHZ':
-    #                 ind1[idxs] = 2
-    #             elif get_chan3(station1) == 'HHN' or get_chan3(station1) == 'HH1':
-    #                 ind1[idxs] = 0
-    #             elif get_chan3(station1) == 'HHE' or get_chan3(station1) == 'HH2':
-    #                 ind1[idxs] = 1
-    #             #print(idxs)
-    #             #if ind1:
-    #             #    station3a[ind1] = station1
-    #         #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
-    #         for idxsa, ind2a in enumerate(ind1):
-    #             if ~np.isnan(ind2a[0]):
-    #                 #print(ind2a)
-    #                 #print(station3a)
-    #                 station3a[int(ind2a[0])] = station3[idxsa]
-    #     else:
-    #         for station1 in station3:
-    #             if get_chan1(station1)  == 'Z':
-    #                 ind1 = 2
-    #             elif get_chan1(station1)  == 'N' or get_chan1(station1) == '1':
-    #                 ind1 = 0
-    #             elif get_chan1(station1)  == 'E' or get_chan1(station1) == '2':
-    #                 ind1 = 1
-    #             #print(ind1)
-    #             station3a[ind1] = station1
-    #     if any(elem is None for elem in station3a):
-    #         continue
-    #     day_strings.append((station3a[0]+' '+station3a[1]+' '+station3a[2]))
 
-    # day_string = "\n".join(day_strings)
-
-    # with open(dir1+'/dayfile.in', "w") as open_file:
-    #     open_file.write(day_string)
     make3 = True
     infile = make_dayfile(dir1, make3)
 
@@ -1891,6 +2337,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         fullpath2 = pathEQT+'/mseed_predictor.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if fullpath_python:
+            print(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
             os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         else:
             os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
@@ -1961,15 +2408,39 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False, eventmode=True)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+machine_picker.lower() + ".xml"
+        filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
 
 
 def simple_cat_df(cat=None, uncertainty=False):
+    """
+    This function takes in an ObsPy Catalog object containing earthquake events and returns a pandas DataFrame
+    containing various attributes of the events.
+    
+    Parameters:
+        cat (obspy.Catalog): Catalog object containing earthquake events.
+        uncertainty (bool): Whether to include origin uncertainty parameters in the returned DataFrame. Default is False.
+        
+    Returns:
+        pandas.DataFrame: DataFrame containing the following columns:
+        - origintime (datetime): Origin time of the event.
+        - latitude (float): Latitude of the event.
+        - longitude (float): Longitude of the event.
+        - depth (float): Depth of the event.
+        - magnitude (float): Magnitude of the event.
+        - type (str): Magnitude type of the event.
+        - horizontal_error (float): Horizontal uncertainty of the event. Only included if uncertainty is True.
+        - vertical_error (float): Vertical uncertainty of the event. Only included if uncertainty is True.
+        - num_arrivals (int): Number of arrivals used to locate the event. Only included if uncertainty is True.
+        - rms (float): Root-mean-square of the residuals of the event's origin time, latitude, longitude, and depth.
+        Only included if uncertainty is True.
+        - azimuthal_gap (float): Azimuthal gap of the event. Only included if uncertainty is True.
+        - id (str): Resource identifier of the event.
+    """
     times = []
     lats = []
     lons = []
@@ -2034,6 +2505,22 @@ def catdf_narrowbounds(catdf=None,lat_a=None,lat_b=None,lon_a=None,lon_b=None):
 #
 #
 def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=None, project_code=None):
+    """
+    This function converts a catalog in QuakeML format into input files for HypoDD. It creates a file containing event and phase information and a file containing station location metadata. If specified, it downloads station metadata from the FDSN web service.
+    
+    Args:
+        cat: obspy catalog object. A catalog of seismic events in QuakeML format.
+        download_station_metadata: bool. If True, download station location metadata from the FDSN web service.
+        project_folder: str. The path to the project folder where the input files will be saved. If not provided, the current working directory is used.
+        project_code: str. The name of the project. The files will be named using this code.
+        
+    Returns:
+        None. The function writes the input files to disk.
+        
+    Raises:
+        No exceptions are raised by this function. Any errors encountered are printed to the console.
+
+    """
     #catdf = simple_cat_df(cat)
     phase_dat_file = project_folder+'/'+project_code+'.pha'
     #for idx0, t0 in enumerate(catdf.index):
@@ -2109,11 +2596,18 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
                 weight = phase_weighting(pick.waveform_id.station_code, pick.phase_hint.upper(),
                                          pick.time,
                                          arrv.time_residual)
-                pick_string = string.format(
-                    station_id=pick.waveform_id.station_code,
-                    travel_time=travel_time,
-                    weight=weight,
-                    phase=pick.phase_hint.upper())
+                if len(pick.waveform_id.station_code) == 5:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
+                elif len(pick.waveform_id.station_code) == 4:
+                    pick_string = string.format(
+                        station_id=pick.waveform_id.network_code+'.'+pick.waveform_id.station_code,
+                        travel_time=travel_time,
+                        weight=weight,
+                        phase=pick.phase_hint.upper())
                 event_strings.append(pick_string)
 
 
@@ -2153,36 +2647,6 @@ def quakeml_to_hypodd(cat=None, download_station_metadata=True, project_folder=N
         station_string = "\n".join(set(station_strings))
         with open(station_dat_file, "w") as open_file:
             open_file.write(station_string)
-
-
-#    station_dat_file = project_folder+'/'+'station.dat'
-#
-#    #station_strings = []
-#    #for key, value in self.stations.iteritems():
-#    #    station_strings.append("%s %.6f %.6f %i" % (key, value["latitude"],
-#    #        value["longitude"], value["elevation"]))
-#    #station_string = "\n".join(station_strings)
-#    #with open(station_dat_file, "w") as open_file:
-#    #    open_file.write(station_string)
-#    #self.log("Created station.dat input file.")
-#
-#
-#    starttime = UTCDateTime("2010-01-01T00:00:00.000")
-#    endtime = UTCDateTime("2022-01-01T00:00:00.000")
-#    #line = [(-98.15, 35.88),(-98.05, 35.8)] # Cushing area
-#
-#    client = Client('IRIS')
-#    inva = client.get_stations(starttime=starttime, endtime=endtime,network="*", loc="*", channel="*",minlatitude=minlat, maxlatitude=maxlat,minlongitude=minlon, maxlongitude=maxlon,level="station")
-#    station_strings = []
-#    for sta in stations:
-#        print(sta)
-#        inva1 = inva.select(station=sta)
-#        if len(inva1.networks) > 0:
-#            station_strings.append("%s %.6f %.6f %i" % (sta, inva1[0][0].latitude, inva1[0][0].longitude, inva1[0][0].elevation))
-#        #inva1[0][0].latitude
-#    station_string = "\n".join(station_strings)
-#    with open(station_dat_file, "w") as open_file:
-#        open_file.write(station_string)
 
 
 
@@ -2232,11 +2696,27 @@ def plot_hypodd_catalog(file=None,fancy_plot=False):
     plt.show()
 
 
-def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None):
+def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=None, daymode=False, catalog_year=False, year=None, single_date=None):
+    """
+    Generate a hypoinverse input file (pha file) for earthquake locations from an obspy Catalog object.
+    The function creates a pha file containing P and S picks, and a run.hyp file containing
+    necessary parameters to perform location analysis. It requires a velocity model to be specified.
+    
+    Parameters:
+        cat (obspy.Catalog object): Obspy Catalog object containing earthquake events.
+        project_folder (str): Path to the project folder.
+        vel_model (str): Name of the velocity model to be used. Default is "standard.crh".
+        fullpath_hyp (str): Optional path for the hypoinverse compiled program.
+    
+    Returns:
+        None
+    """
     if vel_model is None:
         velmodel = pathhyp+'/standard.crh'
         os.system("cp %s %s" % (velmodel,project_folder))
-        vel_model = 'standard.crh'
+        vel_model = project_folder+'/'+'standard.crh'
+    else:
+        vel_model = project_folder+'/'+vel_model
 
     for idx1, event in enumerate(cat):
         origin = event.preferred_origin() or event.origins[0]
@@ -2245,7 +2725,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
             stas.append(pick.waveform_id.station_code)
-            picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
+            if arrv.phase == 'P' or arrv.phase == 'S':
+                picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
             #print(stalistall)
         stalist = list(set(stas))
         hypo71_string = ""
@@ -2311,24 +2792,38 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
 
                 else:
                     hypo71_string += "\n"
-
-        try:
-            if os.path.exists(project_folder+'/out.sum'):
-                os.system('rm '+project_folder+'/out.sum')
-        except:
-            pass
-        fcur = open(project_folder+'/pha','w')
+        
+        if daymode:
+            outfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.sum'
+            phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
+            runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
+            stafile = project_folder+'/sta'+single_date.strftime("%Y%m%d")
+        elif catalog_year:
+            outfile = project_folder+'/'+str(year)+'out.sum'
+            phafile = project_folder+'/'+str(year)+'pha'
+            runfile = project_folder+'/'+str(year)+'run.hyp'
+            stafile = project_folder+'/sta'+str(year)
+        else:    
+            outfile = project_folder+'/out.sum'
+            phafile = project_folder+'/pha'
+            runfile = project_folder+'/run.hyp'
+            stafile = project_folder+'/sta'
+        
+        if os.path.exists(outfile):
+            os.system('rm '+outfile)
+        fcur = open(phafile,'w')
         fcur.write(str(hypo71_string))
         fcur.close()
 
-        frun = open(project_folder+'/run.hyp','w')
-        frun.write("crh 1 "+vel_model)
+        frun = open(runfile,'w')
+        frun.write("crh 1 '"+vel_model+"'")
         frun.write("\n")
         frun.write('h71 3 2 2')
         frun.write("\n")
-        frun.write("sta '"+project_folder+"/sta'")
+        #frun.write("sta '"+project_folder+"/sta'")
+        frun.write("sta '"+stafile+"'")
         frun.write("\n")
-        frun.write("phs '"+project_folder+"/pha'")
+        frun.write("phs '"+phafile+"'")
         frun.write("\n")
         frun.write('pos 1.78')
         frun.write("\n")
@@ -2344,7 +2839,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.write("\n")
         frun.write('fil')
         frun.write("\n")
-        frun.write('sum out.sum')
+        frun.write("sum '"+outfile+"'")
         frun.write("\n")
         frun.write('loc')
         frun.write("\n")
@@ -2352,14 +2847,14 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.close()
         try:
             if fullpath_hyp:
-                os.system("cat %s/run.hyp | %s/hyp2000" % (project_folder, fullpath_hyp))
+                os.system("cat %s | %s/hyp2000" % (runfile, fullpath_hyp))
             else:
-                os.system("cat %s/run.hyp | hyp2000" % (project_folder))
+                os.system("cat %s | hyp2000" % (runfile))
         except:
             pass
 
         try:
-            lines = open(project_folder+'/out.sum').readlines()
+            lines = open(outfile).readlines()
             for line in lines:
                 if line.startswith("   DATE"):
                     print(' ')
@@ -2423,9 +2918,9 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                 for i in range(len(lines)):
                 # check which type of phase
                     if lines[i][32] == "P":
-                        type = "P"
+                        type1 = "P"
                     elif lines[i][32] == "S":
-                        type = "S"
+                        type1 = "S"
                     else:
                         continue
                     # get values from line
@@ -2454,7 +2949,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                         polarity = None
                     res = float(lines[i][61:66])
                     weight = float(lines[i][68:72])
-                    phase_hint = type
+                    phase_hint = type1
                     for p in event.picks:
                         if station is not None and station != p.waveform_id.station_code[-4:]:
                             continue
@@ -2486,36 +2981,115 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
     return cat
 
 
-
-def quakeml_to_growclust(project_folder=None, project_code=None):
+def quakeml_to_growclust(project_folder=None, phase_file='phase.dat', station_file='station.dat', dt_file='dt.cc',cc_threshold = 0.6, download_station_metadata=False):
     #run quakeml_to_hypodd first
-    with open(project_folder+'/phase.dat', 'r') as in_f: 
+    #event list is the 
+    with open(project_folder+'/'+phase_file, 'r') as in_f: 
         with open(project_folder+'/evlist.txt', 'w') as out_f: 
-            for ln in in_f: 
+            for ln in in_f:
                 if ln.startswith('#'): 
                     out_f.write('{}\n'.format(' '.join(ln.split()[1:])))
-    with open(project_folder+'/station.dat', 'r') as in_f: 
+                    
+    stacheck = set()
+    with open(project_folder+'/'+dt_file, 'r') as in_f:
+        with open(project_folder+'/dtcc.txt' , 'w') as out_f: 
+            temp = []
+            #if float(ln.split()[-2])>0.6:
+            for ln in in_f:
+                if ln.startswith('#'):
+                    out_f.write('{}'.format(ln))
+                if ln[2] == '.':
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            if float(ln.split()[-2])>cc_threshold:
+                                out_f.write('{}'.format(ln[3:]))
+                                stacheck.add(ln[3:].split()[0])
+                else:
+                    if not ln.startswith('#'):
+                        if np.abs(float(ln.split()[1]))<1:
+                            if float(ln.split()[-2])>cc_threshold:
+                                out_f.write('{}'.format(ln))
+                                stacheck.add(ln.split()[0])
+    
+    #temp = pd.read_csv('stlist.txt',delimiter=r"\s+",header=None)                 
+    #temp = temp.drop_duplicates(subset=[0], keep="first")    
+    #temp.to_csv('test.txt', index=False, sep=' ')            
+    with open(project_folder+'/'+station_file, 'r') as in_f: 
         with open(project_folder+'/stlist.txt' , 'w') as out_f: 
             for ln in in_f:
                 #print(ln[2])
                 if ln[2] == '.':
-                    out_f.write('{}'.format(ln[3:]))
+                    if ln[3:].split()[0] in stacheck:
+                        out_f.write('{}'.format(ln[3:]))
                 else:
-                    out_f.write('{}'.format(ln))
+                    if ln.split()[0] in stacheck:
+                        out_f.write('{}'.format(ln))
+                    
 
-    with open(project_folder+'/dt.cc', 'r') as in_f: 
-        with open(project_folder+'/xcordata.txt' , 'w') as out_f: 
-            for ln in in_f: 
-                if ln[2] == '.':
-                    if len(ln[3:].split(' ')[0]) == 4:
-                        out_f.write('{}{}'.format('   ',ln[3:]))
-                    elif len(ln[3:].split(' ')[0]) == 5:
-                        out_f.write('{}{}'.format('  ',ln[3:]))
-                else:
-                    if ln[0] != '#':
-                        out_f.write('{}{}'.format('   ',ln))
-                    else:
-                        out_f.write(ln) 
+    
+
+    if download_station_metadata:
+        temp = pd.read_csv(project_folder+'/evlist.txt',delimiter=r"\s+",header=None)
+        times = []
+        for i in temp.index:
+            times.append(UTCDateTime(temp.iloc[i,0],temp.iloc[i,1],temp.iloc[i,2],temp.iloc[i,3],temp.iloc[i,4],temp.iloc[i,5]))
+        tmin = np.array(times).min() 
+        tmax = np.array(times).max() 
+        latmed = temp[6].median()
+        lonmed = temp[7].median()
+        station_dat_file = project_folder+'/stlist.txt'
+        stalist=set()
+        with open(project_folder+'/'+dt_file, 'r') as in_f: 
+            for ln in in_f:
+                #print(ln[2])
+                if not ln.startswith('#'): 
+                    stalist.add(ln.split(' ')[0])
+        print('Downloading station location metadata')
+        client = Client()
+        station_strings = []
+        for sta in stalist:
+            print(sta)
+            try:
+                net, sta1 = sta.split('.')
+            except:
+                sta1 = sta
+                net = '*'
+                pass
+            #sta1 = sta
+            try:
+                inva = client.get_stations(starttime=tmin, endtime=tmax, network=net, station=sta1, level='station')
+            except:
+                inva = None
+                pass
+            if inva is not None:
+                dists = []
+                netnames = []
+                for net in inva:
+                    for sta in net:
+                        dists.append(gps2dist_azimuth(sta.latitude, sta.longitude, latmed, lonmed)[0])
+                        netnames.append(net.code)
+                rightnet = inva.select(network=netnames[np.where(dists==np.min(dists))[0][0]])
+                station_lat = rightnet[0][np.where(dists==np.min(dists))[0][0]].latitude
+                station_lon = rightnet[0][np.where(dists==np.min(dists))[0][0]].longitude
+                station_elev = rightnet[0][np.where(dists==np.min(dists))[0][0]].elevation
+                station_strings.append("%s %.6f %.6f %i" % (sta1,  station_lat,  station_lon,  station_elev))
+            #inva1[0][0].latitude
+        station_string = "\n".join(set(station_strings))
+        with open(station_dat_file, "w") as open_file:
+            open_file.write(station_string)
+    # with open(project_folder+'/'+dt_file, 'r') as in_f: 
+    #     with open(project_folder+'/xcordata.txt' , 'w') as out_f: 
+    #         for ln in in_f: 
+    #             if ln[2] == '.':
+    #                 if len(ln[3:].split(' ')[0]) == 4:
+    #                     out_f.write('{}{}'.format('   ',ln[3:]))
+    #                 elif len(ln[3:].split(' ')[0]) == 5:
+    #                     out_f.write('{}{}'.format('  ',ln[3:]))
+    #             else:
+    #                 if ln[0] != '#':
+    #                     out_f.write('{}{}'.format('   ',ln))
+    #                 else:
+    #                     out_f.write(ln) 
 
 
     
@@ -2538,6 +3112,46 @@ def reduce_catalog(cat=None, num_arr=None, vert_unc=None):
     from obspy import Catalog
     cat2 = Catalog(events=events)
     return cat2
+
+def duplicate_remove(cat=None,seconds=5):
+    """
+    Look for possible duplicate events by identifying earthquakes within X seconds of one another
+    
+    Parameters:
+        cat (obspy.Catalog object): Obspy Catalog object containing earthquake events.
+        seconds (float): Inter-event minimum time
+    
+    Returns:
+        Catalog that is likely smaller
+    """
+    time_seconds = seconds
+    times = [e.preferred_origin().time.datetime for e in list(cat.events)]
+    li = []
+    for i in range(len(times)):
+          li.append([times[i],i])
+    li.sort()
+    sort_index = []
+    #sorted((d for d in times))
+    for x in li:
+          sort_index.append(x[1])
+
+    events = list(cat.events)
+    temp_events = []
+    for idx1 in range(len(sort_index)):
+        #print(event)
+        event = events[sort_index[idx1]]
+        #print(sort_index[idx1])
+        temp_events.append(event)
+    events2 = temp_events
+    cat2 = Catalog(events=events2)
+    catdf2 = simple_cat_df(cat2, True)
+
+    catdf2['delta'] = (catdf2['origintime']-catdf2['origintime'].shift()).fillna(pd.Timedelta(seconds=100))
+    notdups = catdf2[catdf2.delta > pd.Timedelta(seconds=time_seconds)].index
+    events3 = list(cat2.events)
+    cat3 = Catalog(events=[events3[i] for i in notdups])
+    return cat3
+
 
 
 def plot_map_catalog(cat=None, filename=None, points=False):
@@ -2629,7 +3243,6 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     axs[1, 1].set(ylabel = 'Earthquakes M>'+str(min_mag)+' per day')
     plt.show()
 
-    plt.figure()
     plt.savefig('freq_plot.png')
 
     rangemin = np.floor(np.min(catdf['magnitude'].values[~np.isnan(catdf['magnitude'].values)]))
@@ -2652,8 +3265,59 @@ def plot_gr_freq_catalog(cat=None,min_mag=2):
     plt.show()
     plt.savefig('gr_plot.png')
 
+def make_station_list_csv(project_folder=None):
+    files = sorted(glob.glob(project_folder+'/*/dailyinventory.xml'))
+    for file in files:
+        dir1 = project_folder+'/'+file.split('/')[-2]
+        if not os.path.exists(dir1+'/station_list.csv'):
+            inventory = read_inventory(dir1+'/dailyinventory.xml')
+            stalat = []
+            stalon = []
+            staname = []
+            netname = []
+            elevs = []
+            for net in inventory:
+                for sta in net:
+                    stalat.append(sta.latitude)
+                    stalon.append(sta.longitude)
+                    staname.append(sta.code)
+                    netname.append(net.code)
+                    elevs.append(sta.elevation)
+            stadf = pd.DataFrame({'net':netname,'sta':staname,'netsta':[a+'.'+b for a,b in zip(netname,staname)],'latitude':stalat,'longitude':stalon,'elevation (m)':elevs})
+            stadf = stadf.drop_duplicates()
+            stadf.to_csv(dir1+'/station_list.csv',index=False)
+
+
+def daymode_catalog(project_folder=None,project_code=None,single_date=None, machine_picker=None,fullpath_hyp=None):
+    cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code,daymode=True,single_date=single_date,machine_picker=machine_picker)
+    cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=False)
+    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp,daymode=True,single_date=single_date)
+    cat.write(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.xml',format='QUAKEML')
+    cat2 = simple_cat_df(cat,True)
+    cat2.to_csv(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+single_date.strftime("%Y%m%d")+'.csv')
+
+def yearmode_catalog(project_folder=None,project_code=None, year=None, machine_picker=None,fullpath_hyp=None):
+    cat, dfs = combine_associated(project_folder=project_folder, project_code=project_code, catalog_year=True, year=year, machine_picker=machine_picker)
+    cat = magnitude_quakeml(cat=cat, project_folder=project_folder,plot_event=False)
+    cat = locate_hyp2000(cat=cat, project_folder=project_folder,fullpath_hyp=fullpath_hyp, catalog_year=True, year=year)
+    cat.write(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+str(year)+'.xml',format='QUAKEML')
+    cat2 = simple_cat_df(cat,True)
+    cat2.to_csv(project_folder+'/catalog_'+project_code+'_hyp_'+machine_picker.lower()+'_'+str(year)+'.csv')
+
 
 def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
+    """
+    Convert seismic waveform data associated with each earthquake event in the `cat` object into HDF5 format. If `makecsv` is set to `True`, a CSV file of the event information will be created in the `project_folder` directory.
+
+    Parameters:
+        cat (obspy.core.event.Catalog): An ObsPy Catalog object containing earthquake event information.
+        project_folder (str): The path of the directory where the output HDF5 and CSV files will be saved.
+        makecsv (bool): If True, a CSV file of the event information will be created in the `project_folder` directory.
+
+    Returns:
+        None
+    """
+
     #make a training dataset in STEAD format for retraining data
     output_merge = project_folder+'/merge.hdf5'
     if os.path.exists(project_folder+'/merge.hdf5'):
