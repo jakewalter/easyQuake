@@ -10,9 +10,9 @@ import h5py
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from data_reader import DataReader_mseed_array, DataReader_pred
-from model import ModelConfig, UNet
-from postprocess import (
+from .data_reader import DataReader_mseed_array, DataReader_pred
+from .model import ModelConfig, UNet
+from .postprocess import (
     extract_amplitude,
     extract_picks,
     save_picks,

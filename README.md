@@ -36,12 +36,60 @@ This code leverages machine-learning for earthquake detection with the choice of
 * I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.2```
 * Because tensorflow-gpu 2.2 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
 ```
-conda create -n easyquake python=3.7 anaconda
+#conda create -n easyquake python=3.7 anaconda
+conda create -n easyquake python=3.7
 conda activate easyquake
 conda install tensorflow-gpu==2.2
 conda install keras
 conda install obspy -c conda-forge
 pip install easyQuake
+```
+
+## Customizing easyQuake installation on your workstation
+As explained before, easyQuake has been tested on a multi-core desktop with an Nvidia GeForce 1050 Ti card. However, you may find that the standard configuration during installation leads to errors due to incompatibilities among the different versions of CUDA, TensorFlow, Keras, etc. Because of this, we recommend creating a Conda environment with the specific version of CUDA and cuDNN.
+
+First, if you have a graphic card that supports CUDA, you should check the CUDA and cuDNN versions compatible with TensorFlow on this webpage:
+
+```
+https://www.tensorflow.org/install/source
+```
+
+Our workstation works with an Nvidia RTX A4000, compatible with TensorFlow 2.4, so we'll need to install CUDA and cuDNN according to this version, which in our case is CUDA 11.0 and cuDNN 8.0.
+
+We use the following commands to create a Conda environment with a specific version of CUDA and cuDNN:
+
+```
+conda create --name easyquake python=3.7
+conda activate easyquake
+conda install -c conda-forge cudatoolkit=11.0 cudnn=8.0
+```
+
+```
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+Sign out and sign back in via SSH or close and re-open your terminal window. Reactivate your Conda session.
+
+```
+conda deactivate
+conda activate easyquake
+cd easyQuake
+pip install .
+```
+
+There is an issue related to PhaseNet installation. You must modidify the file "phasenet_predict" located in ~/anaconda3/envs/your_environment/bin:
+
+```
+#!/home/your_user/anaconda3/envs/your_environment/bin/python
+# -*- coding: utf-8 -*-
+import re
+import sys
+from easyQuake.phasenet.phasenet_predict import main
+from easyQuake.phasenet.phasenet_predict import read_args
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(main(read_args()))
 ```
 
 ## Running easyQuake

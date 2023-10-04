@@ -35,7 +35,7 @@ from .phasepapy import tables1D, assoc1D
 from .phasepapy import tt_stations_1D
 from .sta_lta.trigger_p_s import trigger_p_s
 #from .sta_lta.trigger_p_s import trigger_p_s
-
+import sys
 import traceback
 import os
 #st = os.stat(pathgpd+'/gpd_predict.py')
@@ -78,6 +78,11 @@ from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
+
+import statistics
+from scipy.signal import welch
+from pyproj import Geod
+import math
 
 
 
@@ -306,7 +311,8 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     inv = Inventory()
-    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+    #dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') #ORIGINAL EASYQUAKE
+    dir1a = glob.glob(project_folder+'/'+dirname+'/??.*.xml') #MODIFICADO PARA ESTACIONES
     for file1 in dir1a:
         inv1a = read_inventory(file1)
         inv.networks.extend(inv1a)
@@ -370,7 +376,8 @@ def build_tt_tables_local_directory_ant(dirname=None,project_folder=None,channel
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     inv = Inventory()
-    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+    #dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') #ORIGINAL EN EASYQUAKE
+    dir1a = glob.glob(project_folder+'/'+dirname+'/??.*.xml') #MODIFICADO PARA FUNCIONAR CON ESTACIONES IGN
     m = Basemap(projection='spstere',boundinglat=-60,lon_0=180,resolution='i')
 
     for file1 in dir1a:
@@ -707,7 +714,8 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     #remove this later as it is called in association module?
     if local:
         inv = Inventory()
-        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+        #dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') #ORIGINAL EASYQUAKE
+        dir1a = glob.glob(project_folder+'/'+dirname+'/??.*.xml') #MODIFICADO PARA FUNCIONAR CON ESTACIONES IGN
         for file1 in dir1a:
             inv1a = read_inventory(file1)
             inv.networks.extend(inv1a)
@@ -788,7 +796,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=None, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
     """
     association_continuous: A function that performs association of seismic events with continuous data
     
@@ -1564,17 +1572,50 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                             res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
                             #res_id = ResourceIdentifier(prefix='StationMagnitude')
                             #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
-                            stamag.resource_id = ResourceIdentifier(id=res_id)
-                            stamag.origin_id = origin.resource_id
-                            stamag.waveform_id = pick.waveform_id
-                            stamag.mag = ml_iaspei
-                            stamag.station_magnitude_type = 'ML'
-                            stamag.amplitude_id = amp.resource_id
-                            ## add them to the event
-                            event.station_magnitudes.append(stamag)
-                        else:
-                            print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
-                        event.amplitudes.append(amp)
+                            amp.resource_id = ResourceIdentifier(id=res_id)
+                            amp.pick_id = pick.resource_id
+                            amp.waveform_id = pick.waveform_id
+                            amp.type = 'ML'
+                            amp.generic_amplitude = ampl
+                            amp.evaluation_mode = 'automatic'
+
+                            if epi_dist < 60:
+                                a = 0.018
+                                b = 2.17
+                            else:
+                                a = 0.0038
+                                b = 3.02
+                            ml = np.log10(ampl * 1000) + a * epi_dist + b
+
+                            ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
+                            print(ml, ml_iaspei)
+                            #print(type(ml), type(ml_iaspei))
+
+                            if epi_dist < cutoff_dist:
+                                if ml < 10.0 and ml > -10.0:
+                                    mags.append(ml)
+                                else:
+                                    continue
+                                if ml_iaspei < 10.0 and ml_iaspei > -10.0:
+                                    mags_iaspei.append(ml_iaspei)
+                                else:
+                                    continue
+                                #### make StationMagnitude
+                                stamag = StationMagnitude()
+                                res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
+                                #res_id = ResourceIdentifier(prefix='StationMagnitude')
+                                #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                                stamag.resource_id = ResourceIdentifier(id=res_id)
+                                stamag.origin_id = origin.resource_id
+                                stamag.waveform_id = pick.waveform_id
+                                stamag.mag = ml
+                                stamag.station_magnitude_type = 'ML'
+                                stamag.amplitude_id = amp.resource_id
+                                ## add them to the event
+                                event.station_magnitudes.append(stamag)
+                            else:
+                                print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
+                            event.amplitudes.append(amp)
                 except Exception:
                     print(traceback.format_exc())#input("push")
                     print('Something went wrong here')
@@ -1609,25 +1650,396 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
 
 
 
-        netmag = np.median(mags_iaspei)
+        #netmag = np.median(mags_iaspei)
+        print(mags_iaspei)        
+     
         try:
-            m = Magnitude()
-            m.mag = netmag
-            m.mag_errors = {"uncertainty": np.std(mags_iaspei)}
-            m.magnitude_type = 'ML'
-            m.origin_id = origin.resource_id
-            meth_id = 'smi:local/median'
-            m.method_id = meth_id
-            m.station_count = len(mags_iaspei)
-            m_id = 'smi:local/Magnitude/'+strday+'/'+str(idx1)
-            #m_id = ResourceIdentifier(prefix='StationMagnitude')
-            #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
-            m.resource_id = m_id
-            event.magnitudes.append(m)
+            
+            if statistics.pstdev(mags_iaspei) > 0.5:
+                print(statistics.pstdev(mags_iaspei))
+                #raise Exception("no posible")
+                q75, q25 = np.percentile(mags_iaspei, [75, 25])
+                magnitude_iqr = q75-q25
+                magnitude_median = np.median(mags_iaspei)
+                magnitude_ref_max = magnitude_median+magnitude_iqr
+                magnitude_ref_min = magnitude_median-magnitude_iqr
+                for mg in mags_iaspei[:]:
+                    if mg>=magnitude_ref_max or mg<=magnitude_ref_min:
+                        mags_iaspei.remove(mg)
+                    
+                netmag = np.median(mags_iaspei)
+                print("Magnitude mag_iaspei is : " + str(netmag))
+                m = Magnitude()
+                m.mag = netmag
+                m.mag_errors = {"uncertainty": np.std(mags_iaspei)}
+                m.magnitude_type = 'ML'
+                m.origin_id = origin.resource_id
+                meth_id = 'smi:local/median'
+                m.method_id = meth_id
+                m.station_count = len(mags_iaspei)
+                m_id = 'smi:local/Magnitude/'+strday+'/'+str(idx1)
+                #m_id = ResourceIdentifier(prefix='StationMagnitude')
+                #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                m.resource_id = m_id
+                event.magnitudes.append(m)
+
+            else:
+                print(statistics.pstdev(mags_iaspei))
+                netmag = np.median(mags_iaspei)
+                print("Magnitude mag_iaspei is : " + str(netmag))
+                m = Magnitude()
+                m.mag = netmag
+                m.mag_errors = {"uncertainty": np.std(mags_iaspei)}
+                m.magnitude_type = 'ML'
+                m.origin_id = origin.resource_id
+                meth_id = 'smi:local/median'
+                m.method_id = meth_id
+                m.station_count = len(mags_iaspei)
+                m_id = 'smi:local/Magnitude/'+strday+'/'+str(idx1)
+                #m_id = ResourceIdentifier(prefix='StationMagnitude')
+                #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                m.resource_id = m_id
+                event.magnitudes.append(m)
 
 
 
-            event.preferred_magnitude_id = m.resource_id
+                event.preferred_magnitude_id = m.resource_id
+
+
+
+
+            if plot_event:
+                import matplotlib.pyplot as plt
+                dir1a = glob.glob(project_folder+'/'+strday+'*')
+                filename = dir1a[0]+'/'+strdaytime
+                fig = plt.figure()
+                st2.filter('highpass', freq=.1, zerophase=True)
+                st2.plot(type='section', scale=2,plot_dx=100e3, recordlength=50,
+                    time_down=True, linewidth=.25, grid_linewidth=.25, show=False,
+                    outfile=filename,fig=fig)
+                plt.close()
+        except:
+            print('Magnitude failed')
+            print(traceback.format_exc())#input("push")
+
+            pass
+    if not eventmode:
+        cat.write(project_folder+'/cat.xml',format="QUAKEML")
+    return cat
+    
+def mblg_ign_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200):
+    paz_wa = {'sensitivity': 2080, 'zeros': [0j], 'gain': 1,'poles': [-6.2832 - 4.7124j, -6.2832 + 4.7124j]}
+
+    print('Computing magnitudes')
+    client = Client() #Comment this line when working without Internet connection
+    for event in cat:
+        origin = event.origins[0]
+        print(origin)
+        event_lat = origin.latitude
+        event_lon = origin.longitude
+        event_depth = origin.depth
+        
+        pt1 = [float(event_lat), float(event_lon), float(event_depth)]
+        
+        # strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        # if eventmode:
+        #     strday = str(project_folder.split('/')[-1])
+        # #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+        # print(strday)
+        # strdaytime = strday+str(origin.time.hour).zfill(2)+str(origin.time.minute).zfill(2)[0]
+        mblgs = []
+        
+
+        st2 = Stream()
+        for idx1, pick in enumerate(event.picks):
+            strday = str(pick.time.year).zfill(2)+str(pick.time.month).zfill(2)+str(pick.time.day).zfill(2)
+            if eventmode:
+                strday = str(project_folder.split('/')[-1])
+            #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
+            print(strday)
+            strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
+            
+            if pick.phase_hint == 'S':
+                ### make Amplitude
+                st3 = []
+                try:
+                    try:
+                        st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.*.'+pick.waveform_id.channel_code[0:2]+'*mseed',debug_headers=True)
+                        #print(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed')
+                    except:
+                        try:
+                            st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+                        except:
+                            #st3 = read(project_folder+'/scratch/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                            try:
+                                st3 = read(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                            except:
+                                st3 = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                                pass
+    #                    try:
+    #                        st3 = read(project_folder+'/'+strday+'*/*.'+pick.waveform_id.station_code+'*SAC',debug_headers=True)
+    #                    except:
+    #                        st3 = read(project_folder+'/'+strdaytime+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*mseed',debug_headers=True)
+                        pass
+
+        #            pazs = glob.glob('/data/tx/ContWaveform/'+strday+'/SACPZ.'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]')
+                    #st = read(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*[EN12]*.SAC',debug_headers=True)
+                    try:
+                        st3.merge(fill_value='interpolate')
+                        print(st3)
+                        for tr in st3:
+                            if isinstance(tr.data, np.ma.masked_array):
+                                tr.data = tr.data.filled()
+                        st = st3.select(channel='[EHBS]H[EN12]')
+                        for tr in st3:
+                            inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+                            if len(inventory_local)>0:
+                                inv = read_inventory(inventory_local[0])
+                            else:
+                                try:
+                                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                                    inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                                    if not inv:
+                                        inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                                        if not inv:
+                                            print('Getting response from DMC')
+                                            starttime = UTCDateTime(origin.time-10)
+                                            endtime = UTCDateTime(origin.time+10)
+                                            inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+
+                                except:
+                                    print('Station metadata error')
+                                    print('Getting response from DMC')
+                                    starttime = UTCDateTime(origin.time-10)
+                                    endtime = UTCDateTime(origin.time+10)
+                                    inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                                    #starttime = UTCDateTime(origin.time-10)
+                                    #endtime = UTCDateTime(origin.time+10)
+                                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                                    pass
+                                    #                    paz = [x for x in pazs if tr.stats.channel in x]
+        #                    attach_paz(tr, paz[0])
+                            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                            tr.stats.network = inv[0].code
+                            tr.stats.location = inv[0][0][0].location_code
+                            pre_filt = (0.05, 0.06, 30.0, 35.0)
+                            tr.trim(pick.time-30, pick.time+120)
+
+
+                            #tr.demean()
+                            tr.detrend()
+                            #tr.remove_response(inventory=inv, output='VEL', pre_filt=pre_filt, zero_mean=True) #No comentado en código fuente original
+                            #tr.data = seis_sim(tr.data, tr.stats.sampling_rate,paz_remove=None, paz_simulate=paz_wa, water_level=10)
+                            #tr.simulate(paz_simulate=paz_wa, water_level=10) #No comentado en código fuente original
+                            
+                            tr.remove_response(inventory=inv, output="DISP", pre_filt=pre_filt, zero_mean=True)
+                            
+
+
+                            #tr = tr.filter('bandpass', freqmin=fminbp, freqmax=fmaxbp, zerophase=True)
+                        #st.trim(pick.time-5,pick.time+10)
+                        tr1 = st3.select(channel='[EHBS]HZ')[0]
+
+                        sta_lat = inv[0][0].latitude
+                        sta_lon = inv[0][0].longitude
+                        sta_elev = inv[0][0].elevation
+                        pt2 = [float(sta_lat), float(sta_lon), float(sta_elev)]
+                        g = Geod(ellps="WGS84")
+                        azimuth1, azimuth2, distance_2d = g.inv(pt1[1], pt1[0], pt2[1], pt2[0])
+                        distance_3d = np.hypot(distance_2d, pt2[2]-pt1[2])
+                        distance_km = distance_3d / 1000
+                        #print(str(distance_km) + " km")
+                        
+                        #epi_dist, az, baz = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)
+                        #epi_dist = epi_dist / 1000
+                        #tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
+                        tr1.trim(pick.time-20,pick.time+60)
+                        st2 += tr1
+                        st.trim(pick.time-1,pick.time+5)
+                        #ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
+                        
+                        ampls = (np.max(np.abs(st[0].data)), np.max(np.abs(st[1].data)))
+                        
+                        periods = []
+                        
+                        # Aplicar una ventana de coseno a la traza para reducir la fuga espectral
+                        taper_percentage = 0.1
+                        
+                        
+                        # Calcular la densidad espectral de potencia (PSD) utilizando el método de Welch
+                        #nperseg = 4096  # Número de puntos de datos en cada segmento
+                        nperseg = len(st[0].data)
+                        
+                        st[0].taper(max_percentage=taper_percentage, type="cosine")
+                        freqs1, psd1 = welch(st[0].data, fs=st[0].stats.sampling_rate, nperseg=nperseg)
+                        dominant_freq_index_1 = np.argmax(psd1)
+                        dominant_freq_1 = freqs1[dominant_freq_index_1]
+                        print("Dominant Freq. 1: " + str(dominant_freq_1))
+                        if dominant_freq_1 > 0.0:
+                            dominant_period_1 = 1 / dominant_freq_1
+                            periods.append(dominant_period_1)    
+                        st[1].taper(max_percentage=taper_percentage, type="cosine")
+                        freqs2, psd2 = welch(st[1].data, fs=st[1].stats.sampling_rate, nperseg=nperseg)
+                        dominant_freq_index_2 = np.argmax(psd2)
+                        dominant_freq_2 = freqs2[dominant_freq_index_2]
+                        print("Dominant Freq. 2: " + str(dominant_freq_2))
+                        if dominant_freq_2 > 0.0:
+                            dominant_period_2 = 1 / dominant_freq_2
+                            periods.append(dominant_period_2)
+                            
+                        
+
+                        
+                        #periods = [dominant_period_1, dominant_period_2]                        
+                        
+                        
+                        for idx2,ampl in enumerate(ampls):
+
+                            amp = Amplitude()
+                            res_id = 'smi:local/Amplitude/'+strday+'/'+str(10*idx2+idx1)
+                            #res_id = ResourceIdentifier(prefix='Amplitude')
+                            #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                            amp.resource_id = ResourceIdentifier(id=res_id)
+                            amp.pick_id = pick.resource_id
+                            amp.waveform_id = pick.waveform_id
+                            #amp.type = 'ML'
+                            amp.type = 'mbLg'
+                            amp.generic_amplitude = ampl
+                            amp.evaluation_mode = 'automatic'
+
+                            #if epi_dist < 60:
+                            #    a = 0.018
+                            #    b = 2.17
+                            #else:
+                            #    a = 0.0038
+                            #    b = 3.02
+                            #ml = np.log10(ampl * 1000) + a * epi_dist + b
+
+                            #ml_iaspei = np.log10(ampl*1e6)+1.11*np.log10(epi_dist) + 0.00189*epi_dist - 2.09
+                            #print(ml, ml_iaspei)
+                            
+                            micra_amplitude = ampl*10**6
+                            A_T = micra_amplitude / periods[idx2]
+                            mblg = math.log(A_T, 10) + 1.17*math.log(distance_km, 10) + 0.0012*distance_km + 0.67
+                            print("mb_Lg: " + str(mblg))
+
+                            #if epi_dist < cutoff_dist:
+                            #    mags.append(ml)
+                            #    mags_iaspei.append(ml_iaspei)
+                            #    #### make StationMagnitude
+                            #    stamag = StationMagnitude()
+                            #    res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
+                            #    #res_id = ResourceIdentifier(prefix='StationMagnitude')
+                            #    #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                            #    stamag.resource_id = ResourceIdentifier(id=res_id)
+                            #    stamag.origin_id = origin.resource_id
+                            #    stamag.waveform_id = pick.waveform_id
+                            #    stamag.mag = ml
+                            #    stamag.station_magnitude_type = 'ML'
+                            #    stamag.amplitude_id = amp.resource_id
+                            #    ## add them to the event
+                            #    event.station_magnitudes.append(stamag)
+                            #else:
+                            #    print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
+                                
+                            if distance_km < cutoff_dist:
+                                if mblg < 10.0 and mblg > -10.0:
+                                    mblgs.append(mblg)
+                                else:
+                                    continue
+                                #### make StationMagnitude
+                                stamag = StationMagnitude()
+                                res_id = 'smi:local/StationMagnitude/'+strday+'/'+str(10*idx2+idx1)
+                                #res_id = ResourceIdentifier(prefix='StationMagnitude')
+                                #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                                stamag.resource_id = ResourceIdentifier(id=res_id)
+                                stamag.origin_id = origin.resource_id
+                                stamag.waveform_id = pick.waveform_id
+                                stamag.mag = mblg
+                                stamag.station_magnitude_type = 'mbLg'
+                                stamag.amplitude_id = amp.resource_id
+                                ## add them to the event
+                                event.station_magnitudes.append(stamag)
+                            else:
+                                print('Station not within '+str(cutoff_dist)+' km of the epicenter - no station magnitude')
+                            event.amplitudes.append(amp)
+                    except Exception:
+                        print(traceback.format_exc())#input("push")
+                        print('Something went wrong here')
+                        pass
+                except:
+                    pass
+
+        for pick in event.picks:
+            if pick.phase_hint == 'P':
+                tr = st2.select(station=pick.waveform_id.station_code)
+                try:
+                    tr = tr[0]
+                    pol = polarity(tr,pick.time)
+                    pick.polarity = pol
+                    print(pol)
+                except:
+                    pass
+
+
+
+
+
+        #netmag = np.median(mags_iaspei)
+        #print(mags_iaspei)
+        print(mblgs)        
+     
+        try:
+            
+            if statistics.pstdev(mblgs) > 0.5:
+                print(statistics.pstdev(mblgs))
+                #raise Exception("no posible")
+                q75, q25 = np.percentile(mblgs, [75, 25])
+                magnitude_iqr = q75-q25
+                magnitude_median = np.median(mblgs)
+                magnitude_ref_max = magnitude_median+magnitude_iqr
+                magnitude_ref_min = magnitude_median-magnitude_iqr
+                for mg in mblgs[:]:
+                    if mg>=magnitude_ref_max or mg<=magnitude_ref_min:
+                        mblgs.remove(mg)
+                    
+                netmag = np.median(mblgs)
+                print("Magnitude mbLg is : " + str(netmag))
+                m = Magnitude()
+                m.mag = netmag
+                m.mag_errors = {"uncertainty": np.std(mblgs)}
+                m.magnitude_type = 'mbLg'
+                m.origin_id = origin.resource_id
+                meth_id = 'smi:local/median'
+                m.method_id = meth_id
+                m.station_count = len(mblgs)
+                m_id = 'smi:local/Magnitude/'+strday+'/'+str(idx1)
+                #m_id = ResourceIdentifier(prefix='StationMagnitude')
+                #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                m.resource_id = m_id
+                event.magnitudes.append(m)
+
+            else:
+                print(statistics.pstdev(mblgs))
+                netmag = np.median(mblgs)
+                print("Magnitude mbLg is : " + str(netmag))
+                m = Magnitude()
+                m.mag = netmag
+                m.mag_errors = {"uncertainty": np.std(mblgs)}
+                m.magnitude_type = 'mbLg'
+                m.origin_id = origin.resource_id
+                meth_id = 'smi:local/median'
+                m.method_id = meth_id
+                m.station_count = len(mblgs)
+                m_id = 'smi:local/Magnitude/'+strday+'/'+str(idx1)
+                #m_id = ResourceIdentifier(prefix='StationMagnitude')
+                #m_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+                m.resource_id = m_id
+                event.magnitudes.append(m)
+
+
+
+                event.preferred_magnitude_id = m.resource_id
 
 
 
@@ -1794,7 +2206,14 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         stacheck = set()
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
-            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+            try:
+              st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
+            except:
+              if pick.waveform_id.channel_code[-1]=="E":
+                pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "1"
+              elif pick.waveform_id.channel_code[-1]=="N": 
+                pick.waveform_id.channel_code = pick.waveform_id.channel_code[0:-1] + "2"
+            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed')
             #arrivals.append(arrv)
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
@@ -1818,7 +2237,6 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         
         if plotevent:
             try:
-                
                 if filteryes:
                     st.filter('highpass',freq=1)
                     st = st.slice(origin.time-10, origin.time + length)
@@ -3121,9 +3539,50 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                 csvfile.flush()
             except:
                 pass
+
+
+def total_picks_catalog(start_date=None, end_date=None, project_folder=None, machine_picker=None, outfile=None):
+    print("Creating total picks catalog after " + machine_picker + " detection.")
+    total_picks_out = outfile
+    path_save_total = os.path.join(project_folder, total_picks_out)
+    #print(path_save_total)
+    if os.path.exists(path_save_total):
+        os.remove(path_save_total)
+        f1 = open(path_save_total, "a+")
+    else:
+        f1 = open(path_save_total, "a+")
+
+    for single_date in daterange(start_date, end_date):
+        #print(single_date.strftime("%Y-%m-%d"))
+        dirname = single_date.strftime("%Y%m%d")
+
+        if machine_picker=="EQTransformer":
+            pick_out_file = "eqtransformer_picks.out"
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+            f2 = open(day_picks_out, "r")
+            f1.write(f2.read())
+            f2.close()
+
+        if machine_picker=="PhaseNet":
+            pick_out_file = "phasenet_picks.out"
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+            f2 = open(day_picks_out, "r")
+            f1.write(f2.read())
+            f2.close()
+
+        if machine_picker=="GPD":
+            pick_out_file = "gpd_picks.out"
+            day_picks_out = os.path.join(project_folder, dirname, pick_out_file)
+            f2 = open(day_picks_out, "r")
+            f1.write(f2.read())
+            f2.close()
+            
+        print("Day " + single_date.strftime("%Y-%m-%d") + " finished")
+
+    f1.close()
+
 if __name__ == "__main__":
     easyQuake()
-
 
 
 
