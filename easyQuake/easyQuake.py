@@ -611,6 +611,9 @@ def make_dayfile(dir1, make3):
                 if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
                     st = read(station3a[-1])
                     st.merge()
+                    for tr in st:
+                        if isinstance(tr.data, np.ma.masked_array):
+                            tr.data = tr.data.filled()
                     
                     if len(station3a[-1].split('__')) == 1:
                         st[0].stats.channel = st[0].stats.channel[0:2]+'E'
