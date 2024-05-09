@@ -610,14 +610,19 @@ def make_dayfile(dir1, make3):
             if make3: #make single vertical comp, 3 channels
                 if station3a[-1] is not None and station3a[0] is None and station3a[1] is None:
                     st = read(station3a[-1])
-                    st[0].stats.channel = st[0].stats.channel[0:2]+'E'
+                    st.merge()
+                    
                     if len(station3a[-1].split('__')) == 1:
+                        st[0].stats.channel = st[0].stats.channel[0:2]+'E'
                         st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E.mseed')
                     else:
+                        st[0].stats.channel = st[0].stats.channel[0:2]+'E'
                         st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'E'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
                     if len(station3a[-1].split('__')) == 1:
+                        st[0].stats.channel = st[0].stats.channel[0:2]+'N'
                         st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N.mseed')
                     else:
+                        st[0].stats.channel = st[0].stats.channel[0:2]+'N'
                         st[0].write('.'.join(station3a[-1].split('__')[0].split('.')[0:3])+'.'+st[0].stats.channel[0:2]+'N'+'__'+'__'.join(station3a[-1].split('__')[1:3]))
                     station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
                     station3a = [None,None,None]
@@ -1794,7 +1799,11 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
         stacheck = set()
         for _i, arrv in enumerate(origin.arrivals):
             pick = arrv.pick_id.get_referred_object()
-            st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+            try:
+                st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+            except:
+                st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                pass
             #arrivals.append(arrv)
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
@@ -2301,7 +2310,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         vel_model = project_folder+'/'+vel_model
 
     for idx1, event in enumerate(cat):
-        origin = event.preferred_origin() or event.origins[0]
+        origin = event.origins[0] #event.preferred_origin() or event.origins[0]
         stas = []
         picks1a = []
         for _i, arrv in enumerate(origin.arrivals):
@@ -2543,6 +2552,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
                     arrival.azimuth = azimuth
                     arrival.distance = kilometer2degrees(distance)
                     arrival.takeoff_angle = incident
+                    arrival.phase = phase_hint
                     if onset and not pickid.onset:
                         pickid.onset = onset
                     if polarity and not pick.polarity:
