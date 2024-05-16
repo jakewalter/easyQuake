@@ -1610,7 +1610,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                         
                         
                         
-                except:
+                except Exception:
+                    print(traceback.format_exc())#input("push")
+                    print('Something went wrong during polarity pick')
                     pass
 
 
@@ -2391,17 +2393,21 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
             outfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.sum'
             phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
             runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
+            prtfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.prt'
             stafile = project_folder+'/sta'+single_date.strftime("%Y%m%d")
         elif catalog_year:
             outfile = project_folder+'/'+str(year)+'out.sum'
             phafile = project_folder+'/'+str(year)+'pha'
             runfile = project_folder+'/'+str(year)+'run.hyp'
             stafile = project_folder+'/sta'+str(year)
+            prtfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
         else:    
             outfile = project_folder+'/out.sum'
             phafile = project_folder+'/pha'
             runfile = project_folder+'/run.hyp'
             stafile = project_folder+'/sta'
+            prtfile = project_folder+'/out.prt'
+
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
@@ -2429,7 +2435,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.write("\n")
         frun.write('min 4')
         frun.write("\n")
-        frun.write('prt out.prt')
+        frun.write("prt '"+prtfile+"'")
         frun.write("\n")
         frun.write('fil')
         frun.write("\n")
