@@ -1362,20 +1362,21 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
                 #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                 try:
                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                    print(project_folder+'/'+strday+'*/dailyinventory.xml')
                 except:
                     inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                     pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
                 if not inv:
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
-                        print('Getting response from DMC')
+                        print('Getting response from DMC 1')
                         client = Client()
                         inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
             except:
                 print('Station metadata error')
-                print('Getting response from DMC')
+                print('Getting response from DMC 2')
                 client = Client()
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
                 #starttime = UTCDateTime(origin.time-10)
