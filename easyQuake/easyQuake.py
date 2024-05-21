@@ -1210,6 +1210,67 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     #         cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
 
+def pytocto_file_quakeml(file):
+    """
+    Generate a Catalog object in QuakeML with a pyocto csv file
+    """
+    df = pd.read_csv(file, index_col=0)
+    nevents = np.max(df['event_idx'])
+    cat1 = Catalog()
+    for evid1 in np.arange(0,nevents):
+        #print(evid)
+        event1 = df[df['event_idx']==evid1]
+        origin = Origin()
+        origin.latitude = event1['latitude'].iloc[0]
+        origin.longitude = event1['longitude'].iloc[0]
+        origin.depth = event1['depth'].iloc[0]*1000
+        
+        origin.time = UTCDateTime(event1['time'].iloc[0][:-6])
+        origin.arrivals = []
+        event = Event()
+        evid = 'smi:local/Event/'+str(evid1)
+        orid = 'smi:local/Origin/pyocto_association_'+str(evid1)
+        event.resource_id = ResourceIdentifier(id=evid)
+        origin.resource_id = ResourceIdentifier(id=orid)
+        # event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
+        # origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
+        for idx in event1.index:
+            pick = df.iloc[idx]
+            stream_id = WaveformStreamID(network_code=pick['station'].split('.')[0], station_code=pick['station'].split('.')[1], location_code="", channel_code=pick['channel'])
+            p = Pick()
+            p.time = UTCDateTime(datetime.datetime.utcfromtimestamp(pick['time_pick']))
+            p.phase_hint = pick['phase']
+            p.waveform_id = stream_id
+            p.evaluation_mode = 'automatic'
+            pres_id = 'smi:local/Pick/'+str(pick['pick_idx'])
+            #res_id = ResourceIdentifier(prefix='Pick')
+            #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+            p.resource_id = ResourceIdentifier(id=pres_id)
+            #print(p)
+    
+            a = Arrival()
+            #a.time = pick1[5]
+            a.phase = pick['phase']
+            a.pick_id = p.resource_id
+            ares_id = 'smi:local/Arrival/'+str(pick['pick_idx'])
+            #res_id = ResourceIdentifier(prefix='Pick')
+            #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+            a.resource_id = ResourceIdentifier(id=ares_id)
+            a.time_weight = 1.0
+            if not np.isnan(pick['residual']):
+                a.time_residual = pick['residual']
+            #print(a)
+    
+            # #origin.picks.append(p)
+            # sta1 = pick1[1]
+            # stas.append(sta1)
+            # stalistall.add(sta1)
+            origin.arrivals.append(a)
+            event.picks.append(p)
+        event.origins.append(origin)
+        event.preferred_origin_id = origin.resource_id
+        cat1.append(event)
+    return cat1
 
 def polarity(tr,pickP=None):
     """
@@ -1362,7 +1423,7 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
                 #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                 try:
                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                    print(project_folder+'/'+strday+'*/dailyinventory.xml')
+                    #print(project_folder+'/'+strday+'*/dailyinventory.xml')
                 except:
                     inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                     pass
