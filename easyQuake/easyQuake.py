@@ -1170,7 +1170,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             machine_picker='*'
         else:
             machine_picker = machine_picker.lower()
-        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
         if machine_picker == 'GPD':
             files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
