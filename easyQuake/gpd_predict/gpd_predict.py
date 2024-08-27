@@ -23,7 +23,9 @@ import pylab as plt
 try:
   physical_devices = tf.config.experimental.list_physical_devices('GPU')
   #tf.config.experimental.set_memory_growth(physical_devices[0], True)
-  [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
+  #[tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
+  tf.config.experimental.set_virtual_device_configuration(physical_devices[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2000)])
+  logical_gpus = tf.config.list_logical_devices('GPU')
 except:
   tf_config=tf.ConfigProto()
   tf_config.gpu_options.allow_growth=True

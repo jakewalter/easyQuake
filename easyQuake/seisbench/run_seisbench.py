@@ -14,9 +14,14 @@ from obspy import Inventory, read_inventory
 import glob
 
 import traceback
+<<<<<<< Updated upstream
 from multiprocessing import cpu_count
 import torch
 
+=======
+
+import torch
+>>>>>>> Stashed changes
 import argparse as ap
 import os
 from obspy import Stream, read
@@ -70,7 +75,11 @@ def main():
     loaded_model = sbm.GPD.load(model_path, version_str=version_str)
     
     loaded_model.cuda()
+<<<<<<< Updated upstream
     torch.set_num_threads(2)
+=======
+    torch.set_num_threads(1)
+>>>>>>> Stashed changes
 
 
     # # Set the path to the parent directory containing the subdirectories with the streams

@@ -25,7 +25,9 @@ from tqdm import tqdm
 
 tf.compat.v1.disable_eager_execution()
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_virtual_device_configuration(physical_devices[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=7000)])
+logical_gpus = tf.config.list_logical_devices('GPU')
 #username = "root"
 #password = "quakeflow123"
 # client = MongoClient(f"mongodb://{username}:{password}@127.0.0.1:27017")

@@ -563,8 +563,8 @@ loss_types=['binary_crossentropy', 'binary_crossentropy', 'binary_crossentropy']
 normalization_mode='std'
 batch_size=500
 overlap = 0.3
-gpuid=None
-gpu_limit=None
+gpuid=0
+gpu_limit=0.8
 overwrite=False
 
 
@@ -718,7 +718,11 @@ def main():
         config.gpu_options.allow_growth = True
         config.gpu_options.per_process_gpu_memory_fraction = float(args['gpu_limit'])
         K.tensorflow_backend.set_session(tf.Session(config=config))
-
+    #tf.compat.v1.disable_eager_execution()
+    #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    #physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    #tf.config.experimental.set_virtual_device_configuration(physical_devices[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=3000)])
+    #logical_gpus = tf.config.list_logical_devices('GPU')    
     model = load_model(args['input_model'],
                        custom_objects={'SeqSelfAttention': SeqSelfAttention,
                                        'FeedForward': FeedForward,
