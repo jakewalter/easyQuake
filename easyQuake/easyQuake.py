@@ -845,9 +845,9 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     #print(db_tt)
     if local:
-        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH','GP'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     else:
-        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH','GP'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/station_list.csv'):
         stalat = []
@@ -1170,7 +1170,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             machine_picker='*'
         else:
             machine_picker = machine_picker.lower()
-        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db'))
+        files = sorted(glob.glob(project_folder+'/*/1dassociator_'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
         if machine_picker == 'GPD':
             files = sorted(glob.glob(project_folder+'/*/1dassociator'+machine_picker+'_'+project_code+'.db')) or sorted(glob.glob(project_folder+'/*/1dassociator_'+project_code+'.db'))
         hypo_station(project_folder, project_code)
@@ -1210,6 +1210,67 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
     #         cat.write(project_folder+'/'+project_code+'_cat.xml',format="QUAKEML")
     return cat, dfs2
 
+def pytocto_file_quakeml(file):
+    """
+    Generate a Catalog object in QuakeML with a pyocto csv file
+    """
+    df = pd.read_csv(file, index_col=0)
+    nevents = np.max(df['event_idx'])
+    cat1 = Catalog()
+    for evid1 in np.arange(0,nevents):
+        #print(evid)
+        event1 = df[df['event_idx']==evid1]
+        origin = Origin()
+        origin.latitude = event1['latitude'].iloc[0]
+        origin.longitude = event1['longitude'].iloc[0]
+        origin.depth = event1['depth'].iloc[0]*1000
+        
+        origin.time = UTCDateTime(event1['time'].iloc[0][:-6])
+        origin.arrivals = []
+        event = Event()
+        evid = 'smi:local/Event/'+str(evid1)
+        orid = 'smi:local/Origin/pyocto_association_'+str(evid1)
+        event.resource_id = ResourceIdentifier(id=evid)
+        origin.resource_id = ResourceIdentifier(id=orid)
+        # event.resource_id = ResourceIdentifier(id='smi:local/Event/'+strday+str(rownum).zfill(3))
+        # origin.resource_id = ResourceIdentifier(id='smi:local/Origin/'+strday+str(rownum).zfill(3)+'_1')
+        for idx in event1.index:
+            pick = df.iloc[idx]
+            stream_id = WaveformStreamID(network_code=pick['station'].split('.')[0], station_code=pick['station'].split('.')[1], location_code="", channel_code=pick['channel'])
+            p = Pick()
+            p.time = UTCDateTime(datetime.datetime.utcfromtimestamp(pick['time_pick']))
+            p.phase_hint = pick['phase']
+            p.waveform_id = stream_id
+            p.evaluation_mode = 'automatic'
+            pres_id = 'smi:local/Pick/'+str(pick['pick_idx'])
+            #res_id = ResourceIdentifier(prefix='Pick')
+            #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+            p.resource_id = ResourceIdentifier(id=pres_id)
+            #print(p)
+    
+            a = Arrival()
+            #a.time = pick1[5]
+            a.phase = pick['phase']
+            a.pick_id = p.resource_id
+            ares_id = 'smi:local/Arrival/'+str(pick['pick_idx'])
+            #res_id = ResourceIdentifier(prefix='Pick')
+            #res_id.convert_id_to_quakeml_uri(authority_id='obspy.org')
+            a.resource_id = ResourceIdentifier(id=ares_id)
+            a.time_weight = 1.0
+            if not np.isnan(pick['residual']):
+                a.time_residual = pick['residual']
+            #print(a)
+    
+            # #origin.picks.append(p)
+            # sta1 = pick1[1]
+            # stas.append(sta1)
+            # stalistall.add(sta1)
+            origin.arrivals.append(a)
+            event.picks.append(p)
+        event.origins.append(origin)
+        event.preferred_origin_id = origin.resource_id
+        cat1.append(event)
+    return cat1
 
 def polarity(tr,pickP=None):
     """
@@ -1362,20 +1423,21 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
                 #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
                 try:
                     inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                    #print(project_folder+'/'+strday+'*/dailyinventory.xml')
                 except:
                     inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                     pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=origin.time)
+                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
                 if not inv:
                     inv = inv0.select(network='*', station=pick.waveform_id.station_code)
                     if not inv:
-                        print('Getting response from DMC')
+                        print('Getting response from DMC 1')
                         client = Client()
                         inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
             except:
                 print('Station metadata error')
-                print('Getting response from DMC')
+                print('Getting response from DMC 2')
                 client = Client()
                 inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
                 #starttime = UTCDateTime(origin.time-10)
@@ -1610,7 +1672,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                         
                         
                         
-                except:
+                except Exception:
+                    print(traceback.format_exc())#input("push")
+                    print('Something went wrong during polarity pick')
                     pass
 
 
@@ -2391,17 +2455,21 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
             outfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.sum'
             phafile = project_folder+'/'+single_date.strftime("%Y%m%d")+'pha'
             runfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
+            prtfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'out.prt'
             stafile = project_folder+'/sta'+single_date.strftime("%Y%m%d")
         elif catalog_year:
             outfile = project_folder+'/'+str(year)+'out.sum'
             phafile = project_folder+'/'+str(year)+'pha'
             runfile = project_folder+'/'+str(year)+'run.hyp'
             stafile = project_folder+'/sta'+str(year)
+            prtfile = project_folder+'/'+single_date.strftime("%Y%m%d")+'run.hyp'
         else:    
             outfile = project_folder+'/out.sum'
             phafile = project_folder+'/pha'
             runfile = project_folder+'/run.hyp'
             stafile = project_folder+'/sta'
+            prtfile = project_folder+'/out.prt'
+
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
@@ -2429,7 +2497,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.write("\n")
         frun.write('min 4')
         frun.write("\n")
-        frun.write('prt out.prt')
+        frun.write("prt '"+prtfile+"'")
         frun.write("\n")
         frun.write('fil')
         frun.write("\n")
