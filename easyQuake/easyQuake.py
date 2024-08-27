@@ -845,9 +845,9 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     db_tt='sqlite:///'+dir1+'/tt_ex_1D_'+machine_picker.lower()+'_'+project_code+'.db' # Traveltime database44.448,longitude=-115.136
     #print(db_tt)
     if local:
-        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
+        inventory = build_tt_tables_local_directory(dirname=dirname,project_folder=project_folder,channel_codes=['EH','BH','HH','GP'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     else:
-        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
+        inventory = build_tt_tables(lat1=latitude,long1=longitude,maxrad=max_radius,starting=starting, stopping=stopping, channel_codes=['EH','BH','HH','GP'],db=db_tt,maxdist=maxdist,source_depth=5., delta_distance=delta_distance, model=model)
     inventory.write(dir1+'/dailyinventory.xml',format="STATIONXML")
     if not os.path.exists(dir1+'/station_list.csv'):
         stalat = []
