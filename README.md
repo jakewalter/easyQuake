@@ -147,6 +147,8 @@ python idaho_example.py
 ```
 ## Version brief notes
 
+Version 1.4 (9/30/2024) = Long overdue version update, including modules for PyOcto association conversion to QuakeML file and seisbench picker integration.
+
 Version 1.3 (11/22/2022) = PhaseNet now included, in addition to GPD and EQTransformer pickers. Numerous other bugs squashed.
 
 Version 1.2 (8/1/2022) - Rewrote the non-ML picker to be easier to work with (recursive_sta_lta from obpsy) and include input of those parameters within detection_continuous function.
