@@ -78,6 +78,7 @@ from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
+import subprocess
 
 
 
@@ -2384,7 +2385,7 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
             pick = arrv.pick_id.get_referred_object()
             stas.append(pick.waveform_id.station_code)
             if arrv.phase == 'P' or arrv.phase == 'S':
-                picks1a.append(pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
+                picks1a.append(pick.waveform_id.network_code +' '+ pick.waveform_id.station_code + ' '+pick.phase_hint+' '+str(pick.time))
             #print(stalistall)
         stalist = list(set(stas))
         hypo71_string = ""
@@ -2394,10 +2395,11 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
             numS = -9
             #print(states)
             for num, line in enumerate(picks1a):
-                if states in line and 'P' in line:
+                if states in line and 'P' in line.split()[2]:
                     numP = num
-                if states in line and 'S' in line:
+                if states in line and 'S' in line.split()[2]:
                     numS = num
+            #print(states,numP,numS)
             if len(states)>4:
                 sta = states[1:]
             else:
@@ -2509,9 +2511,24 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         frun.close()
         try:
             if fullpath_hyp:
-                os.system("cat %s | %s/hyp2000" % (runfile, fullpath_hyp))
+                #os.system("cat %s | %s/hyp2000" % (runfile, fullpath_hyp))
+                process = subprocess.Popen("cat %s | %s/hyp2000" % (runfile, fullpath_hyp), shell=True)
+                try:
+                    print('Running in process', process.pid)
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print('Timed out - killing', process.pid)
+                    process.kill()
+                
             else:
-                os.system("cat %s | hyp2000" % (runfile))
+                #os.system("cat %s | hyp2000" % (runfile))
+                process = subprocess.Popen("cat %s | hyp2000" % (runfile), shell=True)
+                try:
+                    print('Running in process', process.pid)
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print('Timed out - killing', process.pid)
+                    process.kill()
         except:
             pass
 
