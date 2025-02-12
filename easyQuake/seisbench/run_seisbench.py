@@ -65,11 +65,13 @@ def main():
     #model_path = model_directory / base_name
     model_path = args.M
 
-    # Load the model
-    version_str = '1'  # Specify the version string of the model you want to load
-    loaded_model = sbm.GPD.load(model_path, version_str=version_str)
-    
+    loaded_model = sbm.PhaseNet()
+    loaded_model.load_state_dict(torch.load(model_path))
     loaded_model.cuda()
+    print(loaded_model)
+
+    
+    #loaded_model.cuda()
     torch.set_num_threads(2)
 
 
@@ -164,9 +166,10 @@ def main():
             if (earliest_stop>latest_start):
                 st.trim(latest_start, earliest_stop)
             #################### detect
-            detections = loaded_model.classify(st)
+            picks = loaded_model.classify(st).picks
+            
             # Print the number of picks made by GPD
-            print(f"Number of picks made by GPD: {len(detections)}")
+            #print(f"Number of picks made : {len(detections)}")
             
             # Create the output file with the unique name based on the date
             # date_str = directory.name
@@ -178,7 +181,7 @@ def main():
                 #output_file.write("trace_id, start_time, end_time, peak_time, peak_value, phase\n")
             
                 # Iterate through the detections and write each one to the output file
-            for detection in detections:
+            for detection in picks:
                 # Extract the detection attributes
                 trace_id1 = detection.trace_id.split('.')[:-1]
                 #start_time = detection.start_time[0]

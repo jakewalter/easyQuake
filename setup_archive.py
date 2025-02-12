@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="easyQuake",
-    version="1.4.0",
+    version="1.3.4",
     author="Jake Walter",
     author_email="jakeiwalter@gmail.com",
     description="Simplified machine-learning driven earthquake detection, location, and analysis",
@@ -14,12 +14,14 @@ setuptools.setup(
     url="https://github.com/jakewalter/easyQuake",
     packages=setuptools.find_packages(),
     install_requires=[
+        'cartopy',
         'keras',
         'obspy',
         'pandas',
         'tensorflow',
+        'h5py',
         'tqdm',
-	    'protobuf==3.20.*',
+        'protobuf==3.20.*',
         'torch',
         'torchmetrics',
         'torchvision',

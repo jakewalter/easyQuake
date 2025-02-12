@@ -1,70 +1,62 @@
-import easyQuake
-import easyQuake.seisbench as util
-#import easyQuake.seisbench as sbm
-from easyQuake.seisbench import log_lifecycle
-
-from abc import abstractmethod, ABC
-from pathlib import Path
+import asyncio
+import json
+import math
 import os
+import re
+import tempfile
+import warnings
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from pathlib import Path
+from queue import PriorityQueue
+from typing import Any, Optional
+from urllib.parse import urljoin
+
+import bottleneck as bn
+import nest_asyncio
+import numpy as np
+import obspy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import defaultdict
-from queue import PriorityQueue
-import json
-import math
-import numpy as np
-import obspy
-import warnings
 from obspy.signal.trigger import trigger_onset
-import asyncio
-import nest_asyncio
 from packaging import version
-import torch.multiprocessing as torchmp
-import logging
 
-@log_lifecycle(logging.DEBUG)
-def _watchdog(queue_watchdog, tasks):
+import seisbench
+import seisbench.util as util
+from seisbench.util import in_notebook
+
+if in_notebook():
+    # Jupyter notebooks have their own asyncio loop and will crash `annotate/classify`
+    # if not patched with nest_asyncio
+    nest_asyncio.apply()
+
+
+def _cache_migration_v0_v3():
     """
-    Watchdog that terminates jobs once jobs in level before have been terminated.
-
-    :param queue_watchdog: Signal queue for watchdog
-    :param tasks: List of tasks.
-                  Each tasks consist of a 4-tuple: `key`, `target_queue`, `n_inputs`, `n_outputs`
-                  `key` is the key to track on the watchdog.
-                  `target_queue` is the queue to send `None` values to once condition is met.
-                  Can also be a list of queues. In this case, `n_outputs` stop commands are sent to each queue.
-                  `n_input` is the number of times `key` needs to be received before, i.e., the number of jobs that will
-                  send `key`.
-                  `n_outputs` is the number of `None` value to send to `target_queue`, i.e., the number of dependent
-                  jobs to terminate.
-    :return: None
+    Migrates model cache from v0 to v3 if necessary
     """
-    task_counter = {
-        key: n_inputs for key, _, n_inputs, _ in tasks
-    }  # Count down how often a job existed
-    on_complete = {
-        key: (target_queue, n_outputs) for key, target_queue, _, n_outputs in tasks
-    }  # Action once condition is met
+    if seisbench.cache_model_root.is_dir():
+        return  # Migration already done
 
-    while True:
-        elem = queue_watchdog.get()
-        if elem is None:
-            break
+    if not (seisbench.cache_root / "models").is_dir():
+        return  # No legacy cache
 
-        task_counter[elem] -= 1
-        if task_counter[elem] == 0:
-            target_queues, n_outputs = on_complete[elem]
-            if not isinstance(target_queues, list):
-                target_queues = [target_queues]
+    seisbench.logger.info("Migrating model cache to version 3")
 
-            for target_queue in target_queues:
-                target_queue.join()  # Makes sure everything in this queue is actually processed
-                for _ in range(n_outputs):
-                    target_queue.put(None)
+    # Move cache
+    seisbench.cache_model_root.mkdir(parents=True)
+    for path in (seisbench.cache_root / "models").iterdir():
+        if path.name == "v3":
+            continue
 
+        path.rename(seisbench.cache_model_root / path.name)
 
-import tempfile
+    if (seisbench.cache_model_root / "phasenet").is_dir():
+        # Rename phasenet to phasenetlight
+        (seisbench.cache_model_root / "phasenet").rename(
+            seisbench.cache_model_root / "phasenetlight"
+        )
 
 
 class SeisBenchModel(nn.Module):
@@ -74,6 +66,13 @@ class SeisBenchModel(nn.Module):
     :param citation: Citation reference, defaults to None.
     :type citation: str, optional
     """
+
+    # The model can list combination of weights and versions that should cause a warning.
+    # Each entry is a 3-tuple:
+    # - weights name regex
+    # - weights_version
+    # - warning message
+    _weight_warnings = []
 
     def __init__(self, citation=None):
         super().__init__()
@@ -107,11 +106,11 @@ class SeisBenchModel(nn.Module):
 
     @classmethod
     def _model_path(cls):
-        return Path(util.cache_root, "models", cls._name_internal().lower())
+        return Path(seisbench.cache_model_root, cls._name_internal().lower())
 
     @classmethod
     def _remote_path(cls):
-        return "/".join((util.remote_root, "models", cls._name_internal().lower()))
+        return urljoin(seisbench.remote_model_root, cls._name_internal().lower())
 
     @classmethod
     def _pretrained_path(cls, name, version_str=""):
@@ -134,7 +133,7 @@ class SeisBenchModel(nn.Module):
 
         - "docstring": A string documenting the pipeline. Usually also contains information on the author.
         - "model_args": Argument dictionary passed to the init function of the pipeline.
-        - "easyQuake_requirement": The minimal version of SeisBench required to use the weights file.
+        - "seisbench_requirement": The minimal version of SeisBench required to use the weights file.
         - "default_args": Default args for the :py:func:`annotate`/:py:func:`classify` functions.
           These arguments will supersede any potential constructor settings.
         - "version": The version string of the model. For **all but the latest version**, version names should
@@ -163,6 +162,8 @@ class SeisBenchModel(nn.Module):
         :rtype: SeisBenchModel
         """
         cls._cleanup_local_repository()
+        _cache_migration_v0_v3()
+
         if version_str == "latest":
             versions = cls.list_versions(name, remote=update)
             # Always query remote versions if cache is empty
@@ -173,6 +174,8 @@ class SeisBenchModel(nn.Module):
                 raise ValueError(f"No version for weight '{name}' available.")
             version_str = max(versions, key=version.parse)
 
+        cls._version_warnings(name, version_str)
+
         weight_path, metadata_path = cls._pretrained_path(name, version_str)
 
         cls._ensure_weight_files(
@@ -182,11 +185,25 @@ class SeisBenchModel(nn.Module):
         return cls.load(weight_path.with_name(name), version_str=version_str)
 
     @classmethod
+    def _version_warnings(cls, name: str, version_str: str):
+        """
+        Check if the current weight should issue a warning
+        """
+        for name_regex, weight_version, warning_str in cls._weight_warnings:
+            if not re.fullmatch(name_regex, name):
+                continue
+
+            if not weight_version == version_str:
+                continue
+
+            seisbench.logger.warning(f"Weight version warning: {warning_str}")
+
+    @classmethod
     def _cleanup_local_repository(cls):
         """
         Cleans up local weights by moving all files without weight suffix to the correct weight suffix.
 
-        Function required to keep compatibility to caches created with easyQuake==0.1.x
+        Function required to keep compatibility to caches created with seisbench==0.1.x
         """
         model_path = cls._model_path()
         if not model_path.is_dir():
@@ -226,7 +243,7 @@ class SeisBenchModel(nn.Module):
 
         def download_callback(files):
             weight_path, metadata_path = files
-            util.logger.info(
+            seisbench.logger.info(
                 f"Weight file {weight_path.name} not in cache. Downloading..."
             )
             weight_path.parent.mkdir(exist_ok=True, parents=True)
@@ -241,7 +258,7 @@ class SeisBenchModel(nn.Module):
             util.download_http(remote_weight_path, weight_path)
             util.download_http(remote_metadata_path, metadata_path, progress_bar=False)
 
-        easyQuake.seisbench.callback_if_uncached(
+        seisbench.util.callback_if_uncached(
             [weight_path, metadata_path],
             download_callback,
             force=force,
@@ -256,7 +273,7 @@ class SeisBenchModel(nn.Module):
         """
         remote_weight_name = f"{name}.pt.v{version_str}"
         remote_metadata_name = f"{name}.json.v{version_str}"
-        remote_listing = easyQuake.seisbench.ls_webdav(cls._remote_path())
+        remote_listing = seisbench.util.ls_webdav(cls._remote_path())
         if remote_metadata_name not in remote_listing:
             # Version not in repository under version name, check file without version suffix
             if f"{name}.json" in remote_listing:
@@ -291,10 +308,14 @@ class SeisBenchModel(nn.Module):
         :rtype: list or dict
         """
         cls._cleanup_local_repository()
+        _cache_migration_v0_v3()
 
         # Idea: If details, copy all "latest" configs to a temp directory
 
         model_path = cls._model_path()
+        model_path.mkdir(
+            parents=True, exist_ok=True
+        )  # Create directory if not existent
         weights = [
             cls._parse_weight_filename(x)[0]
             for x in model_path.iterdir()
@@ -305,7 +326,7 @@ class SeisBenchModel(nn.Module):
             remote_path = cls._remote_path()
             weights += [
                 cls._parse_weight_filename(x)[0]
-                for x in easyQuake.util.ls_webdav(remote_path)
+                for x in seisbench.util.ls_webdav(remote_path)
                 if cls._parse_weight_filename(x)[0] is not None
             ]
 
@@ -390,6 +411,7 @@ class SeisBenchModel(nn.Module):
         :rtype: list[str]
         """
         cls._cleanup_local_repository()
+        _cache_migration_v0_v3()
 
         if cls._model_path().is_dir():
             files = [x.name for x in cls._model_path().iterdir()]
@@ -399,7 +421,7 @@ class SeisBenchModel(nn.Module):
 
         if remote:
             remote_path = cls._remote_path()
-            files = easyQuake.seisbench.ls_webdav(remote_path)
+            files = seisbench.util.ls_webdav(remote_path)
             remote_versions = cls._get_versions_from_files(name, files)
 
             if "" in remote_versions:
@@ -467,7 +489,7 @@ class SeisBenchModel(nn.Module):
         model_weights = torch.load(f"{path_pt}")
 
         model_args = weights_metadata.get("model_args", {})
-
+        cls._check_version_requirement(weights_metadata)
         model = cls(**model_args)
         model._weights_metadata = weights_metadata
         model._parse_metadata()
@@ -492,7 +514,7 @@ class SeisBenchModel(nn.Module):
         the model instance state:
             - "weights_docstring": A string documenting the pipeline. Usually also contains information on the author.
             - "model_args": Argument dictionary passed to the init function of the pipeline.
-            - "easyQuake_requirement": The minimal version of SeisBench required to use the weights file.
+            - "seisbench_requirement": The minimal version of SeisBench required to use the weights file.
             - "default_args": Default args for the :py:func:`annotate`/:py:func:`classify` functions.
 
         Non-serializable arguments (e.g. functions) cannot be saved to JSON, so are not converted.
@@ -521,7 +543,7 @@ class SeisBenchModel(nn.Module):
         model_args = self.get_model_args()
 
         if not model_args:
-            util.logger.warning(
+            seisbench.logger.warning(
                 "No 'model_args' found. "
                 "Saving any model parameters should be done manually within abstractmethod: `get_model_args`. "
                 "Have you implemented `get_model_args`?. "
@@ -548,20 +570,20 @@ class SeisBenchModel(nn.Module):
                     _flagged_callable = True
                 if isinstance(v, dict):
                     # Check inside nested dicts for callables
-                    if not _contains_callable_recursive(v):
+                    if _contains_callable_recursive(v):
                         _flagged_callable = True
 
                 if not _flagged_callable:
                     parsed_model_args.update({k: v})
                 else:
-                    util.logger.warning(
+                    seisbench.logger.warning(
                         f"{k} parameter is a non-serilizable object, cannot be saved to JSON config file."
                     )
 
         model_metadata = {
             "docstring": weights_docstring,
             "model_args": parsed_model_args,
-            "easyQuake-requirements": easyQuake.__version__,
+            "seisbench_requirement": seisbench.__version__,
             "default_args": self.__dict__.get("default_args", ""),
         }
 
@@ -569,9 +591,9 @@ class SeisBenchModel(nn.Module):
         torch.save(self.state_dict(), path_pt)
         # Save model metadata
         with open(path_json, "w") as json_fp:
-            json.dump(model_metadata, json_fp)
+            json.dump(model_metadata, json_fp, indent=4)
 
-        util.logger.debug(f"Saved {self.name} model at {path}")
+        seisbench.logger.debug(f"Saved {self.name} model at {path}")
 
     @staticmethod
     def _get_weights_file_paths(path, version_str):
@@ -597,22 +619,21 @@ class SeisBenchModel(nn.Module):
         self._weights_docstring = self._weights_metadata.get("docstring", "")
         self._weights_version = self._weights_metadata.get("version", "1")
 
-        # Check version requirement
-        easyQuake_requirement = self._weights_metadata.get(
-            "easyQuake_requirement", None
-        )
-        if easyQuake_requirement is not None:
-            if version.parse(easyQuake_requirement) > version.parse(
-                easyQuake.__version__
-            ):
-                raise ValueError(
-                    f"Weights require easyQuake version at least {easyQuake_requirement}, "
-                    f"but the installed version is {easyQuake.__version__}."
-                )
-
         # Parse default args - Config default_args supersede constructor args
         default_args = self._weights_metadata.get("default_args", {})
         self.default_args.update(default_args)
+
+    @staticmethod
+    def _check_version_requirement(weights_metadata):
+        seisbench_requirement = weights_metadata.get("seisbench_requirement", None)
+        if seisbench_requirement is not None:
+            if version.parse(seisbench_requirement) > version.parse(
+                seisbench.__version__
+            ):
+                raise ValueError(
+                    f"Weights require seisbench version at least {seisbench_requirement}, "
+                    f"but the installed version is {seisbench.__version__}."
+                )
 
     @abstractmethod
     def get_model_args(self):
@@ -640,6 +661,8 @@ class WaveformModel(SeisBenchModel, ABC):
     Internally, :py:func:`classify` will usually rely on :py:func:`annotate` and simply add steps to it's output.
 
     For details see the documentation of these functions.
+
+    .. document_args:: seisbench.models WaveformModel
 
     :param component_order: Specify component order (e.g. ['ZNE']), defaults to None.
     :type component_order: list, optional
@@ -679,14 +702,49 @@ class WaveformModel(SeisBenchModel, ABC):
     :type filter_args: tuple
     :param filter_kwargs: Keyword arguments to be passed to :py:func:`obspy.filter` in :py:func:`annotate_stream_pre`
     :type filter_kwargs: dict
-    :param grouping: Level of grouping for annotating streams. Supports "instrument" and "channel".
-    :type grouping: str
+    :param grouping: Level of grouping for annotating streams. Supports "instrument", "channel" and "full".
+                     Alternatively, a custom GroupingHelper can be passed.
+    :type grouping: Union[str, GroupingHelper]
+    :param allow_padding: If True, annotate will pad different windows if they have different sizes.
+                          This is useful, for example, for multi-station methods.
+    :type allow_padding: bool
     :param kwargs: Kwargs are passed to the superclass
     """
 
+    # Optional arguments for annotate/classify: key -> (documentation, default_value)
+    _annotate_args = {
+        "batch_size": ("Batch size for the model", 256),
+        "overlap": (
+            "Overlap between prediction windows in samples (only for window prediction models)",
+            0,
+        ),
+        "stacking": (
+            "Stacking method for overlapping windows (only for window prediction models). "
+            "Options are 'max' and 'avg'. ",
+            "avg",
+        ),
+        "stride": ("Stride in samples (only for point prediction models)", 1),
+        "strict": (
+            "If true, only annotate if recordings for all components are available, "
+            "otherwise impute missing data with zeros.",
+            False,
+        ),
+        "flexible_horizontal_components": (
+            "If true, accepts traces with Z12 components as ZNE and vice versa. "
+            "This is usually acceptable for rotationally invariant models, "
+            "e.g., most picking models.",
+            True,
+        ),
+    }
+
+    _stack_options = {
+        "avg",
+        "max",
+    }  # Known stacking options - mutable and accessible for docs.
+
     def __init__(
         self,
-        component_order='ZNE',
+        component_order=None,
         sampling_rate=None,
         output_type=None,
         default_args=None,
@@ -696,12 +754,13 @@ class WaveformModel(SeisBenchModel, ABC):
         filter_args=None,
         filter_kwargs=None,
         grouping="instrument",
+        allow_padding=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
         if component_order is None:
-            self._component_order = easyQuake.config["component_order"]
+            self._component_order = seisbench.config["component_order"]
         else:
             self._component_order = component_order
 
@@ -715,15 +774,19 @@ class WaveformModel(SeisBenchModel, ABC):
         self.pred_sample = pred_sample
         self.filter_args = filter_args
         self.filter_kwargs = filter_kwargs
-        self._grouping = grouping
 
-        if grouping == "channel":
-            if component_order is not None:
-                util.logger.warning(
-                    "Grouping is 'channel' but component_order is given. "
-                    "component_order will be ignored, as every channel is treated separately."
-                )
-            self._component_order = None
+        if isinstance(grouping, str):
+            if grouping == "channel":
+                if component_order is not None:
+                    seisbench.logger.warning(
+                        "Grouping is 'channel' but component_order is given. "
+                        "component_order will be ignored, as every channel is treated separately."
+                    )
+                self._component_order = None
+            grouping = GroupingHelper(grouping)
+
+        self._grouping: GroupingHelper = grouping
+        self.allow_padding = allow_padding
 
         # Validate pred sample
         if output_type == "point" and not isinstance(pred_sample, (int, float)):
@@ -744,20 +807,19 @@ class WaveformModel(SeisBenchModel, ABC):
 
         self._annotate_function_mapping = {
             "point": (
-                (self._async_cut_fragments_point, self._async_reassemble_blocks_point),
-                (
-                    self._process_cut_fragments_point,
-                    self._process_reassemble_blocks_point,
-                ),
+                self._async_cut_fragments_point,
+                self._async_reassemble_blocks_point,
             ),
             "array": (
-                (self._async_cut_fragments_array, self._async_reassemble_blocks_array),
-                (
-                    self._process_cut_fragments_array,
-                    self._process_reassemble_blocks_array,
-                ),
+                self._async_cut_fragments_array,
+                self._async_reassemble_blocks_array,
             ),
         }
+
+        if self.output_type == "point" and self._grouping.grouping == "full":
+            raise NotImplementedError(
+                "Point outputs with full grouping are currently not implemented."
+            )
 
         self._annotate_functions = self._annotate_function_mapping.get(
             output_type, None
@@ -774,36 +836,33 @@ class WaveformModel(SeisBenchModel, ABC):
     def component_order(self):
         return self._component_order
 
+    def _argdict_get_with_default(self, argdict, key):
+        return argdict.get(key, self._annotate_args.get(key)[1])
+
     def annotate(
         self,
         stream,
-        strict=True,
-        flexible_horizontal_components=True,
-        parallelism=None,
+        copy=True,
         **kwargs,
     ):
         """
         Annotates an obspy stream using the model based on the configuration of the WaveformModel superclass.
         For example, for a picking model, annotate will give a characteristic function/probability function for picks
         over time.
-        The annotate function contains multiple subfunction, which can be overwritten individually by inheriting
+        The annotate function contains multiple subfunctions, which can be overwritten individually by inheriting
         models to accommodate their requirements. These functions are:
 
         - :py:func:`annotate_stream_pre`
         - :py:func:`annotate_stream_validate`
-        - :py:func:`annotate_window_pre`
-        - :py:func:`annotate_window_post`
+        - :py:func:`annotate_batch_pre`
+        - :py:func:`annotate_batch_post`
 
         Please see the respective documentation for details on their functionality, inputs and outputs.
 
-        .. warning::
-            Internally, there are two implementations of the annotate function, one using `asyncio` and one using
-            `multiprocessing`. Depending on the hardware, the model, and the input data, one of the options might be
-            more suited. In general, the `asyncio` implementation is sequential, but has nearly no overhead. In contrast,
-            the `multiprocessing` implementation has considerable overhead for starting the jobs, but runs the
-            computations in a parallelised manner. As a rule of thumb, `asyncio` will be the better choice for small
-            inputs, while `multiprocessing` is the better option for large inputs. See the parameter `parallelism`
-            below for details how to choose the method.
+        .. hint::
+            If your machine is equipped with a GPU, this function will usually run faster when making use of the GPU.
+            Just call `model.cuda()`. In addition, you might want to increase the batch size by passing the `batch_size`
+            argument to the function. Possible values might be 2048 or 4096 (or larger if your GPU permits).
 
         .. warning::
             Even though the `asyncio` implementation itself is not parallel, this does not guarantee that only a single
@@ -816,94 +875,45 @@ class WaveformModel(SeisBenchModel, ABC):
             overheads, e.g.,
             `here <https://github.com/pytorch/pytorch/issues/3146>`_.
 
-        .. warning::
-            `multiprocessing` performance varies depending on the employed start method. For details, check the
-            documentation `here <https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods>`_.
-
 
         :param stream: Obspy stream to annotate
         :type stream: obspy.core.Stream
-        :param strict: If true, only annotate if recordings for all components are available,
-                       otherwise impute missing data with zeros.
-        :type strict: bool
-        :param flexible_horizontal_components: If true, accepts traces with Z12 components as ZNE and vice versa.
-                                               This is usually acceptable for rotationally invariant models,
-                                               e.g., most picking models.
-        :type flexible_horizontal_components: bool
-        :param parallelism: If None, uses the `asyncio` implementation. Otherwise, defines the redundancy for each
-                            subjob, i.e., parallelism=2 would start each subjob twice. See the warning above for a
-                            discussion on parallelism for annotate.
-        :type parallelism: None, int
+        :param copy: If true, copies the input stream. Otherwise, the input stream is modified in place.
+        :type copy: bool
         :param kwargs:
         :return: Obspy stream of annotations
         """
-        # nest_asyncio.apply()
-        if parallelism == 0:
-            parallelism = None
-
-        self._check_parallelism_annotate(stream, parallelism)
-
-        if parallelism is None:
-            nest_asyncio.apply()
-            call = self._annotate_async(
-                stream, strict, flexible_horizontal_components, **kwargs
-            )
-            return asyncio.run(call)
-        else:
-            return self._annotate_processes(
-                stream,
-                strict,
-                flexible_horizontal_components,
-                parallelism=parallelism,
-                **kwargs,
+        if "parallelism" in kwargs:
+            seisbench.logger.warning(
+                "The `parallelism` argument has been deprecated in favour of batch processing."
             )
 
-    @staticmethod
-    def _check_parallelism_annotate(stream, parallelism, thresholds=(5e5, 5e7)):
-        """
-        Checks whether the chosen parallelism looks reasonable and prints a warning otherwise.
+        call = self.annotate_async(stream, copy=copy, **kwargs)
+        return asyncio.run(call)
 
-        :param stream: Data stream
-        :type stream: obspy.Stream
-        :param parallelism: parallelism indicator
-        :type parallelism: None, int
-        :return: None
-        """
-        total_samples = 0
-        for trace in stream:
-            total_samples += len(trace.data)
+    def _verify_argdict(self, argdict):
+        for key in argdict.keys():
+            if not any(
+                re.fullmatch(pattern.replace("*", ".*"), key)
+                for pattern in self._annotate_args.keys()
+            ):
+                seisbench.logger.warning(f"Unknown argument '{key}' will be ignored.")
 
-        detail_str = (
-            "For details, see "
-            "http://docs.easyQuake.org/en/stable/pages/documentation/"
-            "models.html#easyQuake.models.base.WaveformModel.annotate"
-        )
-
-        if total_samples > thresholds[1] and parallelism is None:
-            util.logger.warning(
-                "You are processing a large stream with the sequential asyncio implementation. "
-                "Consider activating parallelisation. " + detail_str
-            )
-        if total_samples < thresholds[0] and parallelism is not None:
-            util.logger.warning(
-                "You are processing a small stream with the parallel implementation. "
-                "Consider using the sequential asyncio implementation. " + detail_str
-            )
-
-    async def _annotate_async(
-        self, stream, strict=True, flexible_horizontal_components=True, **kwargs
-    ):
+    async def annotate_async(self, stream, copy=True, **kwargs):
         """
         `annotate` implementation based on asyncio
         Parameters as for :py:func:`annotate`.
         """
-        cut_fragments, reassemble_blocks = self._get_annotate_functions()[0]
+        self._verify_argdict(kwargs)
+
+        cut_fragments, reassemble_blocks = self._get_annotate_functions()
 
         # Kwargs overwrite default args
         argdict = self.default_args.copy()
         argdict.update(kwargs)
 
-        stream = stream.copy()
+        if copy:
+            stream = stream.copy()
         stream.merge(-1)
 
         output = obspy.Stream()
@@ -916,14 +926,28 @@ class WaveformModel(SeisBenchModel, ABC):
         # Validate stream
         stream = self.annotate_stream_validate(stream, argdict)
 
-        # Group stream
-        groups = self.group_stream(stream)
+        if len(stream) == 0:
+            return output
 
         # Sampling rate of the data. Equal to self.sampling_rate is this is not None
-        argdict["sampling_rate"] = groups[0][0].stats.sampling_rate
+        sampling_rate = stream[0].stats.sampling_rate
+        argdict["sampling_rate"] = sampling_rate
+
+        # Group stream
+        strict = self._argdict_get_with_default(argdict, "strict")
+        flexible_horizontal_components = self._argdict_get_with_default(
+            argdict, "flexible_horizontal_components"
+        )
+        comp_dict, _ = self._build_comp_dict(stream, flexible_horizontal_components)
+        groups = self._grouping.group_stream(
+            stream,
+            strict=strict,
+            min_length_s=(self.in_samples - 1) / sampling_rate,
+            comp_dict=comp_dict,
+        )
 
         # Queues for multiprocessing
-        batch_size = argdict.get("batch_size", 64)
+        batch_size = self._argdict_get_with_default(argdict, "batch_size")
         queue_groups = asyncio.Queue()  # Waveform groups
         queue_raw_blocks = (
             asyncio.Queue()
@@ -931,10 +955,6 @@ class WaveformModel(SeisBenchModel, ABC):
         queue_raw_fragments = asyncio.Queue(
             4 * batch_size
         )  # Raw waveform fragments with the correct input size
-        queue_preprocessed_fragments = asyncio.Queue(
-            4 * batch_size
-        )  # Preprocessed input fragments
-        queue_raw_pred = asyncio.Queue()  # Queue for raw (but unbatched) predictions
         queue_postprocessed_pred = (
             asyncio.Queue()
         )  # Queue for raw (but unbatched) predictions
@@ -943,24 +963,16 @@ class WaveformModel(SeisBenchModel, ABC):
 
         process_streams_to_arrays = asyncio.create_task(
             self._async_streams_to_arrays(
-                queue_groups, queue_raw_blocks, strict, flexible_horizontal_components
+                queue_groups,
+                queue_raw_blocks,
+                argdict,
             )
         )
         process_cut_fragments = asyncio.create_task(
             cut_fragments(queue_raw_blocks, queue_raw_fragments, argdict)
         )
-        process_annotate_window_pre = asyncio.create_task(
-            self._async_annotate_window_pre(
-                queue_raw_fragments, queue_preprocessed_fragments, argdict
-            )
-        )
         process_predict = asyncio.create_task(
-            self._async_predict(queue_preprocessed_fragments, queue_raw_pred, argdict)
-        )
-        process_annotate_window_post = asyncio.create_task(
-            self._async_annotate_window_post(
-                queue_raw_pred, queue_postprocessed_pred, argdict
-            )
+            self._async_predict(queue_raw_fragments, queue_postprocessed_pred, argdict)
         )
         process_reassemble_blocks = asyncio.create_task(
             reassemble_blocks(queue_postprocessed_pred, queue_pred_blocks, argdict)
@@ -977,11 +989,7 @@ class WaveformModel(SeisBenchModel, ABC):
         await queue_raw_blocks.put(None)
         await process_cut_fragments
         await queue_raw_fragments.put(None)
-        await process_annotate_window_pre
-        await queue_preprocessed_fragments.put(None)
         await process_predict
-        await queue_raw_pred.put(None)
-        await process_annotate_window_post
         await queue_postprocessed_pred.put(None)
         await process_reassemble_blocks
         await queue_pred_blocks.put(None)
@@ -1003,251 +1011,26 @@ class WaveformModel(SeisBenchModel, ABC):
         cut_fragments, reassemble_blocks = self._annotate_functions
         return cut_fragments, reassemble_blocks
 
-    def _annotate_processes(
-        self,
-        stream,
-        strict=True,
-        flexible_horizontal_components=True,
-        parallelism=1,
-        **kwargs,
-    ):
-        """
-        `annotate` implementation based on processes
-        Parameters as for :py:func:`annotate`.
-        """
-        cut_fragments, reassemble_blocks = self._get_annotate_functions()[1]
-
-        # Kwargs overwrite default args
-        argdict = self.default_args.copy()
-        argdict.update(kwargs)
-
-        stream = stream.copy()
-        stream.merge(-1)
-
-        output = obspy.Stream()
-        if len(stream) == 0:
-            return output
-
-        # Preprocess stream, e.g., filter/resample
-        self.annotate_stream_pre(stream, argdict)
-
-        # Validate stream
-        stream = self.annotate_stream_validate(stream, argdict)
-
-        # Group stream
-        groups = self.group_stream(stream)
-
-        # Sampling rate of the data. Equal to self.sampling_rate is this is not None
-        argdict["sampling_rate"] = groups[0][0].stats.sampling_rate
-
-        # Store state and move model to CPU - required to avoid cuda initialization in all threads
-        argdict["device"] = self.device
-        self.cpu()
-
-        # Queues for multiprocessing
-        batch_size = argdict.get("batch_size", 64)
-
-        queue_groups = torchmp.JoinableQueue()  # Waveform groups
-        queue_raw_blocks = (
-            torchmp.JoinableQueue()
-        )  # Waveforms as blocks of arrays and their metadata
-        queue_raw_fragments = torchmp.JoinableQueue(
-            4 * batch_size
-        )  # Raw waveform fragments with the correct input size
-        queue_preprocessed_fragments = torchmp.JoinableQueue(
-            4 * batch_size
-        )  # Preprocessed input fragments
-        queue_raw_pred = (
-            torchmp.JoinableQueue()
-        )  # Queue for raw (but unbatched) predictions
-        queues_postprocessed_pred = [
-            torchmp.JoinableQueue() for _ in range(parallelism)
-        ]  # Queue for raw (but unbatched) predictions
-        queue_pred_blocks = torchmp.JoinableQueue()  # Queue for blocks of predictions
-        queue_results = torchmp.JoinableQueue()  # Results streams
-
-        # Setup and start watchdog process
-        queue_watchdog = torchmp.Queue()
-        watchdog_tasks = [
-            ("main", queue_groups, 1, 1),  # terminates process_streams_to_arrays
-            (
-                "streams_to_arrays",
-                queue_raw_blocks,
-                1,
-                parallelism,
-            ),  # terminates cut_processes
-            (
-                "cut",
-                queue_raw_fragments,
-                parallelism,
-                parallelism,
-            ),  # terminates pre_processes
-            (
-                "annotate_window_pre",
-                queue_preprocessed_fragments,
-                parallelism,
-                1,
-            ),  # terminate process_predict
-            ("predict", queue_raw_pred, 1, parallelism),  # terminate post_processes
-            (
-                "annotate_window_post",
-                queues_postprocessed_pred,
-                parallelism,
-                1,
-            ),  # terminates reassemble
-            (
-                "reassemble",
-                queue_pred_blocks,
-                parallelism,
-                1,
-            ),  # terminates predictions_to_stream
-            ("predictions_to_stream", queue_results, 1, 1),  # Indicates job completion
-        ]
-        process_watchdog = torchmp.Process(
-            target=_watchdog, args=(queue_watchdog, watchdog_tasks)
-        )
-
-        process_streams_to_arrays = torchmp.Process(
-            target=self._process_streams_to_arrays,
-            args=(
-                queue_watchdog,
-                queue_groups,
-                queue_raw_blocks,
-                strict,
-                flexible_horizontal_components,
-            ),
-        )
-        cut_processes = []
-        pre_processes = []
-        post_processes = []
-        reassemble_processes = []
-        for i in range(parallelism):
-            cut_processes += [
-                torchmp.Process(
-                    target=cut_fragments,
-                    args=(
-                        queue_watchdog,
-                        queue_raw_blocks,
-                        queue_raw_fragments,
-                        argdict,
-                    ),
-                )
-            ]
-            pre_processes += [
-                torchmp.Process(
-                    target=self._process_annotate_window_pre,
-                    args=(
-                        queue_watchdog,
-                        queue_raw_fragments,
-                        queue_preprocessed_fragments,
-                        argdict,
-                    ),
-                )
-            ]
-            post_processes += [
-                torchmp.Process(
-                    target=self._process_annotate_window_post,
-                    args=(
-                        queue_watchdog,
-                        queue_raw_pred,
-                        queues_postprocessed_pred,
-                        argdict,
-                    ),
-                )
-            ]
-            reassemble_processes += [
-                torchmp.Process(
-                    target=reassemble_blocks,
-                    args=(
-                        queue_watchdog,
-                        queues_postprocessed_pred[i],
-                        queue_pred_blocks,
-                        argdict,
-                    ),
-                )
-            ]
-        process_predictions_to_streams = torchmp.Process(
-            target=self._process_predictions_to_streams,
-            args=(queue_watchdog, queue_pred_blocks, queue_results),
-        )
-
-        process_streams_to_arrays.start()
-        for proc in (
-            cut_processes + pre_processes + post_processes + reassemble_processes
-        ):
-            proc.start()
-        process_predictions_to_streams.start()
-
-        for group in groups:
-            queue_groups.put(group)
-
-        process_watchdog.start()
-        queue_watchdog.put("main")
-
-        self._process_predict(
-            queue_watchdog, queue_preprocessed_fragments, queue_raw_pred, argdict
-        )
-
-        while True:
-            elem = queue_results.get()
-            queue_results.task_done()
-            if elem is None:
-                break
-
-            output += elem
-
-        process_streams_to_arrays.join()
-        for proc in (
-            cut_processes + pre_processes + post_processes + reassemble_processes
-        ):
-            proc.join()
-        process_predictions_to_streams.join()
-
-        queue_watchdog.put(None)
-        process_watchdog.join()
-
-        return output
-
     async def _async_streams_to_arrays(
-        self, queue_in, queue_out, strict, flexible_horizontal_components
+        self,
+        queue_in,
+        queue_out,
+        argdict,
     ):
         """
-        Wrapper around :py:func:`stream_to_arrays`, adding the functionality to read from and write to queues.
+        Wrapper around :py:func:`stream_to_array`, adding the functionality to read from and write to queues.
         :param queue_in: Input queue
         :param queue_out: Output queue
-        :param strict: See :py:func:`stream_to_arrays`
-        :param flexible_horizontal_components: See :py:func:`stream_to_arrays`
         :return: None
         """
         group = await queue_in.get()
         while group is not None:
-            times, data = self.stream_to_arrays(
+            t0, block, stations = self.stream_to_array(
                 group,
-                strict=strict,
-                flexible_horizontal_components=flexible_horizontal_components,
+                argdict,
             )
-            for t0, block in zip(times, data):
-                await queue_out.put((t0, block, group[0].stats))
+            await queue_out.put((t0, block, stations))
             group = await queue_in.get()
-
-    async def _async_annotate_window_pre(self, queue_in, queue_out, argdict):
-        """
-        Wrapper with queue IO functionality around :py:func:`annotate_window_pre`
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param argdict: Dictionary of arguments
-        :return: None
-        """
-        elem = await queue_in.get()
-        while elem is not None:
-            window, metadata = elem
-            preprocessed = self.annotate_window_pre(window, argdict)
-            if isinstance(preprocessed, tuple):  # Contains piggyback information
-                assert len(preprocessed) == 2
-                await queue_out.put(preprocessed + (metadata,))
-            else:  # No piggyback information, add none as piggyback
-                await queue_out.put((preprocessed, None, metadata))
-            elem = await queue_in.get()
 
     async def _async_predict(self, queue_in, queue_out, argdict):
         """
@@ -1258,7 +1041,7 @@ class WaveformModel(SeisBenchModel, ABC):
         :return: None
         """
         buffer = []
-        batch_size = argdict.get("batch_size", 64)
+        batch_size = self._argdict_get_with_default(argdict, "batch_size")
 
         elem = await queue_in.get()
         while True:
@@ -1266,33 +1049,18 @@ class WaveformModel(SeisBenchModel, ABC):
                 buffer.append(elem)
 
             if len(buffer) == batch_size or (elem is None and len(buffer) > 0):
-                pred = self._predict_buffer([window for window, _, _ in buffer])
-                for pred_window, (_, piggyback, metadata) in zip(pred, buffer):
-                    await queue_out.put((pred_window, piggyback, metadata))
+                pred = await asyncio.to_thread(
+                    self._predict_buffer,
+                    [window for window, _ in buffer],
+                    argdict=argdict,
+                )
+                for pred_window, (_, metadata) in zip(pred, buffer):
+                    await queue_out.put((pred_window, metadata))
                 buffer = []
 
             if elem is None:
                 break
 
-            elem = await queue_in.get()
-
-    async def _async_annotate_window_post(self, queue_in, queue_out, argdict):
-        """
-        Wrapper with queue IO functionality around :py:func:`annotate_window_post`
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param argdict: Dictionary of arguments
-        :return: None
-        """
-        elem = await queue_in.get()
-        while elem is not None:
-            window, piggyback, metadata = elem
-            await queue_out.put(
-                (
-                    self.annotate_window_post(window, piggyback, argdict=argdict),
-                    metadata,
-                )
-            )
             elem = await queue_in.get()
 
     async def _async_predictions_to_streams(self, queue_in, queue_out):
@@ -1304,68 +1072,11 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         elem = await queue_in.get()
         while elem is not None:
-            (pred_rate, pred_time, preds), trace_stats = elem
+            (pred_rate, pred_time, preds), stations = elem
             await queue_out.put(
-                self._predictions_to_stream(pred_rate, pred_time, preds, trace_stats)
+                self._predictions_to_stream(pred_rate, pred_time, preds, stations)
             )
             elem = await queue_in.get()
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_streams_to_arrays(
-        self,
-        queue_watchdog,
-        queue_in,
-        queue_out,
-        strict,
-        flexible_horizontal_components,
-    ):
-        """
-        Wrapper around :py:func:`stream_to_arrays`, adding the functionality to read from and write to queues.
-
-        :param queue_watchdog: Signal queue for watchdog
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param strict: See :py:func:`stream_to_arrays`
-        :param flexible_horizontal_components: See :py:func:`stream_to_arrays`
-        :return: None
-        """
-        while True:
-            group = queue_in.get()
-            queue_in.task_done()
-
-            if group is None:
-                break
-
-            times, data = self.stream_to_arrays(
-                group,
-                strict=strict,
-                flexible_horizontal_components=flexible_horizontal_components,
-            )
-            for t0, block in zip(times, data):
-                queue_out.put((t0, block, group[0].stats))
-
-        queue_watchdog.put("streams_to_arrays")
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_cut_fragments_point(
-        self, queue_watchdog, queue_in, queue_out, argdict
-    ):
-        """
-        Wrapper with queue IO functionality around :py:func:`_cut_fragments_point`
-        """
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            t0, block, trace_stats = elem
-            for output_elem in self._cut_fragments_point(
-                t0, block, trace_stats, argdict
-            ):
-                queue_out.put(output_elem)
-
-        queue_watchdog.put("cut")
 
     async def _async_cut_fragments_point(self, queue_in, queue_out, argdict):
         """
@@ -1373,29 +1084,27 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         elem = await queue_in.get()
         while elem is not None:
-            t0, block, trace_stats = elem
+            t0, block, stations = elem
 
-            for output_elem in self._cut_fragments_point(
-                t0, block, trace_stats, argdict
-            ):
+            for output_elem in self._cut_fragments_point(t0, block, stations, argdict):
                 await queue_out.put(output_elem)
 
             elem = await queue_in.get()
 
-    def _cut_fragments_point(self, t0, block, trace_stats, argdict):
+    def _cut_fragments_point(self, t0, block, stations, argdict):
         """
         Cuts numpy arrays into fragments for point prediction models.
 
         :param t0:
         :param block:
-        :param trace_stats:
+        :param stations:
         :param argdict:
         :return:
         """
-        stride = argdict.get("stride", 1)
-        starts = np.arange(0, block.shape[1] - self.in_samples + 1, stride)
+        stride = self._argdict_get_with_default(argdict, "stride")
+        starts = np.arange(0, block.shape[-1] - self.in_samples + 1, stride)
         if len(starts) == 0:
-            util.logger.warning(
+            seisbench.logger.warning(
                 "Parts of the input stream consist of fragments shorter than the number "
                 "of input samples. Output might be empty."
             )
@@ -1405,32 +1114,11 @@ class WaveformModel(SeisBenchModel, ABC):
 
         # Generate windows and preprocess
         for s in starts:
-            window = block[:, s : s + self.in_samples]
-            # The combination of trace_stats and t0 is a unique identifier
+            window = block[..., s : s + self.in_samples]
+            # The combination of stations and t0 is a unique identifier
             # s can be used to reassemble the block, len(starts) allows to identify if the block is complete yet
-            metadata = (t0, s, len(starts), trace_stats, bucket_id)
+            metadata = (t0, s, len(starts), stations, bucket_id)
             yield window, metadata
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_reassemble_blocks_point(
-        self, queue_watchdog, queue_in, queue_out, argdict
-    ):
-        """
-        Wrapper with queue IO functionality around :py:func:`_reassemble_blocks_point`
-        """
-        buffer = defaultdict(list)  # Buffers predictions until a block is complete
-
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            output = self._reassemble_blocks_point(elem, buffer, argdict)
-            if output is not None:
-                queue_out.put(output)
-
-        queue_watchdog.put("reassemble")
 
     async def _async_reassemble_blocks_point(self, queue_in, queue_out, argdict):
         """
@@ -1450,11 +1138,11 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         Reassembles point predictions into numpy arrays. Returns None except if a buffer was processed.
         """
-        stride = argdict.get("stride", 1)
+        stride = self._argdict_get_with_default(argdict, "stride")
 
         window, metadata = elem
-        t0, s, len_starts, trace_stats, bucket_id = metadata
-        key = f"{t0}_{trace_stats.network}.{trace_stats.station}.{trace_stats.station}.{trace_stats.channel[:-1]}"
+        t0, s, len_starts, stations, bucket_id = metadata
+        key = f"{t0}_{'__'.join(stations)}"
 
         output = None
 
@@ -1471,29 +1159,11 @@ class WaveformModel(SeisBenchModel, ABC):
             pred_time = t0 + self.pred_sample / argdict["sampling_rate"]
             pred_rate = argdict["sampling_rate"] / stride
 
-            output = ((pred_rate, pred_time, preds), trace_stats)
+            output = ((pred_rate, pred_time, preds), stations)
 
             del buffer[key]
 
         return output
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_cut_fragments_array(
-        self, queue_watchdog, queue_in, queue_out, argdict
-    ):
-        """
-        Wrapper with queue IO functionality around :py:func:`_cut_fragments_array`
-        """
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            for output_elem in self._cut_fragments_array(elem, argdict):
-                queue_out.put(output_elem)
-
-        queue_watchdog.put("cut")
 
     async def _async_cut_fragments_array(self, queue_in, queue_out, argdict):
         """
@@ -1511,61 +1181,33 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         Cuts numpy arrays into fragments for array prediction models.
         """
-        overlap = argdict.get("overlap", 0)
+        overlap = self._argdict_get_with_default(argdict, "overlap")
 
-        t0, block, trace_stats = elem
+        t0, block, stations = elem
 
         bucket_id = np.random.randint(int(1e9))
 
-        if self._grouping == "channel":
-            # Add fake channel dimension
-            block = block.reshape((-1,) + block.shape)
-
         starts = np.arange(
-            0, block.shape[1] - self.in_samples + 1, self.in_samples - overlap
+            0, block.shape[-1] - self.in_samples + 1, self.in_samples - overlap
         )
         if len(starts) == 0:
-            util.logger.warning(
+            seisbench.logger.warning(
                 "Parts of the input stream consist of fragments shorter than the number "
                 "of input samples. Output might be empty."
             )
             return
 
         # Add one more trace to the end
-        if starts[-1] + self.in_samples < block.shape[1]:
-            starts = np.concatenate([starts, [block.shape[1] - self.in_samples]])
+        if starts[-1] + self.in_samples < block.shape[-1]:
+            starts = np.concatenate([starts, [block.shape[-1] - self.in_samples]])
 
         # Generate windows and preprocess
         for s in starts:
-            window = block[:, s : s + self.in_samples]
-            if self._grouping == "channel":
-                # Remove fake channel dimension
-                window = window[0]
-            # The combination of trace_stats and t0 is a unique identifier
+            window = block[..., s : s + self.in_samples]
+            # The combination of stations and t0 is a unique identifier
             # s can be used to reassemble the block, len(starts) allows to identify if the block is complete yet
-            metadata = (t0, s, len(starts), trace_stats, bucket_id)
+            metadata = (t0, s, len(starts), stations, bucket_id)
             yield window, metadata
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_reassemble_blocks_array(
-        self, queue_watchdog, queue_in, queue_out, argdict
-    ):
-        """
-        Wrapper with queue IO functionality around :py:func:`_reassemble_blocks_array`
-        """
-        buffer = defaultdict(list)  # Buffers predictions until a block is complete
-
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            output_elem = self._reassemble_blocks_array(elem, buffer, argdict)
-            if output_elem is not None:
-                queue_out.put(output_elem)
-
-        queue_watchdog.put("reassemble")
 
     async def _async_reassemble_blocks_array(self, queue_in, queue_out, argdict):
         """
@@ -1586,10 +1228,16 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         Reassembles array predictions into numpy arrays.
         """
-        overlap = argdict.get("overlap", 0)
+        overlap = self._argdict_get_with_default(argdict, "overlap")
+        stack_method = self._argdict_get_with_default(
+            argdict, "stacking"
+        ).lower()  # This is a breaking change for v 0.3 - see PR#99
+        assert (
+            stack_method in self._stack_options
+        ), f"Stacking method {stack_method} unknown. Known options are: {self._stack_options}"
         window, metadata = elem
-        t0, s, len_starts, trace_stats, bucket_id = metadata
-        key = f"{t0}_{trace_stats.network}.{trace_stats.station}.{trace_stats.station}.{trace_stats.channel[:-1]}"
+        t0, s, len_starts, stations, bucket_id = metadata
+        key = f"{t0}_{'__'.join(stations)}"
         buffer[key].append(elem)
 
         output = None
@@ -1601,10 +1249,10 @@ class WaveformModel(SeisBenchModel, ABC):
             )  # Sort by start (overwrite keys to make sure window is never used as key)
             starts = [s for s, window in preds]
             preds = [window for s, window in preds]
-            preds = np.stack(preds, axis=0)
+            preds = [self._add_grouping_dimensions(pred) for pred in preds]
 
             # Number of prediction samples per input sample
-            prediction_sample_factor = preds[0].shape[0] / (
+            prediction_sample_factor = preds[0].shape[1] / (
                 self.pred_sample[1] - self.pred_sample[0]
             )
 
@@ -1616,219 +1264,141 @@ class WaveformModel(SeisBenchModel, ABC):
             )
             pred_merge = (
                 np.zeros_like(
-                    preds[0], shape=(pred_length, preds[0].shape[1], coverage)
+                    preds[0],
+                    shape=(
+                        preds[0].shape[0],
+                        pred_length,
+                        preds[0].shape[-1],
+                        coverage,
+                    ),
                 )
                 * np.nan
             )
             for i, (pred, start) in enumerate(zip(preds, starts)):
                 pred_start = int(start * prediction_sample_factor)
                 pred_merge[
-                    pred_start : pred_start + pred.shape[0], :, i % coverage
+                    :, pred_start : pred_start + pred.shape[1], :, i % coverage
                 ] = pred
 
             with warnings.catch_warnings():
-                warnings.filterwarnings(action="ignore", message="Mean of empty slice")
-                preds = np.nanmean(pred_merge, axis=-1)
+                if stack_method == "avg":
+                    warnings.filterwarnings(
+                        action="ignore", message="Mean of empty slice"
+                    )
+                    preds = bn.nanmean(pred_merge, axis=-1)
+                elif stack_method == "max":
+                    warnings.filterwarnings(action="ignore", message="All-NaN")
+                    preds = bn.nanmax(pred_merge, axis=-1)
+                # Case of stack_method not in avg or max is caught by assert above
+
+            if self._grouping.grouping == "channel":
+                preds = preds[0, :, 0]
+            elif self._grouping.grouping == "instrument":
+                preds = preds[0]
 
             pred_time = t0 + self.pred_sample[0] / argdict["sampling_rate"]
             pred_rate = argdict["sampling_rate"] * prediction_sample_factor
 
-            output = ((pred_rate, pred_time, preds), trace_stats)
+            output = ((pred_rate, pred_time, preds), stations)
 
             del buffer[key]
 
         return output
 
-    @log_lifecycle(logging.DEBUG)
-    def _process_annotate_window_pre(
-        self, queue_watchdog, queue_in, queue_out, argdict
-    ):
+    def _predict_buffer(self, buffer, argdict):
         """
-        Wrapper with queue IO functionality around :py:func:`annotate_window_pre`
-
-        :param queue_watchdog: Signal queue for watchdog
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param argdict: Dictionary of arguments
-        :return: None
-        """
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            window, metadata = elem
-            preprocessed = self.annotate_window_pre(window, argdict)
-            if isinstance(preprocessed, tuple):  # Contains piggyback information
-                assert len(preprocessed) == 2
-                queue_out.put(preprocessed + (metadata,))
-            else:  # No piggyback information, add none as piggyback
-                queue_out.put((preprocessed, None, metadata))
-
-        queue_watchdog.put("annotate_window_pre")
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_predict(self, queue_watchdog, queue_in, queue_out, argdict):
-        """
-        Prediction function, gathering predictions until a batch is full and handing them to :py:func:`_predict_buffer`.
-
-        :param queue_watchdog: Signal queue for watchdog
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param argdict: Dictionary of arguments
-        :return: None
-        """
-        # Only move the model of the correct process to GPU to avoid CUDA initialization in all processes.
-        # This would cost both runtime and GPU memory.
-        device = argdict.get("device", self.device)
-        if device != self.device:
-            self.to(device)
-
-        buffer = []
-        batch_size = argdict.get("batch_size", 64)
-
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            buffer.append(elem)
-
-            if len(buffer) == batch_size:
-                pred = self._predict_buffer([window for window, _, _ in buffer])
-                for pred_window, (_, piggyback, metadata) in zip(pred, buffer):
-                    queue_out.put((pred_window, piggyback, metadata))
-                buffer = []
-
-        if len(buffer) > 0:
-            pred = self._predict_buffer([window for window, _, _ in buffer])
-            for pred_window, (_, piggyback, metadata) in zip(pred, buffer):
-                queue_out.put((pred_window, piggyback, metadata))
-            buffer = []
-
-        queue_watchdog.put("predict")
-
-    def _predict_buffer(self, buffer):
-        """
-        Batches model inputs, runs prediction, and unbatches output
+        Batches model inputs, runs preprocess, prediction and postprocess, and unbatches output
 
         :param buffer: List of inputs to the model
         :return: Unpacked predictions
         """
-        fragments = np.stack(buffer)
-        fragments = np.stack(fragments, axis=0)
+        if self.allow_padding:
+            fragments = seisbench.util.pad_packed_sequence(buffer)
+        else:
+            fragments = np.stack(buffer, axis=0)
         fragments = torch.tensor(fragments, device=self.device, dtype=torch.float32)
 
         train_mode = self.training
         try:
             self.eval()
             with torch.no_grad():
-                preds = self(fragments)
+                preprocessed = self.annotate_batch_pre(fragments, argdict=argdict)
+                if isinstance(preprocessed, tuple):  # Contains piggyback information
+                    assert len(preprocessed) == 2
+                    preprocessed, piggyback = preprocessed
+                else:
+                    piggyback = None
+
+                preds = self(preprocessed)
+
+                preds = self.annotate_batch_post(
+                    preds, piggyback=piggyback, argdict=argdict
+                )
         finally:
             if train_mode:
                 self.train()
+
+        # Explicit synchronisation can help profiling the stack
+        # if torch.cuda.is_available():
+        #    torch.cuda.synchronize()
+
         preds = self._recursive_torch_to_numpy(preds)
         # Unbatch window predictions
         reshaped_preds = [pred for pred in self._recursive_slice_pred(preds)]
         return reshaped_preds
 
-    @log_lifecycle(logging.DEBUG)
-    def _process_annotate_window_post(
-        self, queue_watchdog, queue_in, queues_out, argdict
-    ):
-        """
-        Wrapper with queue IO functionality around :py:func:`annotate_window_post`
-
-        :param queue_watchdog: Signal queue for watchdog
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :param argdict: Dictionary of arguments
-        :return: None
-        """
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            window, piggyback, metadata = elem
-
-            t0, s, len_starts, trace_stats, bucket_id = metadata
-            idx = bucket_id % len(queues_out)
-
-            queues_out[idx].put(
-                (
-                    self.annotate_window_post(window, piggyback, argdict=argdict),
-                    metadata,
-                )
-            )
-
-        queue_watchdog.put("annotate_window_post")
-
-    @log_lifecycle(logging.DEBUG)
-    def _process_predictions_to_streams(self, queue_watchdog, queue_in, queue_out):
-        """
-        Wrapper with queue IO functionality around :py:func:`_predictions_to_stream`
-
-        :param queue_watchdog: Signal queue for watchdog
-        :param queue_in: Input queue
-        :param queue_out: Output queue
-        :return: None
-        """
-        while True:
-            elem = queue_in.get()
-            queue_in.task_done()
-            if elem is None:
-                break
-
-            (pred_rate, pred_time, preds), trace_stats = elem
-            queue_out.put(
-                self._predictions_to_stream(pred_rate, pred_time, preds, trace_stats)
-            )
-
-        queue_watchdog.put("predictions_to_stream")
-
-    def _predictions_to_stream(self, pred_rate, pred_time, pred, trace_stats):
+    def _predictions_to_stream(self, pred_rate, pred_time, pred, stations):
         """
         Converts a set of predictions to obspy streams
 
         :param pred_rates: Sampling rates of the prediction arrays
         :param pred_times: Start time of each prediction array
         :param preds: The prediction arrays, each with shape (samples, channels)
-        :param trace_stats: A source trace.stats object to extract trace naming from
+        :param stations: The list of stations as strings in format NET.STA.LOC or NET.STA.LOC.CHA
         :return: Obspy stream of predictions
         """
         output = obspy.Stream()
 
+        pred = self._add_grouping_dimensions(pred)
+
         # Define and store default labels
         if self.labels is None:
-            self.labels = list(range(pred.shape[1]))
+            self.labels = list(range(pred.shape[-1]))
 
-        for i in range(pred.shape[1]):
-            if callable(self.labels):
-                label = self.labels(trace_stats)
-            else:
-                label = self.labels[i]
+        for station_idx, trace_id in enumerate(stations):
+            for channel_idx in range(pred.shape[-1]):
+                if callable(self.labels):
+                    label = self.labels(stations)
+                else:
+                    label = self.labels[channel_idx]
 
-            trimmed_pred, f, _ = self._trim_nan(pred[:, i])
-            trimmed_start = pred_time + f / pred_rate
-            output.append(
-                obspy.Trace(
-                    trimmed_pred,
-                    {
-                        "starttime": trimmed_start,
-                        "sampling_rate": pred_rate,
-                        "network": trace_stats.network,
-                        "station": trace_stats.station,
-                        "location": trace_stats.location,
-                        "channel": f"{self.__class__.__name__}_{label}",
-                    },
+                trimmed_pred, f, _ = self._trim_nan(pred[station_idx, :, channel_idx])
+                trimmed_start = pred_time + f / pred_rate
+                network, station, location = trace_id.split(".")[:3]
+                output.append(
+                    obspy.Trace(
+                        trimmed_pred,
+                        {
+                            "starttime": trimmed_start,
+                            "sampling_rate": pred_rate,
+                            "network": network,
+                            "station": station,
+                            "location": location,
+                            "channel": f"{self.__class__.__name__}_{label}",
+                        },
+                    )
                 )
-            )
-
         return output
+
+    def _add_grouping_dimensions(self, pred):
+        """
+        Add fake dimensions to make pred shape (stations, samples, channels)
+        """
+        if self._grouping.grouping == "instrument":
+            pred = np.expand_dims(pred, 0)
+        if self._grouping.grouping == "channel":
+            pred = np.expand_dims(np.expand_dims(pred, -1), 0)
+        return pred
 
     def annotate_stream_pre(self, stream, argdict):
         """
@@ -1844,22 +1414,46 @@ class WaveformModel(SeisBenchModel, ABC):
         :param argdict: Dictionary of arguments
         :return: Preprocessed stream
         """
-        if self.filter_args is not None or self.filter_kwargs is not None:
-            if self.filter_args is None:
-                filter_args = ()
-            else:
-                filter_args = self.filter_args
-
-            if self.filter_kwargs is None:
-                filter_kwargs = {}
-            else:
-                filter_kwargs = self.filter_kwargs
-
-            stream.filter(*filter_args, **filter_kwargs)
+        self._filter_stream(stream)
 
         if self.sampling_rate is not None:
             self.resample(stream, self.sampling_rate)
         return stream
+
+    def _filter_stream(self, stream):
+        """
+        Filters stream according to filter_args and filter_kwargs.
+        By default, these are directly passed to `obspy.stream.filter(*filter_arg, **filter_kwargs)`.
+        In addition, separate filtering for different channels can be defined.
+        This is done by making `filter_args` a dict from channel regex to the actual filter arguments.
+        In this case, `filter_kwargs` is expected to be a dict with the same keys.
+        For example, `filter_args = {"??Z": ("highpass",)}` and `filter_kwargs = {"??Z": {"freq": 1}}`
+        would high-pass filter only the vertical components at 1 Hz.
+        """
+        # TODO: This should check for gaps and ensure that these are zeroed at the end of processing
+        if self.filter_args is not None or self.filter_kwargs is not None:
+            if isinstance(self.filter_args, dict):
+                for key, filter_args in self.filter_args.items():
+                    substream = stream.select(channel=key)
+                    if key not in self.filter_kwargs:
+                        raise ValueError(
+                            f"Invalid filter definition. Key '{key}' in args but not in kwargs."
+                        )
+                    self._filter_stream_single(
+                        filter_args, self.filter_kwargs[key], substream
+                    )
+
+            else:
+                self._filter_stream_single(self.filter_args, self.filter_kwargs, stream)
+
+    @staticmethod
+    def _filter_stream_single(filter_args, filter_kwargs, stream):
+        if filter_args is None:
+            filter_args = ()
+        if filter_kwargs is None:
+            filter_kwargs = {}
+
+        stream.filter(*filter_args, **filter_kwargs)
 
     def annotate_stream_validate(self, stream, argdict):
         """
@@ -1885,34 +1479,37 @@ class WaveformModel(SeisBenchModel, ABC):
 
         return self.sanitize_mismatching_overlapping_records(stream)
 
-    def annotate_window_pre(self, window, argdict):
+    def annotate_batch_pre(
+        self, batch: torch.Tensor, argdict: dict[str, Any]
+    ) -> torch.Tensor:
         """
-        Runs preprocessing on window level for the annotate function, e.g., normalization.
-        By default returns the input window.
-        Can alternatively return a tuple of the input window and piggyback information that is returned at
-        :py:func:`annotate_window_post`.
+        Runs preprocessing on batch level for the annotate function, e.g., normalization.
+        By default, returns the input batch unmodified.
+        Optionally, this can return a tuple of the preprocessed batch and piggyback information that is passed to
+        :py:func:`annotate_batch_post`.
         This can for example be used to transfer normalization information.
         Inheriting classes should overwrite this function if necessary.
 
-        :param window: Input window
-        :type window: numpy.array
+        :param batch: Input batch
         :param argdict: Dictionary of arguments
-        :return: Preprocessed window and optionally piggyback information that is passed to annotate window post
+        :return: Preprocessed batch and optionally piggyback information that is passed to :py:func:`annotate_batch_post`
         """
-        return window
+        return batch
 
-    def annotate_window_post(self, pred, piggyback=None, argdict=None):
+    def annotate_batch_post(
+        self, batch: torch.Tensor, piggyback: Any, argdict: dict[str, Any]
+    ) -> torch.Tensor:
         """
         Runs postprocessing on the predictions of a window for the annotate function, e.g., reformatting them.
-        By default returns the original prediction.
+        By default, returns the original prediction.
         Inheriting classes should overwrite this function if necessary.
 
-        :param pred: Predictions for one window. The data type depends on the model.
+        :param batch: Predictions for the batch. The data type depends on the model.
         :param argdict: Dictionary of arguments
         :param piggyback: Piggyback information, by default None.
         :return: Postprocessed predictions
         """
-        return pred
+        return batch
 
     @staticmethod
     def _trim_nan(x):
@@ -1920,16 +1517,13 @@ class WaveformModel(SeisBenchModel, ABC):
         Removes all starting and trailing nan values from a 1D array and returns the new array and the number of NaNs
         removed per side.
         """
-        mask_forward = np.cumprod(np.isnan(x)).astype(
-            bool
-        )  # cumprod will be one until the first non-Nan value
-        x = x[~mask_forward]
-        mask_backward = np.cumprod(np.isnan(x)[::-1])[::-1].astype(
-            bool
-        )  # Double reverse for a backwards cumprod
-        x = x[~mask_backward]
+        mask = ~np.isnan(x)
+        valid = np.nonzero(mask == True)[0]
+        mask[valid[0] : valid[-1]] = True
+        _end = len(x)
+        x = x[mask]
 
-        return x, np.sum(mask_forward.astype(int)), np.sum(mask_backward.astype(int))
+        return x, valid[0], _end - (1 + valid[-1])
 
     def _recursive_torch_to_numpy(self, x):
         """
@@ -1968,21 +1562,43 @@ class WaveformModel(SeisBenchModel, ABC):
         else:
             raise ValueError(f"Can't unpack object of type {type(x)}.")
 
-    def classify(self, stream, **kwargs):
+    async def classify_async(
+        self, stream: obspy.Stream, **kwargs
+    ) -> util.ClassifyOutput:
         """
-        Classifies the stream. The classification
+        Async interface to the :py:func:`classify` function. See details there.
+        """
+        argdict = self.default_args.copy()
+        argdict.update(kwargs)
 
-        :param stream: Obspy stream to classify
-        :type stream: obspy.core.Stream
-        :param kwargs:
-        :return: A classification for the full stream, e.g., a list of picks or the source magnitude.
-        """
+        stream = self.classify_stream_pre(stream, argdict)
+        annotations = await self.annotate_async(stream, **argdict)
+        return self.classify_aggregate(annotations, argdict)
+
+    def _classify_parallel(self, stream: obspy.Stream, **kwargs) -> util.ClassifyOutput:
         argdict = self.default_args.copy()
         argdict.update(kwargs)
 
         stream = self.classify_stream_pre(stream, argdict)
         annotations = self.annotate(stream, **argdict)
         return self.classify_aggregate(annotations, argdict)
+
+    def classify(
+        self, stream: obspy.Stream, parallelism: Optional[int] = None, **kwargs
+    ) -> util.ClassifyOutput:
+        """
+        Classifies the stream. The classification can contain any information,
+        but should be consistent with existing models.
+
+        :param stream: Obspy stream to classify
+        :type stream: obspy.core.Stream
+        :param kwargs:
+        :return: A classification for the full stream, e.g., a list of picks or the source magnitude.
+        """
+        if parallelism is None:
+            return asyncio.run(self.classify_async(stream, **kwargs))
+        else:
+            return self._classify_parallel(stream, parallelism=parallelism, **kwargs)
 
     def classify_stream_pre(self, stream, argdict):
         """
@@ -2000,18 +1616,19 @@ class WaveformModel(SeisBenchModel, ABC):
         """
         return stream
 
-    def classify_aggregate(self, annotations, argdict):
+    def classify_aggregate(self, annotations, argdict) -> util.ClassifyOutput:
         """
         An aggregation function that converts the annotation streams returned by :py:func:`annotate` into
-        a classification. A classification may be an arbitrary object. However, when implementing a model which already
-        exists in similar form, we recommend using the same output format. For example, all pick outputs should have
+        a classification. A classification consists of a ClassifyOutput, essentialy a namespace that can hold
+        an arbitrary set of keys. However, when implementing a model which already exists in similar form,
+        we recommend using the same output format. For example, all pick outputs should have
         the same format.
 
         :param annotations: Annotations returned from :py:func:`annotate`
         :param argdict: Dictionary of arguments
         :return: Classification object
         """
-        return annotations
+        return util.ClassifyOutput(self.name)
 
     @staticmethod
     def resample(stream, sampling_rate):
@@ -2033,36 +1650,10 @@ class WaveformModel(SeisBenchModel, ABC):
                     int(trace.stats.sampling_rate / sampling_rate), no_filter=True
                 )
             else:
-                # This exception handling is required because very short traces in obspy can cause a crash during resampling.
-                # For details see: https://github.com/obspy/obspy/pull/2885
-                # TODO: Remove the try except block and bump obspy version requirement to a version without this issue.
-                try:
-                    trace.resample(sampling_rate, no_filter=True)
-                except ZeroDivisionError:
-                    del_list.append(i)
+                trace.resample(sampling_rate, no_filter=True)
 
         for i in del_list:
             del stream[i]
-
-    def group_stream(self, stream, by="instrument"):
-        """
-        Perform grouping of input stream, by instrument or channel.
-
-        :param stream: Input stream
-        :type stream: obspy.core.Stream
-        :return: List of traces grouped by instrument.
-        :rtype: list
-        """
-        groups = defaultdict(list)
-        for trace in stream:
-            if self._grouping == "instrument":
-                groups[trace.id[:-1]].append(trace)
-            elif self._grouping == "channel":
-                groups[trace.id].append(trace)
-            else:
-                raise ValueError(f"Unknown grouping parameter '{by}'.")
-
-        return list(groups.values())
 
     @staticmethod
     def sanitize_mismatching_overlapping_records(stream):
@@ -2127,53 +1718,92 @@ class WaveformModel(SeisBenchModel, ABC):
             del stream[idx]
 
         if not original_num_traces == len(stream):
-            util.logger.warning(
+            seisbench.logger.warning(
                 "Detected multiple records for the same time and component that did not agree. "
                 "All mismatching traces will be ignored."
             )
 
         return stream
 
-    def stream_to_arrays(
-        self, stream, strict=True, flexible_horizontal_components=True
+    def stream_to_array(
+        self,
+        stream,
+        argdict,
     ):
         """
-        Converts streams into a list of start times and numpy arrays.
+        Converts streams into a start time and a numpy array.
         Assumes:
 
-        - All traces in the stream are from the same instrument and only differ in the components
+        - All traces within a group can be put into an array, i.e, the strict parameter is already enforced.
+          Every remaining gap is intended to be filled with zeros.
+          The selection/cutting of intervals has already been done by :py:func:`GroupingHelper.group_stream`.
         - No overlapping traces of the same component exist
         - All traces have the same sampling rate
 
         :param stream: Input stream
         :type stream: obspy.core.Stream
-        :param strict: If true, only if recordings for all components are available, otherwise impute missing
-                       data with zeros.
-        :type strict: bool, default True
-        :param flexible_horizontal_components: If true, accepts traces with Z12 components as ZNE and vice versa.
-                                               This is usually acceptable for rotationally invariant models,
-                                               e.g., most picking models.
-        :type flexible_horizontal_components: bool
+        :param argdict: Dictionary of arguments
         :return: output_times: Start times for each array
         :return: output_data: Arrays with waveforms
         """
+        flexible_horizontal_components = self._argdict_get_with_default(
+            argdict, "flexible_horizontal_components"
+        )
 
-        # Obspy raises an error when trying to compare traces.
-        # The seqnum hack guarantees that no two tuples reach comparison of the traces.
-        seqnum = 0
-        if len(stream) == 0:
-            return [], []
+        comp_dict, component_order = self._build_comp_dict(
+            stream, flexible_horizontal_components
+        )
+
+        if self._grouping.grouping == "channel":
+
+            def get_station_key(trace: obspy.Trace) -> str:
+                return trace.id
+
+        else:
+
+            def get_station_key(trace: obspy.Trace) -> str:
+                return self._grouping.trace_id_without_component(trace)
+
+        stations = np.unique([get_station_key(trace) for trace in stream])
+        station_dict = {station: i for i, station in enumerate(stations)}
 
         sampling_rate = stream[0].stats.sampling_rate
+        t0 = min(trace.stats.starttime for trace in stream)
+        t1 = max(trace.stats.endtime for trace in stream)
 
-        if self._grouping == "channel":
+        data = np.zeros(
+            (len(stations), len(component_order), int((t1 - t0) * sampling_rate + 2))
+        )  # +2 avoids fractional errors
+
+        for trace in stream:
+            p = int((trace.stats.starttime - t0) * sampling_rate)
+            if trace.id[-1] not in comp_dict:
+                continue
+            comp_idx = comp_dict[trace.id[-1]]
+            sta_idx = station_dict[get_station_key(trace)]
+            data[sta_idx, comp_idx, p : p + len(trace.data)] = trace.data
+
+        data = data[:, :, :-1]  # Remove fractional error +1
+        if self._grouping.grouping == "channel":
+            data = data[0, 0]  # Remove station and channel dimension
+        elif self._grouping.grouping == "instrument":
+            data = data[0]  # Remove station dimension
+
+        return t0, data, stations
+
+    def _build_comp_dict(
+        self, stream: obspy.Stream, flexible_horizontal_components: bool
+    ):
+        """
+        Build mapping of component codes to indices taking into account flexible_horizontal_components
+        """
+        if self._component_order is None:
             # Use the provided component
             component_order = stream[0].id[-1]
         else:
             component_order = self._component_order
 
         comp_dict = {c: i for i, c in enumerate(component_order)}
-
         matches = [
             ("1", "N"),
             ("2", "E"),
@@ -2185,134 +1815,33 @@ class WaveformModel(SeisBenchModel, ABC):
                 elif b in comp_dict:
                     comp_dict[a] = comp_dict[b]
 
-        # Maps traces to the components existing. Allows to warn for mixed use of ZNE and Z12.
-        existing_trace_components = defaultdict(list)
+            # Maps traces to the components existing. Allows to warn for mixed use of ZNE and Z12.
+            existing_trace_components = defaultdict(list)
 
-        start_sorted = PriorityQueue()
-        for trace in stream:
-            if trace.id[-1] in comp_dict and len(trace.data) > 0:
-                start_sorted.put((trace.stats.starttime, seqnum, trace))
-                seqnum += 1
-                existing_trace_components[trace.id[:-1]].append(trace.id[-1])
+            for trace in stream:
+                if trace.id[-1] in comp_dict and len(trace.data) > 0:
+                    existing_trace_components[
+                        self._grouping.trace_id_without_component(trace)
+                    ].append(trace.id[-1])
 
-        if flexible_horizontal_components:
             for trace, components in existing_trace_components.items():
                 for a, b in matches:
                     if a in components and b in components:
-                        util.logger.warning(
+                        seisbench.logger.warning(
                             f"Station {trace} has both {a} and {b} components. "
                             f"This might lead to undefined behavior. "
                             f"Please preselect the relevant components "
                             f"or set flexible_horizontal_components=False."
                         )
 
-        active = (
-            PriorityQueue()
-        )  # Traces with starttime before the current time, but endtime after
-        to_write = (
-            []
-        )  # Traces that are not active any more, but need to be written in the next array. Irrelevant for strict mode
-
-        output_times = []
-        output_data = []
-        while True:
-            if not start_sorted.empty():
-                start_element = start_sorted.get()
-            else:
-                start_element = None
-                if strict:
-                    # In the strict case, all data would already have been written
-                    break
-
-            if not active.empty():
-                end_element = active.get()
-            else:
-                end_element = None
-
-            if start_element is None and end_element is None:
-                # Processed all data
-                break
-            elif start_element is not None and end_element is None:
-                active.put(
-                    (start_element[2].stats.endtime, start_element[1], start_element[2])
-                )
-            elif start_element is None and end_element is not None:
-                to_write.append(end_element[2])
-            else:
-                # both start_element and end_element are active
-                if end_element[0] < start_element[0] or (
-                    strict and end_element[0] == start_element[0]
-                ):
-                    to_write.append(end_element[2])
-                    start_sorted.put(start_element)
-                else:
-                    active.put(
-                        (
-                            start_element[2].stats.endtime,
-                            start_element[1],
-                            start_element[2],
-                        )
-                    )
-                    active.put(end_element)
-
-            if not strict and active.qsize() == 0 and len(to_write) != 0:
-                t0 = min(trace.stats.starttime for trace in to_write)
-                t1 = max(trace.stats.endtime for trace in to_write)
-
-                data = np.zeros(
-                    (len(component_order), int((t1 - t0) * sampling_rate + 2))
-                )  # +2 avoids fractional errors
-
-                for trace in to_write:
-                    p = int((trace.stats.starttime - t0) * sampling_rate)
-                    cidx = comp_dict[trace.id[-1]]
-                    data[cidx, p : p + len(trace.data)] = trace.data
-
-                data = data[:, :-1]  # Remove fractional error +1
-
-                output_times.append(t0)
-                output_data.append(data)
-
-                to_write = []
-
-            if strict and active.qsize() == len(component_order):
-                traces = []
-                while not active.empty():
-                    traces.append(active.get()[2])
-
-                t0 = max(trace.stats.starttime for trace in traces)
-                t1 = min(trace.stats.endtime for trace in traces)
-
-                short_traces = [trace.slice(t0, t1) for trace in traces]
-                data = np.zeros(
-                    (len(component_order), len(short_traces[0].data) + 2)
-                )  # +2 avoids fractional errors
-                for trace in short_traces:
-                    cidx = comp_dict[trace.id[-1]]
-                    data[cidx, : len(trace.data)] = trace.data
-
-                data = data[:, :-2]  # Remove fractional error +2
-
-                output_times.append(t0)
-                output_data.append(data)
-
-                for trace in traces:
-                    if t1 < trace.stats.endtime:
-                        start_sorted.put((t1, seqnum, trace.slice(starttime=t1)))
-                        seqnum += 1
-
-        if self._grouping == "channel":
-            # Remove channel dimension
-            output_data = [data[0] for data in output_data]
-
-        return output_times, output_data
+        return comp_dict, component_order
 
     @staticmethod
-    def picks_from_annotations(annotations, threshold, phase):
+    def picks_from_annotations(annotations, threshold, phase) -> util.PickList:
         """
         Converts the annotations streams for a single phase to discrete picks using a classical trigger on/off.
         The lower threshold is set to half the higher threshold.
-        Picks are represented by :py:class:`~easyQuake.util.annotations.Pick` objects.
+        Picks are represented by :py:class:`~seisbench.util.annotations.Pick` objects.
         The pick start_time and end_time are set to the trigger on and off times.
 
         :param annotations: Stream of annotations
@@ -2345,14 +1874,14 @@ class WaveformModel(SeisBenchModel, ABC):
                 )
                 picks.append(pick)
 
-        return picks
+        return util.PickList(sorted(picks))
 
     @staticmethod
-    def detections_from_annotations(annotations, threshold):
+    def detections_from_annotations(annotations, threshold) -> util.DetectionList:
         """
         Converts the annotations streams for a single phase to discrete detections using a classical trigger on/off.
         The lower threshold is set to half the higher threshold.
-        Detections are represented by :py:class:`~easyQuake.util.annotations.Detection` objects.
+        Detections are represented by :py:class:`~seisbench.util.annotations.Detection` objects.
         The detection start_time and end_time are set to the trigger on and off times.
 
         :param annotations: Stream of annotations
@@ -2376,7 +1905,7 @@ class WaveformModel(SeisBenchModel, ABC):
                 )
                 detections.append(detection)
 
-        return detections
+        return util.DetectionList(sorted(detections))
 
     def get_model_args(self):
         model_args = super().get_model_args()
@@ -2392,7 +1921,7 @@ class WaveformModel(SeisBenchModel, ABC):
                 "labels": self.labels,
                 "filter_args": self.filter_args,
                 "filter_kwargs": self.filter_kwargs,
-                "grouping": self._grouping,
+                "grouping": self._grouping.grouping,
             },
         }
         return model_args
@@ -2465,13 +1994,13 @@ class WaveformPipeline(ABC):
 
     @classmethod
     def _remote_path(cls):
-        return os.path.join(
-            easyQuake.remote_root, "pipelines", cls._name_internal().lower()
+        return urljoin(
+            seisbench.remote_root, "pipelines/" + cls._name_internal().lower()
         )
 
     @classmethod
     def _local_path(cls):
-        return Path(easyQuake.cache_root, "pipelines", cls._name_internal().lower())
+        return Path(seisbench.cache_root, "pipelines", cls._name_internal().lower())
 
     @classmethod
     def _config_path(cls, name):
@@ -2514,7 +2043,7 @@ class WaveformPipeline(ABC):
             remote_config_path = os.path.join(cls._remote_path(), f"{name}.json")
             util.download_http(remote_config_path, config_path, progress_bar=False)
 
-        easyQuake.util.callback_if_uncached(
+        seisbench.util.callback_if_uncached(
             config_path,
             download_callback,
             force=force,
@@ -2562,7 +2091,7 @@ class WaveformPipeline(ABC):
         try:
             configurations = [
                 x[:-5]
-                for x in easyQuake.util.ls_webdav(remote_path)
+                for x in seisbench.util.ls_webdav(remote_path)
                 if x.endswith(".json")
             ]
         except ValueError:
@@ -2581,13 +2110,13 @@ class WaveformPipeline(ABC):
                     remote_config_path = os.path.join(
                         cls._remote_path(), f"{configuration}.json"
                     )
-                    easyQuake.util.download_http(
+                    seisbench.util.download_http(
                         remote_config_path, config_path, progress_bar=False
                     )
 
                 config_path = cls._config_path(configuration)
 
-                easyQuake.util.callback_if_uncached(config_path, download_callback)
+                seisbench.util.callback_if_uncached(config_path, download_callback)
 
                 with open(config_path, "r") as f:
                     config = json.load(f)
@@ -2736,3 +2265,371 @@ class CustomLSTM(nn.Module):
 
         # Keep second argument for consistency with PyTorch LSTM
         return output, None
+
+
+class GroupingHelper:
+    """
+    A helper class for grouping streams for the annotate function.
+    In most cases, no direct interaction with this class is required.
+    However, when implementing new models, subclassing this helper allows for more flexibility.
+    """
+
+    def __init__(self, grouping: str) -> None:
+        self._grouping = grouping
+
+        self._grouping_functions = {
+            "instrument": self._group_instrument,
+            "channel": self._group_channel,
+            "full": self._group_full,
+        }
+
+        if grouping not in self._grouping_functions:
+            raise ValueError(f"Unknown grouping parameter '{self.grouping}'.")
+
+    @property
+    def grouping(self):
+        return self._grouping
+
+    def group_stream(
+        self,
+        stream: obspy.Stream,
+        strict: bool,
+        min_length_s: float,
+        comp_dict: dict[str, int],
+    ) -> list[list[obspy.Trace]]:
+        """
+        Perform grouping of input stream.
+        In addition, enforces the strict mode, i.e, if strict=True only keeps segments where all components are available,
+        and discards segments that are too short.
+        For grouping=channel no checks are performed.
+
+        :param stream: Input stream
+        :param strict: If streams should be treated strict as for waveform model.
+                       Only applied if grouping is "full".
+        :param min_length_s: Minimum length of a segment in seconds.
+                             Only applied if grouping is "full".
+        :param comp_dict: Mapping of component characters to int.
+                          Only used if grouping is "full".
+        :return: Grouped list of list traces.
+        """
+        return self._grouping_functions[self.grouping](
+            stream, strict, min_length_s, comp_dict
+        )
+
+    @staticmethod
+    def trace_id_without_component(trace: obspy.Trace):
+        return f"{trace.stats.network}.{trace.stats.station}.{trace.stats.location}"
+
+    def _group_instrument(
+        self, stream: obspy.Stream, *args, **kwargs
+    ) -> list[list[obspy.Trace]]:
+        pre_groups = defaultdict(list)
+        for trace in stream:
+            pre_groups[self.trace_id_without_component(trace)].append(trace)
+
+        groups = []
+        for group in pre_groups.values():
+            groups.extend(self._group_full(obspy.Stream(group), *args, **kwargs))
+
+        return groups
+
+    def _group_channel(
+        self, stream: obspy.Stream, *args, **kwargs
+    ) -> list[list[obspy.Trace]]:
+        pre_groups = defaultdict(list)
+        for trace in stream:
+            pre_groups[trace.id].append(trace)
+
+        groups = []
+        for group in pre_groups.values():
+            groups.extend(
+                self._group_full(obspy.Stream(group), *args, channel=True, **kwargs)
+            )
+
+        return groups
+
+    def _group_full(
+        self,
+        stream: obspy.Stream,
+        strict: bool,
+        min_length_s: float,
+        comp_dict: dict[str, int],
+        channel: bool = False,
+    ) -> list[list[obspy.Trace]]:
+        intervals = self._get_intervals(
+            stream, strict, min_length_s, comp_dict, channel=channel
+        )
+
+        return self._assemble_groups(stream, intervals)
+
+    @staticmethod
+    def _bin_search_idx(coords: list[obspy.UTCDateTime], t: obspy.UTCDateTime) -> int:
+        mini = 0
+        maxi = len(coords)
+
+        while (maxi - mini) != 1:
+            m = (maxi + mini) // 2
+            if coords[m] > t:
+                maxi = m
+            else:
+                mini = m
+        return mini
+
+    @staticmethod
+    def _align_fractional_samples(stream: obspy.Stream) -> None:
+        """
+        Shifts the starttime of every member to a valid fractional second according to the sampling rate.
+        Assumes there is a hypothetical sample at UTCDateTime(0).
+
+        For example, at 20 Hz sampling rate:
+        0.05 is okay
+        0.06 is not
+        """
+        for trace in stream:
+            ts = trace.stats.starttime.timestamp
+            ts *= trace.stats.sampling_rate
+            ts = np.round(ts) / trace.stats.sampling_rate
+            trace.stats.starttime = obspy.UTCDateTime(ts)
+
+    def _get_intervals(
+        self,
+        stream: obspy.Stream,
+        strict: bool,
+        min_length_s: float,
+        comp_dict: dict[str, int],
+        channel: bool = False,
+    ) -> list[tuple[list[str], obspy.UTCDateTime, obspy.UTCDateTime]]:
+        if channel:
+            strict = False
+
+        self._align_fractional_samples(stream)
+
+        # Do coordinate compression
+        coords = np.unique(
+            [trace.stats.starttime for trace in stream]
+            + [trace.stats.endtime for trace in stream]
+        )
+        coords = sorted(list(coords))
+        if len(coords) <= 1:
+            return []
+
+        if channel:
+            n_comp = 1
+            stations = sorted(list(set(trace.id for trace in stream)))
+        else:
+            n_comp = max(comp_dict.values()) + 1
+            stations = sorted(
+                list(set(self.trace_id_without_component(trace) for trace in stream))
+            )
+
+        sta_dict = {sta: i for i, sta in enumerate(stations)}
+
+        covered = np.zeros((len(stations), n_comp, len(coords) - 1), dtype=bool)
+
+        for trace in stream:
+            p0 = self._bin_search_idx(coords, trace.stats.starttime)
+            p1 = self._bin_search_idx(coords, trace.stats.endtime)
+
+            if channel:
+                comp_idx = 0
+                sta_idx = sta_dict[trace.id]
+            else:
+                if trace.id[-1] not in comp_dict:
+                    continue
+
+                comp_idx = comp_dict[trace.id[-1]]
+                sta_idx = sta_dict[self.trace_id_without_component(trace)]
+
+            covered[sta_idx, comp_idx, p0:p1] = True
+
+        if strict:
+            covered = covered.all(axis=1)
+        else:
+            covered = covered.any(axis=1)
+
+        covered, coords = self._merge_intervals(covered, coords, min_length_s)
+
+        intervals = []
+
+        act = covered[:, 0]
+        start_i = 0
+        for i in range(1, covered.shape[1]):
+            if np.all(act == covered[:, i]):
+                # Same station coverage in both blocks, merge the intervals
+                continue
+            else:
+                if act.any():
+                    interval_stations = [
+                        sta for sta, m in zip(stations, act) if m
+                    ]  # Active stations in interval
+                    t0 = coords[start_i]
+                    t1 = coords[i]
+
+                    intervals.append((interval_stations, t0, t1))
+
+                start_i = i
+                act = covered[:, i]
+
+        if act.any():
+            interval_stations = [
+                sta for sta, m in zip(stations, act) if m
+            ]  # Active stations in interval
+            t0 = coords[start_i]
+            t1 = coords[covered.shape[1]]
+            intervals.append((interval_stations, t0, t1))
+
+        return intervals
+
+    def _merge_intervals(
+        self, covered: np.ndarray, coords: list[obspy.UTCDateTime], min_length_s: float
+    ) -> tuple[np.ndarray, list[obspy.UTCDateTime]]:
+        # Goal: Maximize "stations * time" while ensuring no segment is too short
+        # Use a greedy approach for maximizing which will not always lead to the globally optimal results
+        # but usually to reasonably good results.
+        has_warned = np.zeros(1, dtype=bool)
+
+        def encompassing_interval(t0: obspy.UTCDateTime, t1: obspy.UTCDateTime):
+            p0 = self._bin_search_idx(coords, t0)
+            # Move index to actual left border of this segment
+            while p0 > 0:
+                if (covered[:, p0 - 1] == covered[:, p0]).all():
+                    p0 -= 1
+                else:
+                    break
+
+            p1 = self._bin_search_idx(coords, t1)
+            if coords[p1] != t1:
+                # This ensures that coords[p1] is greater or equal than t1
+                p1 += 1
+            # Move index to actual right border of this segment
+            while p1 < covered.shape[-1] - 1:
+                if (covered[:, p1 + 1] == covered[:, p1]).all():
+                    p1 += 1
+                else:
+                    break
+
+            return p0, p1
+
+        def merge_costs(t0: obspy.UTCDateTime, t1: obspy.UTCDateTime) -> float:
+            if t0 < coords[0] or t1 > coords[-1]:
+                # The interval is not actually fully covered
+                return np.inf
+
+            p0, p1 = encompassing_interval(t0, t1)
+
+            cost = 0
+
+            merged_cover = np.all(
+                covered[:, p0:p1], axis=1
+            )  # Stations present in the whole interval
+            if (
+                not merged_cover.any()
+            ):  # This is never better than just deleting the center interval
+                return np.inf
+
+            for p in range(p0, p1):
+                if t0 - coords[p] > min_length_s:  # Left border profits from splitting
+                    delta_t = t0 - (coords[p + 1] - min_length_s)
+                elif (
+                    coords[p + 1] - t1 > min_length_s
+                ):  # Right border profits from splitting
+                    delta_t = t1 - (coords[p] + min_length_s)
+                else:
+                    delta_t = coords[p + 1] - coords[p]
+                delta_sta = np.sum(covered[:, p]) - np.sum(merged_cover)
+                cost += delta_t * delta_sta
+
+            return cost
+
+        def merge_interval(t0: obspy.UTCDateTime, t1: obspy.UTCDateTime) -> None:
+            p0, p1 = encompassing_interval(t0, t1)
+            merged_cover = np.all(covered[:, p0:p1], axis=1)
+            for p in range(p0, p1):
+                if t0 - coords[p] > min_length_s:  # Left border profits from splitting
+                    coords[p + 1] = t0  # End interval earlier
+                elif (
+                    coords[p + 1] - t1 > min_length_s
+                ):  # Right border profits from splitting
+                    coords[p] = t1  # Start interval later
+                else:
+                    covered[:, p] = merged_cover
+
+        def fix_interval_if_necessary(act: np.ndarray, p0: int, p1: int):
+            t0 = coords[p0]
+            t1 = coords[p1]
+
+            if act.any() and t1 - t0 < min_length_s:
+                # Fixing required
+                # Iterate over all reasonable merging times and find the cheapest
+                # Reasonable merge intervals:
+                # - every interval covering the target, starting either at a coord to the left
+                #   or ending at a coord to the right
+                # - if corner interval has at least min_length_s left, make new coord
+                # - else, just merge intervals
+
+                if not has_warned[0]:
+                    has_warned[0] = True
+                    seisbench.logger.warning(
+                        "Parts of the input stream consist of fragments shorter than the number "
+                        "of input samples or misaligned traces. Output might be empty."
+                    )
+
+                candidate_starts = []
+                for p in range(p0, -1, -1):
+                    if t1 - coords[p] > min_length_s:
+                        break
+                    candidate_starts.append(coords[p])
+                for p in range(p0 + 1, len(coords)):
+                    if coords[p] - t0 > min_length_s:
+                        break
+                    candidate_starts.append(coords[p] - min_length_s)
+
+                candidate_starts = np.unique(candidate_starts)
+
+                candidate_merge_costs = [
+                    merge_costs(t, t + min_length_s) for t in candidate_starts
+                ]
+
+                if np.isinf(np.min(candidate_merge_costs)):
+                    # Only delete if there is no other option.
+                    # This improves coverage over time
+                    act &= False
+                else:
+                    best_merge = np.argmin(candidate_merge_costs)
+                    merge_interval(
+                        candidate_starts[best_merge],
+                        candidate_starts[best_merge] + min_length_s,
+                    )
+
+        act = covered[:, 0]
+        start_i = 0
+
+        for i in range(1, covered.shape[1]):
+            if np.all(act == covered[:, i]):
+                # Same station coverage in both blocks, merge the intervals
+                continue
+            else:
+                fix_interval_if_necessary(act, start_i, i)
+
+                start_i = i
+                act = covered[:, i]
+
+        fix_interval_if_necessary(act, start_i, covered.shape[1])
+
+        return covered, coords
+
+    @staticmethod
+    def _assemble_groups(
+        stream: obspy.Stream,
+        intervals: list[tuple[list[str], obspy.UTCDateTime, obspy.UTCDateTime]],
+    ) -> list[list[obspy.Trace]]:
+        groups = []
+        for stations, t0, t1 in intervals:
+            sub = stream.slice(t0, t1)
+            group = []
+            for station in stations:
+                for trace in sub.select(id=station + "*"):
+                    group.append(trace)
+            groups.append(group)
+
+        return groups
