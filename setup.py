@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="easyQuake",
-    version="1.4.0",
+    version="1.3.4",
     author="Jake Walter",
     author_email="jakeiwalter@gmail.com",
     description="Simplified machine-learning driven earthquake detection, location, and analysis",
@@ -14,18 +14,17 @@ setuptools.setup(
     url="https://github.com/jakewalter/easyQuake",
     packages=setuptools.find_packages(),
     install_requires=[
-        'basemap',
-        'keras==2.3.1',
+        'cartopy',
+        'keras',
         'obspy',
         'pandas',
-        'tensorflow==2.2',
-        'h5py==2.10.0',
+        'tensorflow',
+        'h5py',
         'tqdm',
-        'tensorflow-gpu==2.2',
-	'protobuf==3.20.*',
-        'torch==1.7.1',
-        'torchmetrics==0.8.0',
-        'torchvision==0.8.2',
+        'protobuf==3.20.*',
+        'torch',
+        'torchmetrics',
+        'torchvision',
     ],
     include_package_data=True,
     classifiers=[
@@ -33,7 +32,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.7, <=3.8',
+    python_requires='>=3.10',
     entry_points={
         'console_scripts': [
             'create_new_project=ilifu_user_management.create_new_project:main',
