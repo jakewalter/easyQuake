@@ -563,7 +563,7 @@ def make_dayfile(dir1, make3):
     for stationin in stations:
         station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
         station3a = [None,None,None]
-        if len(station3)>3:
+        if len(station3)==6:
             #print(station3)
             ind1 = np.empty((len(station3),1))
             ind1[:] = np.nan
@@ -583,6 +583,25 @@ def make_dayfile(dir1, make3):
                     #print(ind2a)
                     #print(station3a)
                     station3a[int(ind2a[0])] = station3[idxsa]
+        elif len(station3)==4: #RS4D instruments with 1 geophone and 3 accelerometer channels
+            ind1 = np.empty((len(station3),1))
+            ind1[:] = np.nan
+            for idxs, station1 in enumerate(station3):
+                if get_chan3(station1)[1:3] == 'NZ':
+                    ind1[idxs] = 2
+                elif get_chan3(station1)[1:3] == 'NN' or get_chan3(station1)[1:3] == 'N1':
+                    ind1[idxs] = 0
+                elif get_chan3(station1)[1:3] == 'NE' or get_chan3(station1)[1:3] == 'N2':
+                    ind1[idxs] = 1
+                #print(idxs)
+                #if ind1:
+                #    station3a[ind1] = station1
+            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
+            for idxsa, ind2a in enumerate(ind1):
+                if ~np.isnan(ind2a[0]):
+                    #print(ind2a)
+                    #print(station3a)
+                    station3a[int(ind2a[0])] = station3[idxsa]            
         else:
             for station1 in station3:
                 if get_chan1(station1)  == 'Z':
@@ -1936,7 +1955,9 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
                 plt.title('M '+str(ev.preferred_magnitude().mag)+' '+str(origin.time))
                 plt.close(fig)
-            except:
+            except Exception:
+                print(traceback.format_exc())#input("push")
+                print('Something went wrong here')
                 pass
 
 
