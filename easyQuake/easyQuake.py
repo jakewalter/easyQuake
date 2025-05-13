@@ -307,7 +307,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     inv = Inventory()
-    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
     for file1 in dir1a:
         inv1a = read_inventory(file1)
         inv.networks.extend(inv1a)
@@ -1995,7 +1995,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
     if local:
         inv = Inventory()
-        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
         for file1 in dir1a:
             inv1a = read_inventory(file1)
             inv.networks.extend(inv1a)
