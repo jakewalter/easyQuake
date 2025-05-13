@@ -1553,7 +1553,7 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
     return st3, inv
 
 
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dist=200, estimate_sp=False, eventmode=False, dirname=None):
     """
     Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
     
@@ -1608,7 +1608,10 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 try:
                     starttime_inv=origin.time-10
                     endtime_inv=origin.time+10
-                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                    if eventmode:
+                        st3, inv =  select_3comp_remove_response(project_folder,dirname,pick,starttime_inv,endtime_inv)
+                    else:
+                        st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
@@ -2088,7 +2091,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
