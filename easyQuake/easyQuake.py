@@ -1509,44 +1509,45 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
     
-    for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-        if len(inventory_local)>0:
-            inv = read_inventory(inventory_local[0])
-        else:
+    #for tr in st3:
+    inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+    if len(inventory_local)>0:
+        inv = read_inventory(inventory_local[0])
+    else:
+        try:
             try:
-                try:
-                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                except:
-                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
-                    pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
-                if not inv:
-                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                    if not inv:
-                        print('Getting response from DMC')
-                        starttime = UTCDateTime(origin.time-10)
-                        endtime = UTCDateTime(origin.time+10)
-                        client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
             except:
-                print('Station metadata error')
-                print('Getting response from DMC')
-                client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-                #starttime = UTCDateTime(origin.time-10)
-                #endtime = UTCDateTime(origin.time+10)
-                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                 pass
-                #                    paz = [x for x in pazs if tr.stats.channel in x]
-#                    attach_paz(tr, paz[0])
-        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-        tr.stats.network = inv[0].code
-        tr.stats.location = inv[0][0][0].location_code
-        #pre_filt = (0.05, 0.06, 30.0, 35.0)
-        tr.trim(pick.time-30, pick.time+120)
+            inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+            if not inv:
+                inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                if not inv:
+                    print('Response issue - not in local directories')
+                    # starttime = UTCDateTime(origin.time-10)
+                    # endtime = UTCDateTime(origin.time+10)
+                    # client = Client()
+                    # inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
+        except:
+            print('Station metadata error')
+            #print('Getting response from DMC')
+            #client = Client()
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+            #starttime = UTCDateTime(origin.time-10)
+            #endtime = UTCDateTime(origin.time+10)
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+            pass
+            #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+    tr.stats.network = inv[0].code
+    tr.stats.location = inv[0][0][0].location_code
+    #pre_filt = (0.05, 0.06, 30.0, 35.0)
+    tr.trim(pick.time-30, pick.time+120)
+
+    print(inv)
 
 
         
@@ -1600,7 +1601,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dis
             strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
 
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-            print(strday)
+            #print(strday)
             
             if pick.phase_hint == 'S':
                 ### make Amplitude
@@ -1612,6 +1613,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dis
                         st3, inv =  select_3comp_remove_response(project_folder,dirname,pick,starttime_inv,endtime_inv)
                     else:
                         st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                    input()
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
