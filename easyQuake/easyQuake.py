@@ -2101,9 +2101,9 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
+        filename = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
-        filename2 = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+'_seiscomp'+".xml"
+        filename2 = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+'_seiscomp'+".xml"
         ev.write(project_folder+'/'+filename2, format='SC3ML')
 
 
