@@ -2098,12 +2098,14 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True, eventmode=True, dirname=dirname)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
         filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
+        filename2 = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+'_seiscomp'+".xml"
+        ev.write(project_folder+'/'+filename2, format='SC3ML')
 
 
 def simple_cat_df(cat=None, uncertainty=False):
