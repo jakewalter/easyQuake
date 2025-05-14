@@ -1370,6 +1370,9 @@ def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
     pre_filt = (0.05, 0.06, 30.0, 35.0)
     st3.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt, zero_mean=True)
     st3.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
+    starttime = min([st.stats.starttime for st in st3])
+    endtime = max([st.stats.endtime for st in st3])
+    st3 = st3.trim(starttime, endtime, pad=True, fill_value=0)
     
     epid, az, baz = gps2dist_azimuth(event.preferred_origin().latitude, event.preferred_origin().longitude, inv[0][0].latitude, inv[0][0].longitude)
     #rotate to radial/transverse
