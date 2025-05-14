@@ -1618,7 +1618,6 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dis
                         st3, inv =  select_3comp_remove_response(project_folder,dirname,pick,starttime_inv,endtime_inv)
                     else:
                         st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
-                    input()
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
