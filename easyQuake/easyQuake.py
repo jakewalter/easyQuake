@@ -2507,6 +2507,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
+        if os.path.exists(phafile):
+            os.system('rm '+phafile)        
         fcur = open(phafile,'w')
         fcur.write(str(hypo71_string))
         fcur.close()
