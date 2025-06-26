@@ -1476,6 +1476,8 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
         tr.stats.location = inv[0][0][0].location_code
         pre_filt = (0.05, 0.06, 30.0, 35.0)
         tr.trim(pick.time-30, pick.time+120)
+        # Apply tapering to avoid edge effects after windowing
+        tr.taper(max_percentage=0.05)
 
 
         #tr.demean()
@@ -1551,6 +1553,8 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
     tr.stats.location = inv[0][0][0].location_code
     #pre_filt = (0.05, 0.06, 30.0, 35.0)
     tr.trim(pick.time-30, pick.time+120)
+    # Apply tapering to avoid edge effects after windowing
+    tr.taper(max_percentage=0.05)
 
     print(inv)
 
@@ -1627,9 +1631,13 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dis
                     epi_dist = epi_dist / 1000
                     tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
                     tr1.trim(pick.time-20,pick.time+60)
+                    # Apply tapering to avoid edge effects after windowing
+                    tr1.taper(max_percentage=0.05)
                     st2 += tr1
                     st = st3.select(channel='[EHB]H[EN12]')
                     st.trim(pick.time-1,pick.time+5)
+                    # Apply tapering to avoid edge effects after windowing
+                    st.taper(max_percentage=0.1)  # Higher percentage for shorter window
                     ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
                     for idx2,ampl in enumerate(ampls):
 
@@ -3155,6 +3163,8 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                 else:
                     st_1 = st_1a
                 st_1.trim(UTCDateTime(pickP.split(' ')[-2])-60,UTCDateTime(pickP.split(' ')[-2])+60)
+                # Apply tapering to avoid edge effects after windowing
+                st_1.taper(max_percentage=0.05)
                 if int(st_1[0].stats.sampling_rate) != 100:
                     st_1.resample(100.0)
                 filename = samplename(st_1)

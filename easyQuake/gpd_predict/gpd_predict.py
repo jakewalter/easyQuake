@@ -211,6 +211,8 @@ def main():
             for tr in st:
                 if isinstance(tr.data, np.ma.masked_array):
                     tr.data = tr.data.filled()
+            st = st.taper(max_percentage=0.05, type="cosine", side="both")
+
     
     
 
