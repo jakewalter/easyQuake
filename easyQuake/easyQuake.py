@@ -2109,8 +2109,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     if len(cat)>0:
         # Add project_folder information as comments to each event
         for event in cat:
-            comment = Comment(text=f"Data source project_folder: {project_folder}")
-            comment.resource_id = ResourceIdentifier(f"smi:local/Comment/{str(event.resource_id).split('/')[-1]}_project_folder")
+            comment = Comment(text=f"{approxorigintime}")
             event.comments.append(comment)
         cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
