@@ -1476,8 +1476,6 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
         tr.stats.location = inv[0][0][0].location_code
         pre_filt = (0.05, 0.06, 30.0, 35.0)
         tr.trim(pick.time-30, pick.time+120)
-        # Apply tapering to avoid edge effects after windowing
-        tr.taper(max_percentage=0.05)
 
 
         #tr.demean()
@@ -1553,8 +1551,6 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
     tr.stats.location = inv[0][0][0].location_code
     #pre_filt = (0.05, 0.06, 30.0, 35.0)
     tr.trim(pick.time-30, pick.time+120)
-    # Apply tapering to avoid edge effects after windowing
-    tr.taper(max_percentage=0.05)
 
     print(inv)
 
@@ -1631,13 +1627,9 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dis
                     epi_dist = epi_dist / 1000
                     tr1.stats.distance = gps2dist_azimuth(event_lat, event_lon, sta_lat, sta_lon)[0]
                     tr1.trim(pick.time-20,pick.time+60)
-                    # Apply tapering to avoid edge effects after windowing
-                    tr1.taper(max_percentage=0.05)
                     st2 += tr1
                     st = st3.select(channel='[EHB]H[EN12]')
                     st.trim(pick.time-1,pick.time+5)
-                    # Apply tapering to avoid edge effects after windowing
-                    st.taper(max_percentage=0.1)  # Higher percentage for shorter window
                     ampls = (max(abs(st[0].data)), max(abs(st[1].data)))
                     for idx2,ampl in enumerate(ampls):
 
@@ -2114,7 +2106,75 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         pass
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
+
     if len(cat)>0:
+        # Quality control: Remove bad picks and events with insufficient picks
+        print(f"Starting QC on {len(cat)} events...")
+        cleaned_events = []
+        
+        for event_idx, event in enumerate(cat):
+            origin = event.preferred_origin() or event.origins[0]
+            picks_to_remove = []
+            
+            # Check each pick for timing issues
+            for pick in event.picks:
+                # Look for waveform files to get start times
+                try:
+                    # Try multiple file patterns to find waveform data
+                    file_patterns = [
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*mseed",
+                        f"{project_folder}/{dirname}/*{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*SAC",
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code[0:2]}*mseed",
+                    ]
+                    
+                    waveform_found = False
+                    trace_start_time = None
+                    
+                    for pattern in file_patterns:
+                        matching_files = glob.glob(pattern)
+                        if matching_files:
+                            try:
+                                st = read(matching_files[0], headonly=True)  # Read header only for speed
+                                trace_start_time = st[0].stats.starttime
+                                waveform_found = True
+                                break
+                            except:
+                                continue
+                    
+                    if waveform_found and trace_start_time:
+                        # Calculate pick time relative to trace start
+                        time_diff = float(pick.time - trace_start_time)
+                        
+                        # QC check: Remove picks that are negative or within 1 second of start
+                        if time_diff < 1.0:
+                            print(f"  Removing pick {pick.phase_hint} at station {pick.waveform_id.station_code}: time diff = {time_diff:.2f}s")
+                            picks_to_remove.append(pick)
+                    else:
+                        print(f"  Warning: No waveform found for pick at station {pick.waveform_id.station_code}")
+                        
+                except Exception as e:
+                    print(f"  Error checking pick at station {pick.waveform_id.station_code}: {e}")
+            
+            # Remove bad picks from the event
+            for pick in picks_to_remove:
+                event.picks.remove(pick)
+                # Also remove corresponding arrivals
+                arrivals_to_remove = [arr for arr in origin.arrivals if arr.pick_id == pick.resource_id]
+                for arr in arrivals_to_remove:
+                    origin.arrivals.remove(arr)
+            
+            # QC check: Keep events with at least 6 picks
+            if len(event.picks) >= 6:
+                cleaned_events.append(event)
+                print(f"  Event {event_idx+1}: Kept with {len(event.picks)} picks")
+            else:
+                print(f"  Event {event_idx+1}: Removed (only {len(event.picks)} picks remaining)")
+        
+        # Create new catalog with cleaned events
+        cleaned_cat = Catalog(cleaned_events)
+        print(f"QC complete: {len(cleaned_cat)} events remain (removed {len(cat) - len(cleaned_cat)} events)")
+        cat = cleaned_cat
+        
         # Add project_folder information as comments to each event
         for event in cat:
             comment = Comment(text=f"{approxorigintime}")
@@ -3163,8 +3223,6 @@ def quakeml_to_hdf5(cat=None, project_folder=None, makecsv=True):
                 else:
                     st_1 = st_1a
                 st_1.trim(UTCDateTime(pickP.split(' ')[-2])-60,UTCDateTime(pickP.split(' ')[-2])+60)
-                # Apply tapering to avoid edge effects after windowing
-                st_1.taper(max_percentage=0.05)
                 if int(st_1[0].stats.sampling_rate) != 100:
                     st_1.resample(100.0)
                 filename = samplename(st_1)
