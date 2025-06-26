@@ -1901,6 +1901,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
                 pass
             #arrivals.append(arrv)
+            
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
@@ -1912,8 +1913,17 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
                     st3 += tr2
             st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.merge(fill_value=0)
+            for tr in st3:
+                if isinstance(tr.data, np.ma.masked_array):
+                    tr.data = tr.data.filled()
             st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
-
+        
+        st1.merge(fill_value=0)
+        #print(st3)
+        for tr in st1:
+            if isinstance(tr.data, np.ma.masked_array):
+                tr.data = tr.data.filled()
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
         
@@ -2097,6 +2107,11 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
     if len(cat)>0:
+        # Add project_folder information as comments to each event
+        for event in cat:
+            comment = Comment(text=f"Data source project_folder: {project_folder}")
+            comment.resource_id = ResourceIdentifier(f"smi:local/Comment/{str(event.resource_id).split('/')[-1]}_project_folder")
+            event.comments.append(comment)
         cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
