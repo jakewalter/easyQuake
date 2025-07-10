@@ -1898,7 +1898,10 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
             try:
                 st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
             except:
-                st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                try:
+                    st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                except:
+                    pass
                 pass
             #arrivals.append(arrv)
             
