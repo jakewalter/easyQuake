@@ -1901,6 +1901,7 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
                 pass
             #arrivals.append(arrv)
+            
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
@@ -1912,8 +1913,17 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
                     st3 += tr2
             st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.merge(fill_value=0)
+            for tr in st3:
+                if isinstance(tr.data, np.ma.masked_array):
+                    tr.data = tr.data.filled()
             st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
-
+        
+        st1.merge(fill_value=0)
+        #print(st3)
+        for tr in st1:
+            if isinstance(tr.data, np.ma.masked_array):
+                tr.data = tr.data.filled()
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
         
@@ -2096,7 +2106,79 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         pass
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
+
     if len(cat)>0:
+        # Quality control: Remove bad picks and events with insufficient picks
+        print(f"Starting QC on {len(cat)} events...")
+        cleaned_events = []
+        
+        for event_idx, event in enumerate(cat):
+            origin = event.preferred_origin() or event.origins[0]
+            picks_to_remove = []
+            
+            # Check each pick for timing issues
+            for pick in event.picks:
+                # Look for waveform files to get start times
+                try:
+                    # Try multiple file patterns to find waveform data
+                    file_patterns = [
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*mseed",
+                        f"{project_folder}/{dirname}/*{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*SAC",
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code[0:2]}*mseed",
+                    ]
+                    
+                    waveform_found = False
+                    trace_start_time = None
+                    
+                    for pattern in file_patterns:
+                        matching_files = glob.glob(pattern)
+                        if matching_files:
+                            try:
+                                st = read(matching_files[0], headonly=True)  # Read header only for speed
+                                trace_start_time = st[0].stats.starttime
+                                waveform_found = True
+                                break
+                            except:
+                                continue
+                    
+                    if waveform_found and trace_start_time:
+                        # Calculate pick time relative to trace start
+                        time_diff = float(pick.time - trace_start_time)
+                        
+                        # QC check: Remove picks that are negative or within 1 second of start
+                        if time_diff < 1.0:
+                            print(f"  Removing pick {pick.phase_hint} at station {pick.waveform_id.station_code}: time diff = {time_diff:.2f}s")
+                            picks_to_remove.append(pick)
+                    else:
+                        print(f"  Warning: No waveform found for pick at station {pick.waveform_id.station_code}")
+                        
+                except Exception as e:
+                    print(f"  Error checking pick at station {pick.waveform_id.station_code}: {e}")
+            
+            # Remove bad picks from the event
+            for pick in picks_to_remove:
+                event.picks.remove(pick)
+                # Also remove corresponding arrivals
+                arrivals_to_remove = [arr for arr in origin.arrivals if arr.pick_id == pick.resource_id]
+                for arr in arrivals_to_remove:
+                    origin.arrivals.remove(arr)
+            
+            # QC check: Keep events with at least 6 picks
+            if len(event.picks) >= 6:
+                cleaned_events.append(event)
+                print(f"  Event {event_idx+1}: Kept with {len(event.picks)} picks")
+            else:
+                print(f"  Event {event_idx+1}: Removed (only {len(event.picks)} picks remaining)")
+        
+        # Create new catalog with cleaned events
+        cleaned_cat = Catalog(cleaned_events)
+        print(f"QC complete: {len(cleaned_cat)} events remain (removed {len(cat) - len(cleaned_cat)} events)")
+        cat = cleaned_cat
+        
+        # Add project_folder information as comments to each event
+        for event in cat:
+            comment = Comment(text=f"{approxorigintime}")
+            event.comments.append(comment)
         cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")

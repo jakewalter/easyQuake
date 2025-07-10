@@ -308,6 +308,7 @@ class DataReader:
         for tr in mseed:
             if isinstance(tr.data, np.ma.masked_array):
                 tr.data = tr.data.filled()
+        mseed = mseed.taper(max_percentage=0.05, type="cosine", side="both")
         mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
         if self.highpass_filter > 0:
             mseed = mseed.filter("highpass", freq=self.highpass_filter)
