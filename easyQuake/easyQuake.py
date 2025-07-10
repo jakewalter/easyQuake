@@ -1929,6 +1929,13 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 tr.data = tr.data.filled()
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
+        if not os.path.exists(project_folder+'/'+strday+'/*dailyinventory.xml'):
+            inv = Inventory()
+            dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
+            for file1 in dir1a:
+                inv1a = read_inventory(file1)
+                inv.networks.extend(inv1a)
+            inv.write(project_folder+'/'+strday+'/*dailyinventory.xml')
         
         os.system('cp '+project_folder+'/'+strday+'/*dailyinventory.xml '+dirname+'/'+str(ev.resource_id).split('/')[-1]+'_inv.xml')
         #os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
