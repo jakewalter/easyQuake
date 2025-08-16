@@ -10,21 +10,27 @@ import h5py
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from data_reader import DataReader_mseed_array, DataReader_pred
-from model import ModelConfig, UNet
-from postprocess import (
+keras = tf.keras
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import add, Activation, LSTM, Conv1D
+from tensorflow.keras.layers import MaxPooling1D, UpSampling1D, Cropping1D, SpatialDropout1D, Bidirectional, BatchNormalization
+from tensorflow.keras.models import Model
+# Modern multi-GPU support: use tf.distribute.MirroredStrategy if needed
+from tensorflow.keras.optimizers import Adam
+from obspy.signal.trigger import trigger_onset
+import matplotlib
+
+# Relative imports for phasenet submodules
+from .data_reader import DataReader_mseed_array, DataReader_pred
+from .model import ModelConfig, UNet
+from .postprocess import (
     extract_amplitude,
     extract_picks,
     save_picks,
     save_picks_json,
     save_prob_h5,
 )
-#from pymongo import MongoClient
 from tqdm import tqdm
-#from visulization import plot_waveform
-
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 #username = "root"
 #password = "quakeflow123"

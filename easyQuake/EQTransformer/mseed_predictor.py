@@ -7,13 +7,12 @@ https://github.com/smousavi05/EQTransformer/blob/master/EQTransformer/core/mseed
 Remove plotting, as not needed
 """
 
-from keras import backend as K
-from keras.models import load_model
-from keras.optimizers import Adam
 import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+from tensorflow.keras.optimizers import Adam
 import numpy as np
 import math
-import keras
 import time
 import os
 from datetime import datetime, timedelta
@@ -22,12 +21,9 @@ import pickle
 import faulthandler; faulthandler.enable()
 import obspy
 import argparse as ap
-
 from obspy.signal.trigger import trigger_onset
 from easyQuake.EQTransformer.EqT_utils import f1, SeqSelfAttention, FeedForward, LayerNormalization
 warnings.filterwarnings("ignore")
-from tensorflow.python.util import deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 
 
@@ -377,7 +373,7 @@ def _normalize(data, mode = 'max'):
 
 
 
-class PreLoadGeneratorTest(keras.utils.Sequence):
+class PreLoadGeneratorTest(tf.keras.utils.Sequence):
 
     """
 

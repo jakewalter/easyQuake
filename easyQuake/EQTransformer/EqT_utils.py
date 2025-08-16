@@ -12,20 +12,19 @@ import h5py
 import matplotlib
 matplotlib.use('agg')
 from tqdm import tqdm
-import keras
-from keras import backend as K
-from keras.layers import add, Activation, LSTM, Conv1D
-from keras.layers import MaxPooling1D, UpSampling1D, Cropping1D, SpatialDropout1D, Bidirectional, BatchNormalization 
-from keras.models import Model
-from keras.utils import multi_gpu_model
-from keras.optimizers import Adam
+import tensorflow as tf
+keras = tf.keras
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import add, Activation, LSTM, Conv1D
+from tensorflow.keras.layers import MaxPooling1D, UpSampling1D, Cropping1D, SpatialDropout1D, Bidirectional, BatchNormalization
+from tensorflow.keras.models import Model
+# Modern multi-GPU support: use tf.distribute.MirroredStrategy if needed
+from tensorflow.keras.optimizers import Adam
 from obspy.signal.trigger import trigger_onset
 import matplotlib
-from tensorflow.python.util import deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 
-class DataGenerator(keras.utils.Sequence):
+class DataGenerator(tf.keras.utils.Sequence):
     
     """ 
     
@@ -465,6 +464,7 @@ class DataGenerator(keras.utils.Sequence):
                         add_spt = additions[0];
                         add_sst = additions[1];
                         add_sd = None
+                        
                         if add_spt and add_sst: 
                             add_sd = add_sst - add_spt                     
                         
@@ -474,22 +474,22 @@ class DataGenerator(keras.utils.Sequence):
                             y1[i, add_spt:self.dim, 0] = 1                     
     
                         if add_spt and (add_spt-20 >= 0) and (add_spt+21 < self.dim):
-                            y2[i, add_spt-20:add_spt+21, 0] = self._label()
+                            y2[i, add_spt-20:add_spt+21, 0] = self.label()
                         elif add_spt and (add_spt+21 < self.dim):
-                            y2[i, 0:add_spt+add_spt+1, 0] = self._label(a=0, b=add_spt, c=2*add_spt)
+                            y2[i, 0:add_spt+add_spt+1, 0] = self.label(a=0, b=add_spt, c=2*add_spt)
                         elif add_spt and (add_spt-20 >= 0):
                             pdif = self.dim - add_spt
-                            y2[i, add_spt-pdif-1:self.dim, 0] = self._label(a=add_spt-pdif, b=add_spt, c=2*pdif)
+                            y2[i, add_spt-pdif-1:self.dim, 0] = self.label(a=add_spt-pdif, b=add_spt, c=2*pdif)
     
                         if add_sst and (add_sst-20 >= 0) and (add_sst+21 < self.dim):
-                            y3[i, add_sst-20:add_sst+21, 0] = self._label()
+                            y3[i, add_sst-20:add_sst+21, 0] = self.label()
                         elif add_sst and (add_sst+21 < self.dim):
-                            y3[i, 0:add_sst+add_sst+1, 0] = self._label(a=0, b=add_sst, c=2*add_sst)
+                            y3[i, 0:add_sst+add_sst+1, 0] = self.label(a=0, b=add_sst, c=2*add_sst)
                         elif add_sst and (add_sst-20 >= 0):
                             sdif = self.dim - add_sst
-                            y3[i, add_sst-sdif-1:self.dim, 0] = self._label(a=add_sst-sdif, b=add_sst, c=2*sdif) 
-    
-    
+                            y3[i, add_sst-sdif-1:self.dim, 0] = self.label(a=add_sst-sdif, b=add_sst, c=2*sdif) 
+
+
                 elif self.label_type  == 'box':
                     sd = None                             
                     if sst and spt:
@@ -690,9 +690,9 @@ class PreLoadGenerator(keras.utils.Sequence):
 
     def _drop_channel(self, data, snr, rate):
         'Randomly replace values of one or two components to zeros in earthquake data'
-        
+
         data = np.copy(data)
-        if np.random.uniform(0, 1) < rate and all(snr >= 10): 
+        if np.random.uniform(0, 1) < rate and all(snr >= 10.0): 
             c1 = np.random.choice([0, 1])
             c2 = np.random.choice([0, 1])
             c3 = np.random.choice([0, 1])
@@ -778,11 +778,11 @@ class PreLoadGenerator(keras.utils.Sequence):
                     sst_secondEV = spt_secondEV + s_p
                 if spt_secondEV and sst_secondEV:                                                                     
                     additions = [spt_secondEV, sst_secondEV] 
-                    data = added
-                 
-        return data, additions    
-    
-    
+                    data = added                
+        return data, additions 
+
+
+
     def _shift_event(self, data, addp, adds, coda_end, snr, rate): 
         'Randomly rotate the array to shift the event location'
         
@@ -812,9 +812,7 @@ class PreLoadGenerator(keras.utils.Sequence):
                 addp = addp2;
                 adds = adds2;
                 coda_end= coda_end2;                                      
-        return data, addp, adds, coda_end      
-  
-    
+        return data, addp, adds, coda_end   
     
     def _pre_emphasis(self, data, pre_emphasis=0.97):
         'apply the pre_emphasis'
@@ -990,7 +988,8 @@ class PreLoadGenerator(keras.utils.Sequence):
                         elif add_sst and (add_sst-20 >= 0):
                             sdif = self.dim - add_sst
                             y3[i, add_sst-sdif-1:self.dim, 0] = self.label(a=add_sst-sdif, b=add_sst, c=2*sdif) 
-    
+
+
                 elif self.label_type  == 'box':
                     sd = None
                     if sst and spt:
@@ -1023,369 +1022,6 @@ class PreLoadGenerator(keras.utils.Sequence):
                             y3[i, add_sst-20:add_sst+20, 0] = 1                 
                                                               
         return X.astype('float32'), y1.astype('float32'), y2.astype('float32'), y3.astype('float32')
-
-
-
-def data_reader( list_IDs, 
-                 file_name, 
-                 dim=6000, 
-                 n_channels=3, 
-                 norm_mode='max',
-                 augmentation=False, 
-                 add_event_r=None,
-                 add_gap_r=None, 
-                 shift_event_r=None,                                  
-                 add_noise_r=None, 
-                 drop_channe_r=None, 
-                 scale_amplitude_r=None, 
-                 pre_emphasis=True):   
-    
-    """ 
-    
-    For pre-processing and loading of data into memory. 
-    
-    Parameters
-    ----------
-    list_IDsx: str
-        List of trace names.
-            
-    file_name: str
-        Path to the input hdf5 datasets.
-            
-    dim: int, default=6000
-        Dimension of input traces, in sample. 
-           
-    n_channels: int, default=3
-        Number of channels.
-            
-    norm_mode: str, default=max
-        The mode of normalization, 'max' or 'std'.
-            
-    augmentation: bool, default=True
-        If True, half of each batch will be augmented version of the other half.
-            
-    add_event_r: {float, None}, default=None
-        Chance for randomly adding a second event into the waveform.
-            
-    shift_event_r: {float, None}, default=0.9
-        Rate of augmentation for randomly shifting the event within a trace. 
-            
-    add_noise_r: {float, None}, default=None
-        Chance for randomly adding Gaussian noise into the waveform.
-            
-    drop_channe_r: {float, None}, default=None
-        Chance for randomly dropping some of the channels.
-            
-    scale_amplitude_r: {float, None}, default=None
-        Chance for randomly amplifying the waveform amplitude.
-            
-    pre_emphasis: bool, default=False
-        If True, waveforms will be pre emphasized. 
-
-    Returns
-    --------        
-    Batches of two dictionaries: {'input': X}: pre-processed waveform as input {'detector': y1, 'picker_P': y2, 'picker_S': y3}: outputs including three separate numpy arrays as labels for detection, P, and S respectively.
-            
-    Note
-    -----
-    Label type is fixed to box.
-    
-        
-    """  
-    
-    def _normalize( data, mode = 'max'):
-        'Normalize waveforms in each batch'
-          
-        data -= np.mean(data, axis=0, keepdims=True)
-        if mode == 'max':
-            max_data = np.max(data, axis=0, keepdims=True)
-            assert(max_data.shape[-1] == data.shape[-1])
-            max_data[max_data == 0] = 1
-            data /= max_data              
-
-        elif mode == 'std':               
-            std_data = np.std(data, axis=0, keepdims=True)
-            assert(std_data.shape[-1] == data.shape[-1])
-            std_data[std_data == 0] = 1
-            data /= std_data
-        return data
-    
-    def _scale_amplitude( data, rate):
-        'Scale amplitude or waveforms'
-        
-        tmp = np.random.uniform(0, 1)
-        if tmp < rate:
-            data *= np.random.uniform(1, 3)
-        elif tmp < 2*rate:
-            data /= np.random.uniform(1, 3)
-        return data
-
-    def _drop_channel( data, snr, rate):
-        'Randomly replace values of one or two components to zeros in earthquake data'
-        
-        data = np.copy(data)
-        if np.random.uniform(0, 1) < rate and all(snr >= 10): 
-            c1 = np.random.choice([0, 1])
-            c2 = np.random.choice([0, 1])
-            c3 = np.random.choice([0, 1])
-            if c1 + c2 + c3 > 0:
-                data[..., np.array([c1, c2, c3]) == 0] = 0
-        return data
-
-    def _drop_channel_noise(data, rate):
-        'Randomly replace values of one or two components to zeros in noise data'
-        
-        data = np.copy(data)
-        if np.random.uniform(0, 1) < rate: 
-            c1 = np.random.choice([0, 1])
-            c2 = np.random.choice([0, 1])
-            c3 = np.random.choice([0, 1])
-            if c1 + c2 + c3 > 0:
-                data[..., np.array([c1, c2, c3]) == 0] = 0
-        return data
-
-    def _add_gaps(data, rate): 
-        'Randomly add gaps (zeros) of different sizes into waveforms'
-        
-        data = np.copy(data)
-        gap_start = np.random.randint(0, 4000)
-        gap_end = np.random.randint(gap_start, 5500)
-        if np.random.uniform(0, 1) < rate: 
-            data[gap_start:gap_end,:] = 0           
-        return data  
-    
-    def _add_noise(data, snr, rate):
-        'Randomly add Gaussian noie with a random SNR into waveforms'
-        
-        data_noisy = np.empty((data.shape))
-        if np.random.uniform(0, 1) < rate and all(snr >= 10.0): 
-            data_noisy = np.empty((data.shape))
-            data_noisy[:, 0] = data[:,0] + np.random.normal(0, np.random.uniform(0.01, 0.15)*max(data[:,0]), data.shape[0])
-            data_noisy[:, 1] = data[:,1] + np.random.normal(0, np.random.uniform(0.01, 0.15)*max(data[:,1]), data.shape[0])
-            data_noisy[:, 2] = data[:,2] + np.random.normal(0, np.random.uniform(0.01, 0.15)*max(data[:,2]), data.shape[0])   
-        else:
-            data_noisy = data
-        return data_noisy    
-         
-    def _adjust_amplitude_for_multichannels(data):
-        'Adjust the amplitude of multichaneel data'
-        
-        tmp = np.max(np.abs(data), axis=0, keepdims=True)
-        assert(tmp.shape[-1] == data.shape[-1])
-        if np.count_nonzero(tmp) > 0:
-          data *= data.shape[-1] / np.count_nonzero(tmp)
-        return data
-
-    def _label(a=0, b=20, c=40): 
-        'Used for triangolar labeling'
-        
-        z = np.linspace(a, c, num = 2*(b-a)+1)
-        y = np.zeros(z.shape)
-        y[z <= a] = 0
-        y[z >= c] = 0
-        first_half = np.logical_and(a < z, z <= b)
-        y[first_half] = (z[first_half]-a) / (b-a)
-        second_half = np.logical_and(b < z, z < c)
-        y[second_half] = (c-z[second_half]) / (c-b)
-        return y
-    
-    def _add_event(data, addp, adds, coda_end, snr, rate): 
-        'Add a scaled version of the event into the empty part of the trace'
-        
-        added = np.copy(data)
-        additions = spt_secondEV = sst_secondEV = None
-        if addp and adds:
-            s_p = adds - addp
-            if np.random.uniform(0, 1) < rate and all(snr >= 10.0) and (data.shape[0]-s_p-21-coda_end) > 20: 
-                secondEV_strt = np.random.randint(coda_end, data.shape[0]-s_p-21)
-                scaleAM = 1/np.random.randint(1, 10)
-                space = data.shape[0]-secondEV_strt  
-                added[secondEV_strt:secondEV_strt+space, 0] += data[addp:addp+space, 0]*scaleAM
-                added[secondEV_strt:secondEV_strt+space, 1] += data[addp:addp+space, 1]*scaleAM 
-                added[secondEV_strt:secondEV_strt+space, 2] += data[addp:addp+space, 2]*scaleAM          
-                spt_secondEV = secondEV_strt   
-                if  spt_secondEV + s_p + 21 <= data.shape[0]:
-                    sst_secondEV = spt_secondEV + s_p
-                if spt_secondEV and sst_secondEV:                                                                     
-                    additions = [spt_secondEV, sst_secondEV] 
-                    data = added                
-        return data, additions 
-
-
-
-    def _shift_event(data, addp, adds, coda_end, snr, rate): 
-        'Randomly rotate the array to shift the event location'
-        
-        org_len = len(data)
-        data2 = np.copy(data)
-        addp2 = adds2 = coda_end2 = None;
-        if np.random.uniform(0, 1) < rate:             
-            nrotate = int(np.random.uniform(1, int(org_len - coda_end)))
-            data2[:, 0] = list(data[:, 0])[-nrotate:] + list(data[:, 0])[:-nrotate]
-            data2[:, 1] = list(data[:, 1])[-nrotate:] + list(data[:, 1])[:-nrotate]
-            data2[:, 2] = list(data[:, 2])[-nrotate:] + list(data[:, 2])[:-nrotate]
-                    
-            if addp+nrotate >= 0 and addp+nrotate < org_len:
-                addp2 = addp+nrotate;
-            else:
-                addp2 = None;
-            if adds+nrotate >= 0 and adds+nrotate < org_len:               
-                adds2 = adds+nrotate;
-            else:
-                adds2 = None;                   
-            if coda_end+nrotate < org_len:                              
-                coda_end2 = coda_end+nrotate 
-            else:
-                coda_end2 = org_len                 
-            if addp2 and adds2:
-                data = data2;
-                addp = addp2;
-                adds = adds2;
-                coda_end= coda_end2;                                      
-        return data, addp, adds, coda_end   
-    
-    def _pre_emphasis( data, pre_emphasis=0.97):
-        'apply the pre_emphasis'
-        
-        for ch in range(n_channels): 
-            bpf = data[:, ch]  
-            data[:, ch] = np.append(bpf[0], bpf[1:] - pre_emphasis * bpf[:-1])
-        return data
-                    
-    fl = h5py.File(file_name, 'r')
-
-    if augmentation:
-        X = np.zeros((2*len(list_IDs), dim, n_channels))
-        y1 = np.zeros((2*len(list_IDs), dim, 1))
-        y2 = np.zeros((2*len(list_IDs), dim, 1))
-        y3 = np.zeros((2*len(list_IDs), dim, 1))
-    else:
-        X = np.zeros((len(list_IDs), dim, n_channels))
-        y1 = np.zeros((len(list_IDs), dim, 1))
-        y2 = np.zeros((len(list_IDs), dim, 1))
-        y3 = np.zeros((len(list_IDs), dim, 1))     
-
-    # Generate data
-    pbar = tqdm(total=len(list_IDs)) 
-    for i, ID in enumerate(list_IDs):
-        pbar.update()
-
-        additions = None
-        dataset = fl.get('data/'+str(ID))
-        
-        if ID.split('_')[-1] == 'EV':            
-            data = np.array(dataset)                    
-            spt = int(dataset.attrs['p_arrival_sample']);
-            sst = int(dataset.attrs['s_arrival_sample']);
-            coda_end = int(dataset.attrs['coda_end_sample']);
-            snr = dataset.attrs['snr_db'];
-                    
-        elif ID.split('_')[-1] == 'NO':
-            data = np.array(dataset)
-           
-        if augmentation:                 
-            if dataset.attrs['trace_category'] == 'earthquake_local':                   
-                data, spt, sst, coda_end = _shift_event(data, spt, sst, coda_end, snr, shift_event_r/2); 
-            if norm_mode: 
-                data1 = _normalize(data, norm_mode)   
-                          
-            if dataset.attrs['trace_category'] == 'earthquake_local':
-                if shift_event_r and spt:
-                    data, spt, sst, coda_end = _shift_event(data, spt, sst, coda_end, snr, shift_event_r);  
-                          
-                if add_event_r:
-                    data, additions = _add_event(data, spt, sst, coda_end, snr, add_event_r); 
-                    
-                if drop_channe_r:    
-                    data = _drop_channel(data, snr, drop_channe_r);
-                  #  data = _adjust_amplitude_for_multichannels(data); 
-                          
-                if scale_amplitude_r:
-                    data = _scale_amplitude(data, scale_amplitude_r); 
-                    
-                if pre_emphasis:  
-                    data = _pre_emphasis(data);
-
-                if add_noise_r:
-                    data = _add_noise(data, snr, add_noise_r);
-                    
-                if norm_mode:    
-                    data2 = _normalize(data, norm_mode); 
-                     
-                            
-            if dataset.attrs['trace_category'] == 'noise':
-                if drop_channe_r:    
-                    data = _drop_channel_noise(data, drop_channe_r);
-                if add_gap_r:    
-                    data = _add_gaps(data, add_gap_r)                    
-                if norm_mode:                    
-                    data2 = _normalize(data, norm_mode) 
-                    
-            X[i, :, :] = data1 
-            X[len(list_IDs)+i, :, :] = data2                                      
-
-            if dataset.attrs['trace_category'] == 'earthquake_local': 
-
-                if spt and (spt-20 >= 0) and (spt+21 < dim):
-                    y2[i, spt-20:spt+21, 0] = _label()
-                    y2[len(list_IDs)+i, spt-20:spt+21, 0] = _label()                   
-                elif spt and (spt+21 < dim):
-                    y2[i, 0:spt+spt+1, 0] = _label(a=0, b=spt, c=2*spt)
-                    y2[len(list_IDs)+i, 0:spt+spt+1, 0] = _label(a=0, b=spt, c=2*spt)                   
-                elif spt and (spt-20 >= 0):
-                    pdif = dim - spt
-                    y2[i, spt-pdif-1:dim, 0] = _label(a=spt-pdif, b=spt, c=2*pdif)
-                    y2[len(list_IDs)+i, spt-pdif-1:dim, 0] = _label(a=spt-pdif, b=spt, c=2*pdif)
-         
-                if sst and (sst-20 >= 0) and (sst+21 < dim):
-                    y3[i, sst-20:sst+21, 0] = _label()
-                    y3[len(list_IDs)+i, sst-20:sst+21, 0] = _label()                   
-                elif sst and (sst+21 < dim):
-                    y3[i, 0:sst+sst+1, 0] = _label(a=0, b=sst, c=2*sst)
-                    y3[len(list_IDs)+i, 0:sst+sst+1, 0] = _label(a=0, b=sst, c=2*sst)
-                elif sst and (sst-20 >= 0):
-                    sdif = dim - sst
-                    y3[i, sst-sdif-1:dim, 0] = _label(a=sst-sdif, b=sst, c=2*sdif)    
-                    y3[len(list_IDs)+i, sst-sdif-1:dim, 0] = _label(a=sst-sdif, b=sst, c=2*sdif)    
-                     
-                sd = sst - spt      
-                if sst+int(0.4*sd) <= dim: 
-                    y1[i, spt:int(sst+(0.4*sd)), 0] = 1  
-                    y1[len(list_IDs)+i, spt:int(sst+(0.4*sd)), 0] = 1                              
-                else:
-                    y1[i, spt:dim, 0] = 1
-                    y1[len(list_IDs)+i, spt:dim, 0] = 1  
-                    
-                if additions: 
-                    add_spt = additions[0];
-                    print(add_spt)
-                    add_sst = additions[1];
-                    add_sd = add_sst - add_spt 
-                    
-                    if add_spt and (add_spt-20 >= 0) and (add_spt+21 < dim):
-                        y2[len(list_IDs)+i, add_spt-20:add_spt+21, 0] = _label()  
-                    elif add_spt and (add_spt+21 < dim):
-                        y2[len(list_IDs)+i, 0:add_spt+add_spt+1, 0] = _label(a=0, b=add_spt, c=2*add_spt)
-                    elif add_spt and (add_spt-20 >= 0):
-                        pdif = dim - add_spt
-                        y2[len(list_IDs)+i, add_spt-pdif-1:dim, 0] = _label(a=add_spt-pdif, b=add_spt, c=2*pdif) 
-                        
-                    if add_sst and (add_sst-20 >= 0) and (add_sst+21 < dim):
-                        y3[len(list_IDs)+i, add_sst-20:add_sst+21, 0] = _label()
-                    elif add_sst and (add_sst+21 < dim):
-                        y3[len(list_IDs)+i, 0:add_sst+add_sst+1, 0] = _label(a=0, b=add_sst, c=2*add_sst)
-                    elif add_sst and (add_sst-20 >= 0):
-                        sdif = dim - add_sst
-                        y3[len(list_IDs)+i, add_sst-sdif-1:dim, 0] = _label(a=add_sst-sdif, b=add_sst, c=2*sdif) 
-    
-                    if add_sst+int(0.4*add_sd) <= dim: 
-                        y1[len(list_IDs)+i, add_spt:int(add_sst+(0.4*add_sd)), 0] = 1        
-                    else:
-                        y1[len(list_IDs)+i, add_spt:dim, 0] = 1
-
-    fl.close()                           
-    return X.astype('float32'), y1.astype('float32'), y2.astype('float32'), y3.astype('float32')
-
 
 
 
@@ -1593,6 +1229,7 @@ class DataGeneratorTest(keras.utils.Sequence):
         fl.close() 
                            
         return X
+
 
 
 
@@ -2836,18 +2473,21 @@ class cred2():
         
         S = Conv1D(1, 11, padding = self.padding, activation='sigmoid', name='picker_S')(decoder_S)
         
-
+        # Modern multi-GPU support using tf.distribute.MirroredStrategy
         if self.multi_gpu == True:
-            parallel_model = Model(inputs=inp, outputs=[d, P, S])
-            model = multi_gpu_model(parallel_model, gpus=self.gpu_number)
+            strategy = tf.distribute.MirroredStrategy()
+            with strategy.scope():
+                parallel_model = Model(inputs=inp, outputs=[d, P, S])
+                model = parallel_model
+                model.compile(loss=self.loss_types, loss_weights=self.loss_weights,    
+                    optimizer=Adam(lr=_lr_schedule(0)), metrics=[f1])
         else:
             model = Model(inputs=inp, outputs=[d, P, S])
-
-        model.compile(loss=self.loss_types, loss_weights=self.loss_weights,    
-            optimizer=Adam(lr=_lr_schedule(0)), metrics=[f1])
+            model.compile(loss=self.loss_types, loss_weights=self.loss_weights,    
+                optimizer=Adam(lr=_lr_schedule(0)), metrics=[f1])
 
         return model
 
-        
+
 
 

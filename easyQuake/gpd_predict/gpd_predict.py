@@ -12,26 +12,16 @@
 
 import argparse as ap
 import os
-
 import numpy as np
 import obspy.core as oc
-from keras.models import model_from_json
+from tensorflow.keras.models import model_from_json
 import tensorflow as tf
 import pylab as plt
-#mpl.rcParams['pdf.fonttype'] = 42
-#physical_devices = tf.config.list_physical_devices('GPU')
 try:
-  physical_devices = tf.config.experimental.list_physical_devices('GPU')
-  #tf.config.experimental.set_memory_growth(physical_devices[0], True)
-  [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
-except:
-  tf_config=tf.ConfigProto()
-  tf_config.gpu_options.allow_growth=True
-  sess = tf.Session(config=tf_config)
-#  physical_devices = tf.config.experimental.list_physical_devices('GPU')
-#  tf.config.experimental.set_memory_growth(physical_devices[0], True)
-  # Invalid device or cannot modify virtual devices once initialized.
-  pass
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
+except Exception:
+    pass
 #####################
 # Hyperparameters
 min_proba = 0.994 # Minimum softmax probability for phase detection
@@ -167,15 +157,9 @@ def main():
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
 
-    # load json and create model
-    pathjson = args.F+'/model_pol.json'
-    json_file = open(pathjson, 'r')
-    loaded_model_json = json_file.read()
-    json_file.close()
-    model = model_from_json(loaded_model_json, custom_objects={'tf':tf})
-
-    # load weights into new model
-    model.load_weights(args.F+"/model_pol_best.hdf5")
+    # load model using new Keras format
+    import keras
+    model = keras.models.load_model(args.F + '/model_pol_new.keras')
     print("Loaded model from disk")
 
     if n_gpu > 1:

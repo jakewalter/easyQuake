@@ -14,16 +14,19 @@ setuptools.setup(
     url="https://github.com/jakewalter/easyQuake",
     packages=setuptools.find_packages(),
     install_requires=[
-        'keras',
         'obspy',
         'pandas',
-        'tensorflow',
+        'tensorflow>=2.12',  # Use modern TensorFlow
         'tqdm',
-	    'protobuf==3.20.*',
+        'protobuf>=3.20',
         'torch',
         'torchmetrics',
         'torchvision',
     ],
+    tests_require=[
+        'pytest',
+    ],
+    test_suite='pytest',
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",

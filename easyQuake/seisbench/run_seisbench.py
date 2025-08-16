@@ -301,6 +301,7 @@ def main():
             traceback.print_exc()
             pass
     ofile.close()
+    print('Seisbench detection finished')
     
     
 

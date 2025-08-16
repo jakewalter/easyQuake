@@ -1,16 +1,10 @@
 import tensorflow as tf
-
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import logging
 import os
-
 import numpy as np
 import pandas as pd
-
 pd.options.mode.chained_assignment = None
 import json
-
 # import s3fs
 import h5py
 import obspy

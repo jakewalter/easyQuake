@@ -948,7 +948,7 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
                 #(row[0])
                 df4 = pd.DataFrame()
                 df4 = pd.DataFrame({'station': row[1], 'net':row[2],'latitude':row[4],'longitude':row[5],'elevation':row[6]}, index=[0])
-                stas1=stas1.append(df4)
+                stas1=pd.concat([stas1,df4])
         conn1.close()
     stas1 = stas1.drop_duplicates()
     stas1 = stas1.reset_index(drop=True)
@@ -1013,7 +1013,7 @@ def select_all_associated(conn, f0):
         #(row[0])
         df4 = pd.DataFrame()
         df4 = pd.DataFrame({'Time': row[1], 'Lat':row[3],'Long':row[4]}, index=[0])
-        dfs1=dfs1.append(df4)
+        dfs1=pd.concat([dfs1,df4])
         origin = Origin()
         origin.latitude = row[3]
         origin.longitude = row[4]
@@ -1199,7 +1199,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             for stas1 in stalistall:
                 if stas1 not in stalistall1:
                     stalistall1.append(stas1)
-            dfs2 = dfs2.append(dfs1)
+            dfs2 = pd.concat([dfs2,dfs1])
 #            except:
 #                pass
         conn.close()
