@@ -1,6 +1,17 @@
 import os
 import argparse
-import tensorflow as tf
+import sys
+import traceback
+
+# Try to import TensorFlow; fail gracefully with instructions if not present.
+try:
+    import tensorflow as tf
+    TF_AVAILABLE = True
+    TF_IMPORT_ERR = None
+except Exception as e:
+    tf = None
+    TF_AVAILABLE = False
+    TF_IMPORT_ERR = e
 
 # Compatibility shim for legacy Keras backend functions used in old model configs
 def _ensure_legacy_keras_backend_functions():
@@ -41,8 +52,8 @@ def _ensure_legacy_keras_backend_functions():
     except Exception:
         pass
 
-# Ensure shim is present when module is imported
-_ensure_legacy_keras_backend_functions()
+# Ensure shim is present when TensorFlow is available
+# (we call this later in main after checking TF availability)
 
 def update_keras_model_from_single_file(old_model_path, new_model_path):
     """
@@ -59,21 +70,63 @@ def update_keras_model_from_single_file(old_model_path, new_model_path):
 
     print(f"\nLoading model from: '{old_model_path}'")
     try:
-        # Load the model from the old path.
-        # Keras can automatically handle models saved in the .h5 format.
+        print('file size:', os.path.getsize(old_model_path))
+    except Exception:
+        pass
+    # Try tf.keras load first
+    try:
+        print('Attempting to load with tf.keras...')
         model = tf.keras.models.load_model(old_model_path)
-        print("Model loaded successfully.")
-
-        # Save the model to the new path. By using the .keras extension,
-        # you are saving it in the new, recommended format.
+        print("Model loaded successfully with tf.keras.")
         print(f"Saving updated model to: '{new_model_path}'")
         model.save(new_model_path)
         print("Model successfully updated and saved in the new format.")
+        try:
+            print('post-save exists:', os.path.exists(new_model_path), 'size:', os.path.getsize(new_model_path) if os.path.exists(new_model_path) else 'N/A')
+        except Exception:
+            pass
         return True
-
-    except Exception as e:
-        print(f"An error occurred during the model update process: {e}")
-        return False
+    except Exception as e_tf:
+        print("tf.keras failed to load H5:")
+        traceback.print_exc()
+        # Try standalone keras (legacy) if available
+        try:
+            import keras
+            print("Attempting to load with standalone keras...")
+            # dump h5 structure for debugging
+            try:
+                import h5py
+                with h5py.File(old_model_path,'r') as hf:
+                    print('HDF5 top keys:', list(hf.keys()))
+            except Exception:
+                pass
+            kmodel = keras.models.load_model(old_model_path)
+            print("Standalone Keras loaded model; re-saving through tf.keras...")
+            import tempfile
+            tmp_h5 = tempfile.NamedTemporaryFile(suffix='.h5', delete=False)
+            tmp_h5_path = tmp_h5.name
+            tmp_h5.close()
+            kmodel.save(tmp_h5_path)
+            print('tmp h5 saved to', tmp_h5_path, 'size', os.path.getsize(tmp_h5_path))
+            try:
+                model = tf.keras.models.load_model(tmp_h5_path)
+                model.save(new_model_path)
+                print('Saved new model to', new_model_path)
+                try:
+                    print('post-save exists:', os.path.exists(new_model_path), 'size:', os.path.getsize(new_model_path) if os.path.exists(new_model_path) else 'N/A')
+                except Exception:
+                    pass
+                return True
+            finally:
+                try:
+                    os.remove(tmp_h5_path)
+                except Exception:
+                    pass
+        except Exception as e_ks:
+            print('Standalone Keras also failed:')
+            traceback.print_exc()
+            print("Conversion failed. Consider converting in a Keras 2.x environment using the helper script.")
+            return False
 
 def update_keras_model_from_json(json_path, weights_path, new_model_path):
     """
@@ -96,6 +149,7 @@ def update_keras_model_from_json(json_path, weights_path, new_model_path):
     try:
         with open(json_path, 'r') as json_file:
             loaded_model_json = json_file.read()
+        print('Loaded JSON length:', len(loaded_model_json))
         
         # Try different approaches to load the model
         custom_objects = {'tf': tf}  # For Lambda layers that use tf
@@ -129,8 +183,60 @@ def update_keras_model_from_json(json_path, weights_path, new_model_path):
                     return False
 
         print(f"Loading model weights from: '{weights_path}'")
-        model.load_weights(weights_path)
-        print("Model weights loaded successfully.")
+        try:
+            print('Attempting to load weights directly...')
+            model.load_weights(weights_path)
+            print("Model weights loaded successfully.")
+        except Exception as e_w:
+            print('Direct model.load_weights failed:')
+            traceback.print_exc()
+            try:
+                print('Attempting load_weights(by_name=True)')
+                model.load_weights(weights_path, by_name=True)
+                print("Model weights loaded with by_name=True")
+            except Exception as e_by:
+                print('load_weights by_name also failed:')
+                traceback.print_exc()
+                # dump weight h5 contents for debugging
+                try:
+                    import h5py
+                    with h5py.File(weights_path,'r') as wf:
+                        print('weights HDF5 top keys:', list(wf.keys()))
+                except Exception:
+                    pass
+                # Try standalone keras path: build in keras, save temp h5, load with tf.keras
+                try:
+                    import keras
+                    from keras.models import model_from_json as k_model_from_json
+                    print('Attempting JSON+weights load using standalone keras...')
+                    with open(json_path,'r') as jf:
+                        jm = jf.read()
+                    kmodel = k_model_from_json(jm)
+                    kmodel.load_weights(weights_path)
+                    import tempfile
+                    tmp_h5 = tempfile.NamedTemporaryFile(suffix='.h5', delete=False)
+                    tmp_h5_path = tmp_h5.name
+                    tmp_h5.close()
+                    kmodel.save(tmp_h5_path)
+                    print('Standalone keras temporary h5 saved to', tmp_h5_path)
+                    try:
+                        model = tf.keras.models.load_model(tmp_h5_path)
+                        model.save(new_model_path)
+                        print('Converted JSON+weights via standalone keras and saved to new format.')
+                        try:
+                            print('post-save exists:', os.path.exists(new_model_path), 'size:', os.path.getsize(new_model_path) if os.path.exists(new_model_path) else 'N/A')
+                        except Exception:
+                            pass
+                        return True
+                    finally:
+                        try:
+                            os.remove(tmp_h5_path)
+                        except Exception:
+                            pass
+                except Exception as e_final:
+                    print('Standalone keras JSON+weights conversion failed:')
+                    traceback.print_exc()
+                    return False
 
         # Use a more generic compilation that's likely to work
         try:
@@ -245,6 +351,23 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if not TF_AVAILABLE:
+        print("\nTensorFlow is not importable in this environment.")
+        print("Import error:", TF_IMPORT_ERR)
+        print("\nTo run this conversion script you need TensorFlow available (typically in a conda env or virtualenv).")
+        print("Suggested quick setup (conda):")
+        print("  conda create -n keras2 python=3.8")
+        print("  conda activate keras2")
+        print("  pip install keras==2.3.1 tensorflow==1.15")
+        print("Then run the included helper `keras2_converter.py` in that env to produce a .h5, and re-run this script in your modern env to create a .keras file.")
+        print("\nAlternatively, if you already have a legacy .h5 file, run this script in an environment with TensorFlow available.")
+        # still create helper script for user's convenience
+        create_keras2_helper_script()
+        sys.exit(1)
+
+    # If TF is available, ensure legacy shim functions are present
+    _ensure_legacy_keras_backend_functions()
+
     success = False
     if args.mode == 'h5':
         if not args.h5_file:
@@ -263,14 +386,6 @@ if __name__ == "__main__":
 
     if success:
         verify_model(args.output_file)
-
-    # --- USAGE EXAMPLES ---
-    #
-    # To convert a single .h5 file:
-    # python your_script_name.py --mode h5 --h5_file /path/to/my_model.h5 --output_file /path/to/new_model.keras
-    #
-    # To convert from a .json and .h5 weights file:
-    # python convert_old_model_to_new.py --mode json --json_file model_pol.json --weights_file model_pol_best.hdf5 --output_file model_pol_best.keras
 
     # Create helper script for Keras 2.x environment
     create_keras2_helper_script()

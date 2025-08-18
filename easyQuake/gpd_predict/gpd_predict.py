@@ -17,6 +17,7 @@ import obspy.core as oc
 from tensorflow.keras.models import model_from_json
 import tensorflow as tf
 import pylab as plt
+import sys
 try:
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
@@ -157,10 +158,30 @@ def main():
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
 
-    # load model using new Keras format
+    # load model using new Keras format, with fallback to legacy HDF5 if needed
     import keras
-    model = keras.models.load_model(args.F + '/model_pol_new.keras')
-    print("Loaded model from disk")
+    model = None
+    base_dir = args.F if args.F else os.path.dirname(__file__)
+    keras_path = os.path.join(base_dir, 'model_pol_new.keras')
+    h5_path = os.path.join(base_dir, 'model_pol_legacy.h5')
+
+    # Try .keras first
+    try:
+        model = keras.models.load_model(keras_path)
+        print(f"Loaded model from: {keras_path}")
+    except Exception as e_keras:
+        print(f"Failed to load .keras model ({keras_path}): {e_keras}")
+        # Try legacy HDF5 fallback
+        if os.path.isfile(h5_path):
+            try:
+                model = keras.models.load_model(h5_path)
+                print(f"Loaded legacy HDF5 model from: {h5_path}")
+            except Exception as e_h5:
+                print(f"Failed to load fallback HDF5 model ({h5_path}): {e_h5}")
+                raise
+        else:
+            # re-raise original error to make the failure visible
+            raise
 
     if n_gpu > 1:
         from keras.utils import multi_gpu_model
