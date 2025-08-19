@@ -1039,7 +1039,7 @@ def select_all_associated(conn, f0):
         origin.depth = 5000
         origin.time = row[1]
         origin.arrivals = []
-        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]
+        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]+row[1][11:13]+row[1][14:16]+row[1][17:19]
         cur1.execute('SELECT * FROM picks_modified WHERE assoc_id IN (?)',[int(row[0])])
         picks1a = sorted(cur1.fetchall())
         stas = []
