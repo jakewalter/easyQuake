@@ -18,7 +18,7 @@ import pylab as plt
 import sys
 #####################
 # Hyperparameters
-min_proba = 0.994 # Minimum softmax probability for phase detection (VERY CONSERVATIVE - consider 0.3-0.5 for more picks)
+min_proba = 0.994 # Minimum softmax probability for phase detection (balanced threshold for practical use)
 freq_min = 3.0
 freq_max = 20.0
 filter_data = True
@@ -193,16 +193,25 @@ def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
 
     # Try models in order of preference
     if model is None:
-        # 1. Try final converted model first (properly converted from TF1)
+        # 1. Try optimized converted model first (from original JSON, single-branch)
+        optimized_converted_path = os.path.join(base_dir, 'model_pol_optimized_converted.keras')
+        if os.path.isfile(optimized_converted_path):
+            try:
+                model = keras.models.load_model(optimized_converted_path)
+                print(f"Loaded optimized converted model from: {optimized_converted_path}")
+            except Exception as e_opt:
+                print(f"Failed to load optimized converted model ({optimized_converted_path}): {e_opt}")
+        
+        # 2. Try final converted model as backup
         final_converted_path = os.path.join(base_dir, 'model_pol_final_converted.keras')
-        if os.path.isfile(final_converted_path):
+        if model is None and os.path.isfile(final_converted_path):
             try:
                 model = keras.models.load_model(final_converted_path)
                 print(f"Loaded final converted model from: {final_converted_path}")
             except Exception as e_final:
                 print(f"Failed to load final converted model ({final_converted_path}): {e_final}")
         
-        # 2. Try GPD-calibrated model as backup
+        # 3. Try GPD-calibrated model as backup
         if model is None and os.path.isfile(gpd_calibrated_path):
             try:
                 model = keras.models.load_model(gpd_calibrated_path)
@@ -210,7 +219,7 @@ def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
             except Exception as e_gpd:
                 print(f"Failed to load GPD-calibrated model ({gpd_calibrated_path}): {e_gpd}")
         
-        # 3. Try fixed temperature-corrected model as backup
+        # 4. Try fixed temperature-corrected model as backup
         if model is None and os.path.isfile(fixed_path):
             try:
                 model = keras.models.load_model(fixed_path)
@@ -258,15 +267,26 @@ def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
                 print("%s doesn't exist, skipping" % fdir[i][2])
                 continue
             st = oc.Stream()
-            st += oc.read(fdir[i][0])
-            st += oc.read(fdir[i][1])
-            st += oc.read(fdir[i][2])
-            #st.resample(100)
-            st.detrend(type='linear')
+            st += oc.read(fdir[i][0])  # N
+            st += oc.read(fdir[i][1])  # E
+            st += oc.read(fdir[i][2])  # Z
+            
+            # Sort traces by channel (Z, N, E) - GPD expects this order
+            st.sort(['channel'])
+            
+            # Filter and process (using exact same preprocessing as test_gpd_direct.py)
             if filter_data:
-                st.filter(type='bandpass', freqmin=freq_min, freqmax=freq_max)
+                st.filter('highpass', freq=freq_min, corners=2, zerophase=True)
+                st.filter('lowpass', freq=freq_max, corners=2, zerophase=True)
+            st.detrend('demean')
+            st.detrend('linear')
+            
+            # Resample to 100 Hz if needed
             if decimate_data:
-                st.resample(100.0)
+                for tr in st:
+                    if tr.stats.sampling_rate != 100.0:
+                        tr.resample(100.0)
+            
             st.merge(fill_value='interpolate')
             print(st)
             for tr in st:

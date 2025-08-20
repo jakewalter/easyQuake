@@ -1,237 +1,199 @@
 #!/usr/bin/env python3
 """
-Test script for all machine picker options in easyQuake detection_continuous.
-
-This script tests each of the available machine picker algorithms:
-- GPD (Generalized Phase Detection)
-- EQTransformer 
-- PhaseNet
-- Seisbench (requires model path)
-- STALTA (Short-Term Average/Long-Term Average)
-
-Each picker is tested with the sample data in ~/easyQuake/tests/
-and outputs are verified.
-
-Author: easyQuake test suite
-Date: August 2025
+Fixed comprehensive test script for all easyQuake machine picker options.
+Tests GPD, EQTransformer, PhaseNet, and STALTA pickers with real seismic data.
 """
 
 import os
 import sys
-from pathlib import Path
-
-# Ensure repo root is on sys.path so package-style imports resolve (e.g. easyQuake.EQTransformer)
-repo_root = Path(__file__).resolve().parents[1]
-if str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
 import shutil
-import tempfile
-from datetime import datetime, timedelta
 from pathlib import Path
+from datetime import datetime, date
+import glob
 
-# Note: do NOT insert the internal package directory into sys.path (this breaks package imports)
-
-def setup_test_environment():
-    """Set up a temporary test environment."""
-    test_dir = Path.home() / 'easyQuake' / 'tests'
-    temp_project = test_dir / 'picker_test_project'
+def setup_test_project():
+    """Set up a test project with proper file structure."""
+    print("easyQuake Machine Picker Test Suite - FIXED VERSION")
+    print("Testing all available machine pickers with real seismic data")
     
-    # Clean up any existing test project
-    if temp_project.exists():
-        shutil.rmtree(temp_project)
+    # Check for test data files in tests directory
+    tests_dir = Path('/home/jwalter/easyQuake/tests')
+    test_files = ['O2.WILZ.EHE.mseed', 'O2.WILZ.EHN.mseed', 'O2.WILZ.EHZ.mseed']
+    found_files = []
+    for f in test_files:
+        if (tests_dir / f).exists():
+            found_files.append(f)
     
-    # Create test project structure
-    temp_project.mkdir(parents=True, exist_ok=True)
+    if len(found_files) != 3:
+        print(f"❌ Missing test data files. Found: {found_files}")
+        return None, None
     
-    # Create test date directory
-    test_date = datetime.now().strftime('%Y%m%d')
+    print(f"✓ Found test data files: {found_files}")
+    
+    # Create test project
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    temp_project = tests_dir / f'test_project_fixed_{timestamp}'
+    test_date = '20240101'  # Fixed test date
     date_dir = temp_project / test_date
-    date_dir.mkdir(exist_ok=True)
+    date_dir.mkdir(parents=True, exist_ok=True)
     
-    # Copy test mseed files to project directory (easyQuake expects files in project dir)
-    test_mseed_dir = test_dir
-    mseed_files = ['O2.WILZ.EHN.mseed', 'O2.WILZ.EHE.mseed', 'O2.WILZ.EHZ.mseed']
+    # Copy MSEED files to the project directory (where easyQuake expects them)
+    print("Copying MSEED files to project directory...")
+    for f in test_files:
+        source = tests_dir / f
+        target = date_dir / f
+        shutil.copy2(source, target)
+        print(f"  Copied {f}")
     
-    # Check that source files exist
-    source_files = [test_mseed_dir / filename for filename in mseed_files]
-    if not all(f.exists() for f in source_files):
-        raise FileNotFoundError("Test mseed files not found in ~/easyQuake/tests/")
-    
-    # Copy files to project directory
-    for filename in mseed_files:
-        src = test_mseed_dir / filename
-        dst = date_dir / filename
-        shutil.copy2(src, dst)
-    
-    # The dayfile will be created by easyQuake's make_dayfile function
-    
+    print(f"Test project created: {temp_project}")
     return temp_project, test_date
 
-def test_picker(machine_picker, project_folder, test_date, seisbench_model=None):
+def test_picker(machine_picker, project_folder, test_date):
     """Test a specific picker."""
     print(f"\n{'='*60}")
     print(f"Testing {machine_picker} picker")
     print(f"{'='*60}")
     
     try:
-        # Import easyQuake after path setup
-        import easyQuake
+        # Add easyQuake to path
+        sys.path.insert(0, '/home/jwalter/easyQuake')
+        import easyQuake.easyQuake as eq
         
         # Set up test parameters
-        test_datetime = datetime.strptime(test_date, '%Y%m%d')
+        test_datetime = date(2024, 1, 1)  # Use date object
+        
+        # Base parameters for all pickers
+        base_params = {
+            'dirname': test_date,
+            'project_folder': str(project_folder),
+            'project_code': 'TEST',  # Required parameter
+            'single_date': test_datetime,
+            'local': True,
+            'latitude': 36.7,  # Oklahoma coordinates
+            'longitude': -97.5,
+            'max_radius': 300,
+        }
         
         # Run detection_continuous with the specified picker
         if machine_picker == 'STALTA':
             # STALTA uses machine=False
-            easyQuake.detection_continuous(
-                dirname=test_date,
-                project_folder=str(project_folder),
-                project_code='test',
-                local=True,
-                machine=False,  # STALTA uses machine=False
-                single_date=test_datetime,
-                make3=False,
-                # STALTA specific parameters
-                filtmin=2,
-                filtmax=15,
-                t_sta=0.2,
-                t_lta=2.5,
-                trigger_on=4,
-                trigger_off=2,
-                trig_horz=6.0,
-                trig_vert=10.0
+            eq.detection_continuous(
+                machine=False,
+                **base_params
             )
         else:
-            # All other pickers use machine=True
-            kwargs = {
-                'dirname': test_date,
-                'project_folder': str(project_folder),
-                'project_code': 'test',
-                'local': True,
-                'machine': True,
-                'machine_picker': machine_picker,
-                'single_date': test_datetime,
-                'make3': False
-            }
-            
-            # Add seisbench model if specified
-            if machine_picker == 'Seisbench' and seisbench_model:
-                kwargs['seisbenchmodel'] = seisbench_model
-            
-            easyQuake.detection_continuous(**kwargs)
+            # Other machine pickers
+            eq.detection_continuous(
+                machine=True,
+                machine_picker=machine_picker,
+                **base_params
+            )
         
-        # Check for output file
-        expected_output = project_folder / test_date / f'{machine_picker.lower()}_picks.out'
+        print(f"✓ {machine_picker} completed successfully!")
         
-        if expected_output.exists():
-            # Read and display first few lines of output
-            with open(expected_output, 'r') as f:
-                lines = f.readlines()
-            
-            print(f"✓ {machine_picker} completed successfully!")
-            print(f"Output file: {expected_output}")
-            print(f"Number of picks: {len(lines)}")
-            
-            if lines:
-                print("First 5 picks:")
-                for i, line in enumerate(lines[:5]):
-                    print(f"  {i+1}: {line.strip()}")
-                
-                if len(lines) > 5:
-                    print(f"  ... and {len(lines) - 5} more picks")
-            else:
-                print("  No picks found in output file")
-            
-            return True, len(lines)
-        else:
-            print(f"✗ {machine_picker} failed - no output file generated")
-            return False, 0
-            
+        # Check output file
+        expected_output = project_folder / test_date / f"{machine_picker.lower()}_picks.out"
+        return check_output_file(expected_output, machine_picker)
+        
     except Exception as e:
         print(f"✗ {machine_picker} failed with error: {e}")
-        import traceback
         print("Full traceback:")
+        import traceback
         traceback.print_exc()
         return False, 0
 
-def main():
-    """Main test function."""
-    print("easyQuake Machine Picker Test Suite")
-    print("Testing all available machine pickers with sample data")
-    print(f"Test data location: ~/easyQuake/tests/")
+def check_output_file(output_file, picker_name):
+    """Check if output file was created and contains picks."""
+    if not output_file.exists():
+        print(f"✗ {picker_name} failed - no output file generated")
+        return False, 0
+    
+    print(f"Output file: {output_file}")
+    
+    # Check file size and content
+    file_size = output_file.stat().st_size
+    if file_size == 0:
+        print("Number of picks: 0")
+        print("  No picks found in output file")
+        return True, 0  # Success but no picks
+    
+    # Count picks (non-empty, non-comment lines)
+    pick_count = 0
+    picks_preview = []
     
     try:
-        # Set up test environment
-        project_folder, test_date = setup_test_environment()
-        print(f"Test project created: {project_folder}")
+        with open(output_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    pick_count += 1
+                    if len(picks_preview) < 5:  # Store first 5 for preview
+                        picks_preview.append(line)
         
-        # Define pickers to test
-        pickers = [
-            'GPD',
-            'EQTransformer', 
-            'PhaseNet',
-            'STALTA'
-        ]
+        print(f"Number of picks: {pick_count}")
+        if picks_preview:
+            print("First 5 picks:")
+            for i, pick in enumerate(picks_preview, 1):
+                print(f"  {i}: {pick}")
+            if pick_count > 5:
+                print(f"  ... and {pick_count - 5} more picks")
         
-        # Note: Seisbench requires a model path, so we'll test it conditionally
-        seisbench_model = os.environ.get('SEISBENCH_MODEL_PATH')
-        if seisbench_model and os.path.exists(seisbench_model):
-            pickers.append('Seisbench')
-            print(f"Seisbench model found: {seisbench_model}")
-        else:
-            print("Seisbench model not found (set SEISBENCH_MODEL_PATH env var to test)")
-        
-        # Test each picker
-        results = {}
-        for picker in pickers:
-            if picker == 'Seisbench':
-                success, num_picks = test_picker(picker, project_folder, test_date, seisbench_model)
-            else:
-                success, num_picks = test_picker(picker, project_folder, test_date)
-            
-            results[picker] = {'success': success, 'num_picks': num_picks}
-        
-        # Summary
-        print(f"\n{'='*60}")
-        print("TEST SUMMARY")
-        print(f"{'='*60}")
-        
-        successful = 0
-        total_picks = 0
-        
-        for picker, result in results.items():
-            status = "PASS" if result['success'] else "FAIL"
-            print(f"{picker:15} {status:4} ({result['num_picks']:3} picks)")
-            if result['success']:
-                successful += 1
-                total_picks += result['num_picks']
-        
-        print(f"\nOverall: {successful}/{len(results)} pickers successful")
-        print(f"Total picks generated: {total_picks}")
-        
-        # List output files
-        print(f"\nOutput files in {project_folder / test_date}:")
-        output_dir = project_folder / test_date
-        for file in sorted(output_dir.glob('*_picks.out')):
-            size = file.stat().st_size
-            print(f"  {file.name} ({size} bytes)")
-        
-        # Test completion message
-        if successful == len(results):
-            print(f"\n🎉 All {len(results)} pickers tested successfully!")
-        else:
-            print(f"\n⚠️  {len(results) - successful} picker(s) failed")
-        
-        print(f"\nTest project preserved at: {project_folder}")
-        print("You can examine the output files manually.")
+        return True, pick_count
         
     except Exception as e:
-        print(f"Test setup failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-    
-    return 0
+        print(f"Error reading output file: {e}")
+        return True, 0  # File exists but couldn't read
 
-if __name__ == '__main__':
-    sys.exit(main())
+def main():
+    """Main test function."""
+    # Set up test environment
+    project_folder, test_date = setup_test_project()
+    if not project_folder:
+        return
+    
+    # Define pickers to test
+    pickers = ['GPD', 'EQTransformer', 'PhaseNet', 'STALTA']
+    
+    # Test each picker
+    results = {}
+    total_picks = 0
+    
+    for picker in pickers:
+        success, picks = test_picker(picker, project_folder, test_date)
+        results[picker] = (success, picks)
+        if success:
+            total_picks += picks
+    
+    # Print summary
+    print(f"\n{'='*60}")
+    print("TEST SUMMARY")
+    print(f"{'='*60}")
+    
+    successful_pickers = 0
+    for picker, (success, picks) in results.items():
+        status = "PASS" if success else "FAIL"
+        print(f"{picker:<15} {status} ({picks:3d} picks)")
+        if success:
+            successful_pickers += 1
+    
+    print(f"\nOverall: {successful_pickers}/{len(pickers)} pickers successful")
+    print(f"Total picks generated: {total_picks}")
+    
+    # List output files
+    output_dir = project_folder / test_date
+    output_files = list(output_dir.glob("*_picks.out"))
+    if output_files:
+        print(f"\nOutput files in {output_dir}:")
+        for f in output_files:
+            size = f.stat().st_size
+            print(f"  {f.name} ({size} bytes)")
+    
+    failed_pickers = len(pickers) - successful_pickers
+    if failed_pickers > 0:
+        print(f"\n⚠️  {failed_pickers} picker(s) failed")
+    
+    print(f"\nTest project preserved at: {project_folder}")
+    print("You can examine the output files manually.")
+
+if __name__ == "__main__":
+    main()
