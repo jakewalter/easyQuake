@@ -107,7 +107,12 @@ def build_model_from_json(json_path, weights_path, output_path, parts=3):
         # Add each layer
         for i, layer_config in enumerate(layers_config):
             layer_class_name = layer_config['class_name']
-            layer_cfg = layer_config['config']
+            layer_cfg = layer_config['config'].copy()  # Make a copy to avoid modifying original
+            
+            # Remove common parameters that are not constructor arguments
+            layer_cfg.pop('batch_input_shape', None)  # Only for InputLayer
+            layer_cfg.pop('dtype', None)  # Handled automatically
+            layer_cfg.pop('trainable', None)  # Can be set after creation
             
             print(f'  Adding layer {i}: {layer_class_name}')
             
@@ -193,7 +198,13 @@ def build_model_from_json(json_path, weights_path, output_path, parts=3):
     # Save rebuilt model to output_path
     try:
         print('Saving rebuilt model to', output_path)
-        model.save(output_path)
+        
+        # Save as .keras if the output path has that extension
+        if output_path.endswith('.keras'):
+            model.save(output_path, save_format='keras')
+        else:
+            model.save(output_path)
+            
         print('Saved. exists:', os.path.exists(output_path), 'size:', os.path.getsize(output_path) if os.path.exists(output_path) else 'N/A')
         return True
     except Exception:

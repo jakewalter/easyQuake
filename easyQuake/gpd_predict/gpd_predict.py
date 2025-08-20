@@ -14,18 +14,11 @@ import argparse as ap
 import os
 import numpy as np
 import obspy.core as oc
-from tensorflow.keras.models import model_from_json
-import tensorflow as tf
 import pylab as plt
 import sys
-try:
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
-except Exception:
-    pass
 #####################
 # Hyperparameters
-min_proba = 0.994 # Minimum softmax probability for phase detection
+min_proba = 0.994 # Minimum softmax probability for phase detection (VERY CONSERVATIVE - consider 0.3-0.5 for more picks)
 freq_min = 3.0
 freq_max = 20.0
 filter_data = True
@@ -147,47 +140,77 @@ def main():
     args = parser.parse_args()
 
     plot = args.P
+    # Delegate to reusable function
+    process_dayfile(args.I, args.O, base_dir=args.F, verbose=args.V, plot=plot)
 
+
+def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
+    """Process a dayfile (infile) and write picks to outfile.
+
+    This function mirrors the behavior of the CLI main(), but is callable
+    programmatically and will cache model(s) per process if called multiple times.
+    """
     # Reading in input file
     fdir = []
     evid = []
     staid = []
-    with open(args.I) as f:
+    with open(infile) as f:
         for line in f:
             tmp = line.split()
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
 
-    # load model using new Keras format, with fallback to legacy HDF5 if needed
+    # module-level cache (per-process) to avoid reloading the model repeatedly
+    global _CACHED_MODEL
+    try:
+        _CACHED_MODEL
+    except NameError:
+        _CACHED_MODEL = None
+
+    # load model using TensorFlow/Keras (import lazily to avoid heavy startup at module import)
+    try:
+        import tensorflow as tf
+        # configure GPUs for growth to avoid full allocation
+        try:
+            physical_devices = tf.config.experimental.list_physical_devices('GPU')
+            [tf.config.experimental.set_memory_growth(physical_devices[i], True) for i in range(0,len(physical_devices))]
+        except Exception:
+            pass
+    except Exception:
+        # Let import errors bubble when model loading is attempted
+        raise
+
     import keras
-    model = None
-    base_dir = args.F if args.F else os.path.dirname(__file__)
+    model = _CACHED_MODEL
+    base_dir = base_dir if base_dir else os.path.dirname(__file__)
     keras_path = os.path.join(base_dir, 'model_pol_new.keras')
     h5_path = os.path.join(base_dir, 'model_pol_legacy.h5')
 
-    # Try .keras first
-    try:
-        model = keras.models.load_model(keras_path)
-        print(f"Loaded model from: {keras_path}")
-    except Exception as e_keras:
-        print(f"Failed to load .keras model ({keras_path}): {e_keras}")
-        # Try legacy HDF5 fallback
-        if os.path.isfile(h5_path):
-            try:
-                model = keras.models.load_model(h5_path)
-                print(f"Loaded legacy HDF5 model from: {h5_path}")
-            except Exception as e_h5:
-                print(f"Failed to load fallback HDF5 model ({h5_path}): {e_h5}")
+    # Try .keras first if not cached
+    if model is None:
+        try:
+            model = keras.models.load_model(keras_path)
+            print(f"Loaded model from: {keras_path}")
+        except Exception as e_keras:
+            print(f"Failed to load .keras model ({keras_path}): {e_keras}")
+            # Try legacy HDF5 fallback
+            if os.path.isfile(h5_path):
+                try:
+                    model = keras.models.load_model(h5_path)
+                    print(f"Loaded legacy HDF5 model from: {h5_path}")
+                except Exception as e_h5:
+                    print(f"Failed to load fallback HDF5 model ({h5_path}): {e_h5}")
+                    raise
+            else:
+                # re-raise original error to make the failure visible
                 raise
-        else:
-            # re-raise original error to make the failure visible
-            raise
+        _CACHED_MODEL = model
 
     if n_gpu > 1:
         from keras.utils import multi_gpu_model
         model = multi_gpu_model(model, gpus=n_gpu)
 
-    ofile = open(args.O, 'w')
+    ofile = open(outfile, 'w')
 
     for i in range(nsta):
         try:
@@ -216,12 +239,11 @@ def main():
             for tr in st:
                 if isinstance(tr.data, np.ma.masked_array):
                     tr.data = tr.data.filled()
-    
-    
+
 
             chan = st[0].stats.channel
             sr = st[0].stats.sampling_rate
-    
+
             dt = st[0].stats.delta
             net = st[0].stats.network
             sta = st[0].stats.station
@@ -230,7 +252,7 @@ def main():
             earliest_stop = np.min([x.stats.endtime for x in st])
             if (earliest_stop>latest_start):
                 st.trim(latest_start, earliest_stop)
-                if args.V:
+                if verbose:
                     print("Reshaping data matrix for sliding window")
                 tt = (np.arange(0, st[0].data.size, n_shift) + n_win) * dt
                 tt_i = np.arange(0, st[0].data.size, n_shift) + n_feat
@@ -245,18 +267,20 @@ def main():
                 tr_win = tr_win / np.max(np.abs(tr_win), axis=(1,2))[:,None,None]
                 tt = tt[:tr_win.shape[0]]
                 tt_i = tt_i[:tr_win.shape[0]]
-        
-                if args.V:
+
+                if verbose:
                     ts = model.predict(tr_win, verbose=True, batch_size=batch_size)
                 else:
                     ts = model.predict(tr_win, verbose=False, batch_size=batch_size)
-        
+
                 prob_S = ts[:,1]
                 prob_P = ts[:,0]
                 prob_N = ts[:,2]
-        
+
                 from obspy.signal.trigger import trigger_onset
                 trigs = trigger_onset(prob_P, min_proba, 0.1)
+                print(f"DEBUG: P-wave max probability: {np.max(prob_P):.4f}, min_proba threshold: {min_proba}")
+                print(f"DEBUG: Number of P triggers found: {len(trigs)}")
                 p_picks = []
                 s_picks = []
                 for trig in trigs:
@@ -267,8 +291,10 @@ def main():
                     chan_pick = st[0].stats.channel[0:2]+'Z'
                     p_picks.append(stamp_pick)
                     ofile.write("%s %s %s P %s\n" % (net, sta, chan_pick, stamp_pick.isoformat()))
-        
+
                 trigs = trigger_onset(prob_S, min_proba, 0.1)
+                print(f"DEBUG: S-wave max probability: {np.max(prob_S):.4f}")
+                print(f"DEBUG: Number of S triggers found: {len(trigs)}")
                 for trig in trigs:
                     if trig[1] == trig[0]:
                         continue
@@ -277,7 +303,7 @@ def main():
                     chan_pick_s = st[0].stats.channel[0:2]+'E'
                     s_picks.append(stamp_pick)
                     ofile.write("%s %s %s S %s\n" % (net, sta, chan_pick_s, stamp_pick.isoformat()))
-        
+
                 if plot:
                     fig = plt.figure(figsize=(8, 12))
                     ax = []
@@ -298,8 +324,10 @@ def main():
                             ax[i].axvline(s_pick-st[0].stats.starttime, c='b', lw=0.5)
                     plt.tight_layout()
                     plt.show()
-        except:
-            pass
+        except Exception as e:
+            print(f"DEBUG: Exception in GPD processing: {e}")
+            import traceback
+            traceback.print_exc()
     ofile.close()
 
 

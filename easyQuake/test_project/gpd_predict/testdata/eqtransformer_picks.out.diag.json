@@ -1,0 +1,22 @@
+{
+  "stats": [
+    {
+      "nfile": "/home/jwalter/easyQuake/tests/O2.WILZ.EHN.mseed",
+      "max_detector": 0.0,
+      "max_P": 0.0,
+      "max_S": 0.0,
+      "cnt_detector_above": 0,
+      "cnt_P_above": 0,
+      "cnt_S_above": 0,
+      "n_samples": 720000
+    }
+  ],
+  "argdict": {
+    "detection_threshold": 0.3,
+    "P_threshold": 0.1,
+    "S_threshold": 0.1,
+    "estimate_uncertainty": false,
+    "overlap": 0.3,
+    "normalization_mode": "std"
+  }
+}

@@ -24,16 +24,62 @@ jwalter@ou.edu
 
 #import sys
 #sys.path.append("/home/jwalter/syncpython")
-from .phasepapy import fbpicker
-pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
-pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
-pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
-pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
-pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
 
-from .phasepapy import tables1D, assoc1D
-from .phasepapy import tt_stations_1D
-from .sta_lta.trigger_p_s import trigger_p_s
+# Handle relative imports with fallback for direct execution
+try:
+    from .phasepapy import fbpicker
+except ImportError:
+    try:
+        from phasepapy import fbpicker
+    except ImportError:
+        # If phasepapy dependencies are missing, create a dummy module
+        print("Warning: phasepapy dependencies not available, some features may be limited")
+        fbpicker = None
+
+if fbpicker:
+    pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
+    pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
+    pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
+    pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
+    pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
+else:
+    # Fallback paths when fbpicker is not available
+    import os
+    base_path = os.path.dirname(__file__)
+    pathgpd = os.path.join(base_path, 'gpd_predict')
+    pathEQT = os.path.join(base_path, 'EQTransformer')
+    pathhyp = os.path.join(base_path, 'hyp2000')
+    pathphasenet = os.path.join(base_path, 'phasenet')
+    pathseisbench = os.path.join(base_path, 'seisbench')
+
+try:
+    from .phasepapy import tables1D, assoc1D
+except ImportError:
+    try:
+        from phasepapy import tables1D, assoc1D
+    except ImportError:
+        print("Warning: phasepapy.tables1D and assoc1D not available")
+        tables1D = assoc1D = None
+
+import sys
+
+try:
+    from .phasepapy import tt_stations_1D
+except ImportError:
+    try:
+        from phasepapy import tt_stations_1D
+    except ImportError:
+        print("Warning: phasepapy.tt_stations_1D not available")
+        tt_stations_1D = None
+
+try:
+    from .sta_lta.trigger_p_s import trigger_p_s
+except ImportError:
+    try:
+        from sta_lta.trigger_p_s import trigger_p_s
+    except ImportError:
+        print("Warning: sta_lta.trigger_p_s not available")
+        trigger_p_s = None
 #from .sta_lta.trigger_p_s import trigger_p_s
 
 import traceback
@@ -78,57 +124,6 @@ from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
-import subprocess
-
-
-
-#from obspy.signal.invsim import simulate_seismometer as seis_sim
-fmtP = "%4s%1sP%1s%1i %15s"
-fmtS = "%12s%1sS%1s%1i\n"
-
-
-
-fmt = "%6s%02i%05.2f%1s%03i%05.2f%1s%4i\n"
-
-
-#min_proba = 0.993 # Minimum softmax probability for phase detection
-## try 0.992 if you have the computing power
-#freq_min = 3.0
-#freq_max = 20.0
-#filter_data = True
-#decimate_data = True # If false, assumes data is already 100 Hz samprate
-#n_shift = 10 # Number of samples to shift the sliding window at a time
-#n_gpu = 1 # Number of GPUs to use (if any)
-######################
-#batch_size = 1000*3
-#
-#half_dur = 2.00
-#only_dt = 0.01
-#n_win = int(half_dur/only_dt)
-#n_feat = 2*n_win
-
-
-from datetime import timedelta, date
-
-def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)):
-        yield start_date + timedelta(n)
-
-class SCNL():
-    """ This class is copied from PhasePaPy"""
-    def __init__(self,input=None):
-        if not isinstance(input, SCNL):
-            self.station=None
-            self.channel=None
-            self.network=None
-            self.location=None
-        if type(input) is str:
-            self.parse_scnlstr(input)
-        if type(input) is list:
-            if len(input)==4:
-                self.station,self.channel,self.network,self.location=input
-            if len(input)==3:
-                self.station,self.channel,self.network=input
 
 
 def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
@@ -464,7 +459,9 @@ def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta
     else:
         n_cpus = n_cpus1
     #with get_context("spawn").Pool() as pool:
-    pool = Pool(n_cpus-1)
+    # Ensure at least 1 process
+    pool_processes = max(1, n_cpus-1)
+    pool = Pool(pool_processes)
     #results = []
     for i in range(nsta):
         #try:
@@ -731,53 +728,152 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        else:
-            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        # Prefer inline callable for performance (loads model once per process).
+        # Fallback to launching the CLI if inline import fails or different env required.
+        try:
+            # lazy import to avoid TF import at module load time
+            try:
+                from .gpd_predict.gpd_predict import process_dayfile
+            except ImportError:
+                from gpd_predict.gpd_predict import process_dayfile
+            process_dayfile(infile, outfile, base_dir=pathgpd, verbose=True, plot=True)
+        except Exception as e:
+            if fullpath_python:
+                os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            else:
+                os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
     elif machine == True and machine_picker == 'EQTransformer':
-        fullpath2 = pathEQT+'/mseed_predictor.py'
+        # Use the workspace EQTransformer mseed_predictor.py to avoid importing
+        # the installed package version which may attempt legacy .h5 loading.
+        fullpath2 = os.path.join(os.path.dirname(__file__), 'EQTransformer', 'mseed_predictor.py')
+        pathEQT = os.path.join(os.path.dirname(__file__), 'EQTransformer')
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        else:
-            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        # Prefer importing the workspace mseed_predictor by file path to avoid
+        # using an installed `mseed_predictor` console script that may try to
+        # load legacy .h5 models. If the inline call fails, fall back to CLI.
+        try:
+            import importlib.util as _il
+            spec = _il.spec_from_file_location('easyQuake.EQTransformer.mseed_predictor', fullpath2)
+            if spec and spec.loader:
+                mod = _il.module_from_spec(spec)
+                try:
+                    # register module in sys.modules so imports inside the module
+                    # resolve to the workspace package
+                    sys.modules['easyQuake.EQTransformer.mseed_predictor'] = mod
+                    spec.loader.exec_module(mod)
+                    # If the module exposes a 'main' callable, call it. Set an
+                    # input model override (env var or sanitized .keras) so the
+                    # module prefers the converted model over legacy .h5.
+                    try:
+                        override = os.environ.get('EASYQUAKE_EQT_MODEL')
+                        if not override:
+                            candidate = os.path.join(pathEQT, 'EqT_model.sanitized.keras')
+                            if os.path.exists(candidate):
+                                override = candidate
+                        if override:
+                            setattr(mod, '__input_model_override__', override)
+                    except Exception:
+                        pass
+
+                    if hasattr(mod, 'main'):
+                        try:
+                            import sys as _sys
+                            _old_argv = list(_sys.argv)
+                            _sys.argv = [fullpath2, '-I', infile, '-O', outfile, '-F', pathEQT]
+                            try:
+                                mod.main()
+                            finally:
+                                _sys.argv = _old_argv
+                        except Exception:
+                            import traceback as _tb
+                            _tb.print_exc()
+                            print('EQTransformer inline execution failed; not falling back to installed CLI')
+                    else:
+                        print('workspace mseed_predictor has no main(); skipping EQTransformer inline')
+                except Exception:
+                    import traceback as _tb
+                    _tb.print_exc()
+                    print('Failed to load workspace mseed_predictor; skipping EQTransformer inline')
+            else:
+                # cannot load spec; fall back to CLI
+                if fullpath_python:
+                    os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+                else:
+                    os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+            else:
+                os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet+'/phasenet_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        fullpath3 = pathphasenet + '/phasenet_predict.py'
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            #print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
-        else:
-            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+
+        # Run PhaseNet using the CLI script to avoid inline TF1/TF2 compatibility issues.
         try:
-            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
-        except:
+            model_arg = os.path.join(pathphasenet, 'model', '190703-214543')
+            if fullpath_python:
+                cmd = f"{fullpath_python} {fullpath3} --model={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+            else:
+                cmd = f"python3 {fullpath3} --model={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+            print('PhaseNet: running CLI:', cmd)
+            import subprocess
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            print('PhaseNet CLI exit code:', res.returncode)
+            if res.stdout:
+                print('PhaseNet CLI stdout:\n', res.stdout)
+            if res.stderr:
+                print('PhaseNet CLI stderr:\n', res.stderr)
+            if res.returncode != 0:
+                print('PhaseNet: CLI returned non-zero exit code')
+        except Exception as _e:
+            print('PhaseNet: CLI invocation failed:', _e)
+
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
             pass
     elif machine == True and machine_picker == 'Seisbench':
         fullpath3 = pathseisbench+'/run_seisbench.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            #print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        # require a model path for seisbench inline execution
+        if not seisbenchmodel:
+            # No model provided: skip inline and do not call external CLI (would fail trying to open 'None')
+            print('Seisbench model not provided; skipping Seisbench run (no CLI fallback because model is missing)')
+            # leave outfile absent and continue
+            pass
         else:
-            os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+            try:
+                try:
+                    from .seisbench.run_seisbench import main as seis_main
+                except ImportError:
+                    from seisbench.run_seisbench import main as seis_main
+                try:
+                    seis_main()
+                except TypeError:
+                    if fullpath_python:
+                        os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                    else:
+                        os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+            except Exception:
+                if fullpath_python:
+                    os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                else:
+                    os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
@@ -890,39 +986,8 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     t1=datetime.utcnow()
     print('Took '+str(t1-t0))
     print("associate")
-      # Associate events
-    assocXX.associate_candidates()
-    t2=datetime.utcnow()
-    print('Took '+str(t2-t1))
-      # Add singles stations to events
-    try:
-        assocXX.single_phase()
-    except:
-        pass
-
-
-def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
-    try:
-        conn = sqlite3.connect(db_file, check_same_thread = False)
-        return conn
-    except Error as e:
-        print(e)
-
-    return None
-
-
-def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None, daymode=None, single_date=None):
-    hypo71_string_sta = ""
-    station_strings = []
-    if daymode:
+    if single_date is not None:
         f1 = open(project_folder+'/'+'sta'+single_date.strftime("%Y%m%d"),'w')
-    elif catalog_year:
-        f1 = open(project_folder+'/'+'sta'+str(year),'w')
     else:
         f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')

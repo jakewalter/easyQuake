@@ -10,6 +10,8 @@ import h5py
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+# Disable eager execution for TF 1.x compatibility
+tf.compat.v1.disable_eager_execution()
 keras = tf.keras
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import add, Activation, LSTM, Conv1D
@@ -20,16 +22,31 @@ from tensorflow.keras.optimizers import Adam
 from obspy.signal.trigger import trigger_onset
 import matplotlib
 
-# Relative imports for phasenet submodules
-from .data_reader import DataReader_mseed_array, DataReader_pred
-from .model import ModelConfig, UNet
-from .postprocess import (
-    extract_amplitude,
-    extract_picks,
-    save_picks,
-    save_picks_json,
-    save_prob_h5,
-)
+# Imports for phasenet submodules
+try:
+    from .data_reader import DataReader_mseed_array, DataReader_pred
+    from .model import ModelConfig, UNet
+    from .postprocess import (
+        extract_amplitude,
+        extract_picks,
+        save_picks,
+        save_picks_json,
+        save_prob_h5,
+    )
+except ImportError:
+    # Fallback to absolute imports within easyQuake package
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from data_reader import DataReader_mseed_array, DataReader_pred
+    from model import ModelConfig, UNet
+    from postprocess import (
+        extract_amplitude,
+        extract_picks,
+        save_picks,
+        save_picks_json,
+        save_prob_h5,
+    )
 from tqdm import tqdm
 
 #username = "root"
