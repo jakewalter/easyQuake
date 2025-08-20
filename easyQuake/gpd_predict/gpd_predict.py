@@ -186,21 +186,31 @@ def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
     
     # Try calibrated models first
     gpd_calibrated_path = os.path.join(base_dir, 'model_pol_gpd_calibrated_F80.h5')
+    properly_converted_path = os.path.join(base_dir, 'model_pol_properly_converted.keras')
     fixed_path = os.path.join(base_dir, 'model_pol_fixed.h5')
     keras_path = os.path.join(base_dir, 'model_pol_new.keras')
     h5_path = os.path.join(base_dir, 'model_pol_legacy.h5')
 
     # Try models in order of preference
     if model is None:
-        # 1. Try GPD-calibrated model first (best for GPD normalization)
-        if os.path.isfile(gpd_calibrated_path):
+        # 1. Try final converted model first (properly converted from TF1)
+        final_converted_path = os.path.join(base_dir, 'model_pol_final_converted.keras')
+        if os.path.isfile(final_converted_path):
+            try:
+                model = keras.models.load_model(final_converted_path)
+                print(f"Loaded final converted model from: {final_converted_path}")
+            except Exception as e_final:
+                print(f"Failed to load final converted model ({final_converted_path}): {e_final}")
+        
+        # 2. Try GPD-calibrated model as backup
+        if model is None and os.path.isfile(gpd_calibrated_path):
             try:
                 model = keras.models.load_model(gpd_calibrated_path)
                 print(f"Loaded GPD-calibrated model from: {gpd_calibrated_path}")
             except Exception as e_gpd:
                 print(f"Failed to load GPD-calibrated model ({gpd_calibrated_path}): {e_gpd}")
         
-        # 2. Try fixed temperature-corrected model as backup
+        # 3. Try fixed temperature-corrected model as backup
         if model is None and os.path.isfile(fixed_path):
             try:
                 model = keras.models.load_model(fixed_path)
