@@ -4,6 +4,51 @@ import logging
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning)
 
+# Compatibility wrappers to replace TF1-style tf.compat.v1.layers APIs with
+# tf.keras.layers equivalents so the model can run under TF2 / Keras 3.
+def conv2d(x, filters, kernel_size, activation=None, padding='same', strides=1,
+       use_bias=True, dilation_rate=1, kernel_initializer=None,
+       kernel_regularizer=None, name=None):
+  # Normalize kernel_size and strides/dilation_rate to tuple
+  ksize = tuple(kernel_size) if hasattr(kernel_size, '__len__') else (kernel_size, kernel_size)
+  strides = tuple(strides) if hasattr(strides, '__len__') else (strides, strides)
+  dil = tuple(dilation_rate) if hasattr(dilation_rate, '__len__') else (dilation_rate, dilation_rate)
+  layer = tf.keras.layers.Conv2D(filters=filters,
+                   kernel_size=ksize,
+                   strides=strides,
+                   padding=padding,
+                   dilation_rate=dil,
+                   use_bias=use_bias,
+                   kernel_initializer=kernel_initializer,
+                   kernel_regularizer=kernel_regularizer,
+                   name=name)
+  y = layer(x)
+  return y
+
+def conv2d_transpose(x, filters, kernel_size, strides=1, activation=None, padding='same',
+           use_bias=True, kernel_initializer=None, kernel_regularizer=None, name=None):
+  ksize = tuple(kernel_size) if hasattr(kernel_size, '__len__') else (kernel_size, kernel_size)
+  strides = tuple(strides) if hasattr(strides, '__len__') else (strides, strides)
+  layer = tf.keras.layers.Conv2DTranspose(filters=filters,
+                      kernel_size=ksize,
+                      strides=strides,
+                      padding=padding,
+                      use_bias=use_bias,
+                      kernel_initializer=kernel_initializer,
+                      kernel_regularizer=kernel_regularizer,
+                      name=name)
+  return layer(x)
+
+def batch_norm(x, training=False, name=None):
+  # Keep momentum/defaults similar to TF1 BatchNorm
+  layer = tf.keras.layers.BatchNormalization(name=name)
+  return layer(x, training=training)
+
+def dropout_layer(x, rate, training=False, name=None):
+  layer = tf.keras.layers.Dropout(rate=rate, name=name)
+  return layer(x, training=training)
+
+
 class ModelConfig:
 
   batch_size = 20

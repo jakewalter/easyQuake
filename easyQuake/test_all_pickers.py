@@ -18,13 +18,18 @@ Date: August 2025
 
 import os
 import sys
+from pathlib import Path
+
+# Ensure repo root is on sys.path so package-style imports resolve (e.g. easyQuake.EQTransformer)
+repo_root = Path(__file__).resolve().parents[1]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 import shutil
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Add easyQuake to path
-sys.path.insert(0, str(Path.home() / 'easyQuake' / 'easyQuake'))
+# Note: do NOT insert the internal package directory into sys.path (this breaks package imports)
 
 def setup_test_environment():
     """Set up a temporary test environment."""
@@ -43,20 +48,22 @@ def setup_test_environment():
     date_dir = temp_project / test_date
     date_dir.mkdir(exist_ok=True)
     
-    # Create dayfile.in pointing to our test mseed files
+    # Copy test mseed files to project directory (easyQuake expects files in project dir)
     test_mseed_dir = test_dir
-    dayfile_path = date_dir / 'dayfile.in'
+    mseed_files = ['O2.WILZ.EHN.mseed', 'O2.WILZ.EHE.mseed', 'O2.WILZ.EHZ.mseed']
     
-    with open(dayfile_path, 'w') as f:
-        # Write paths to the test mseed files
-        n_file = test_mseed_dir / 'O2.WILZ.EHN.mseed'
-        e_file = test_mseed_dir / 'O2.WILZ.EHE.mseed' 
-        z_file = test_mseed_dir / 'O2.WILZ.EHZ.mseed'
-        
-        if all(f.exists() for f in [n_file, e_file, z_file]):
-            f.write(f"{n_file} {e_file} {z_file}\n")
-        else:
-            raise FileNotFoundError("Test mseed files not found in ~/easyQuake/tests/")
+    # Check that source files exist
+    source_files = [test_mseed_dir / filename for filename in mseed_files]
+    if not all(f.exists() for f in source_files):
+        raise FileNotFoundError("Test mseed files not found in ~/easyQuake/tests/")
+    
+    # Copy files to project directory
+    for filename in mseed_files:
+        src = test_mseed_dir / filename
+        dst = date_dir / filename
+        shutil.copy2(src, dst)
+    
+    # The dayfile will be created by easyQuake's make_dayfile function
     
     return temp_project, test_date
 

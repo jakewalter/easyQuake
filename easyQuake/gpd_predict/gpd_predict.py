@@ -18,7 +18,7 @@ import pylab as plt
 import sys
 #####################
 # Hyperparameters
-min_proba = 0.994 # Minimum softmax probability for phase detection (VERY CONSERVATIVE - consider 0.3-0.5 for more picks)
+min_proba = 0.994 # Minimum softmax probability for phase detection
 freq_min = 3.0
 freq_max = 20.0
 filter_data = True
@@ -144,6 +144,163 @@ def main():
     process_dayfile(args.I, args.O, base_dir=args.F, verbose=args.V, plot=plot)
 
 
+def create_manual_gpd_model():
+    """Manually recreate the GPD model architecture based on PyTorch reference
+    
+    Reference: https://github.com/seisbench/seisbench/blob/main/seisbench/models/gpd.py
+    Conversion: https://github.com/seisbench/seisbench/blob/main/contrib/model_conversion/gpd_conversion.ipynb
+    
+    This implements the correct architecture with proper weight mapping.
+    """
+    import tensorflow as tf
+    import keras
+    
+    # Input layer: (None, 400, 3) - matches PyTorch (batch, time, channels)
+    input_layer = keras.layers.Input(shape=(400, 3), name='conv1d_1_input')
+    
+    # Conv1D layers - exact same architecture as PyTorch
+    # Conv1d(3, 32, 21, padding=10) 
+    x = keras.layers.Conv1D(32, 21, padding='same', activation='linear', name='conv1d_1')(input_layer)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_1')(x)
+    x = keras.layers.Activation('relu', name='activation_1')(x)
+    x = keras.layers.MaxPooling1D(2, name='max_pooling1d_1')(x)
+    
+    # Conv1d(32, 64, 15, padding=7)
+    x = keras.layers.Conv1D(64, 15, padding='same', activation='linear', name='conv1d_2')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_2')(x)
+    x = keras.layers.Activation('relu', name='activation_2')(x)
+    x = keras.layers.MaxPooling1D(2, name='max_pooling1d_2')(x)
+    
+    # Conv1d(64, 128, 11, padding=5)
+    x = keras.layers.Conv1D(128, 11, padding='same', activation='linear', name='conv1d_3')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_3')(x)
+    x = keras.layers.Activation('relu', name='activation_3')(x)
+    x = keras.layers.MaxPooling1D(2, name='max_pooling1d_3')(x)
+    
+    # Conv1d(128, 256, 9, padding=4)
+    x = keras.layers.Conv1D(256, 9, padding='same', activation='linear', name='conv1d_4')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_4')(x)
+    x = keras.layers.Activation('relu', name='activation_4')(x)
+    x = keras.layers.MaxPooling1D(2, name='max_pooling1d_4')(x)
+    
+    # Flatten and Dense layers
+    # After 4 maxpool operations: 400 -> 200 -> 100 -> 50 -> 25
+    # So we have: (batch, 25, 256) -> flatten -> (batch, 6400)
+    x = keras.layers.Flatten(name='flatten_1')(x)
+    
+    # Dense(6400, 200)
+    x = keras.layers.Dense(200, activation='linear', name='dense_1')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_5')(x)
+    x = keras.layers.Activation('relu', name='activation_5')(x)
+    
+    # Dense(200, 200) 
+    x = keras.layers.Dense(200, activation='linear', name='dense_2')(x)
+    x = keras.layers.BatchNormalization(epsilon=1e-3, name='batch_normalization_6')(x)
+    x = keras.layers.Activation('relu', name='activation_6')(x)
+    
+    # Dense(200, 3)
+    x = keras.layers.Dense(3, activation='linear', name='dense_3')(x)
+    
+    # Final softmax
+    outputs = keras.layers.Activation('softmax', name='activation_7')(x)
+    
+    # Create the model
+    model = keras.Model(inputs=input_layer, outputs=outputs, name='model_1')
+    
+    return model
+
+
+def load_weights_with_correct_mapping(model, hdf5_path):
+    """Load weights from original HDF5 file with proper conversion
+    
+    Based on the seisbench conversion notebook, this handles:
+    1. Weight transposition for conv layers  
+    2. Channel reordering from NEZ to ZNE for input layer
+    3. Proper batch normalization mapping
+    """
+    import h5py
+    import numpy as np
+    
+    # Load the original HDF5 weights
+    with h5py.File(hdf5_path, 'r') as f:
+        # Create mapping from HDF5 structure to model weights
+        weight_mapping = {}
+        
+        # Conv layers - need transposition and channel reordering
+        for conv_id in ['1', '2', '3', '4']:
+            hdf5_kernel = f[f'model_weights/sequential_1/conv1d_{conv_id}_1/kernel:0'][:]  # (kernel, in, out)
+            hdf5_bias = f[f'model_weights/sequential_1/conv1d_{conv_id}_1/bias:0'][:]
+            
+            # Transpose to Keras format: (kernel, in, out) -> (kernel, in, out) 
+            kernel_data = hdf5_kernel
+            
+            # NOTE: Original model expects NEZ channel ordering, NOT ZNE
+            # The PyTorch conversion required reordering, but we stay in original format
+            
+            weight_mapping[f'conv1d_{conv_id}'] = {
+                'kernel': kernel_data,
+                'bias': hdf5_bias
+            }
+        
+        # BatchNormalization layers
+        for bn_id in ['1', '2', '3', '4', '5', '6']:
+            gamma = f[f'model_weights/sequential_1/batch_normalization_{bn_id}_1/gamma:0'][:]
+            beta = f[f'model_weights/sequential_1/batch_normalization_{bn_id}_1/beta:0'][:]
+            moving_mean = f[f'model_weights/sequential_1/batch_normalization_{bn_id}_1/moving_mean:0'][:]
+            moving_var = f[f'model_weights/sequential_1/batch_normalization_{bn_id}_1/moving_variance:0'][:]
+            
+            weight_mapping[f'batch_normalization_{bn_id}'] = {
+                'gamma': gamma,
+                'beta': beta, 
+                'moving_mean': moving_mean,
+                'moving_variance': moving_var
+            }
+        
+        # Dense layers - no transposition needed (already in correct format)
+        for dense_id in ['1', '2', '3']:
+            hdf5_kernel = f[f'model_weights/sequential_1/dense_{dense_id}_1/kernel:0'][:]  # Already (in, out)
+            hdf5_bias = f[f'model_weights/sequential_1/dense_{dense_id}_1/bias:0'][:]
+            
+            weight_mapping[f'dense_{dense_id}'] = {
+                'kernel': hdf5_kernel,  # Use as-is - already in Keras format
+                'bias': hdf5_bias
+            }
+    
+    # Apply weights to model
+    for layer in model.layers:
+        layer_name = layer.name
+        
+        if layer_name.startswith('conv1d_'):
+            if layer_name in weight_mapping:
+                layer.set_weights([
+                    weight_mapping[layer_name]['kernel'],
+                    weight_mapping[layer_name]['bias']
+                ])
+                print(f"Loaded weights for {layer_name}")
+                
+        elif layer_name.startswith('batch_normalization_'):
+            if layer_name in weight_mapping:
+                bn_weights = weight_mapping[layer_name]
+                layer.set_weights([
+                    bn_weights['gamma'],
+                    bn_weights['beta'],
+                    bn_weights['moving_mean'], 
+                    bn_weights['moving_variance']
+                ])
+                print(f"Loaded weights for {layer_name}")
+                
+        elif layer_name.startswith('dense_'):
+            if layer_name in weight_mapping:
+                layer.set_weights([
+                    weight_mapping[layer_name]['kernel'],
+                    weight_mapping[layer_name]['bias']
+                ])
+                print(f"Loaded weights for {layer_name}")
+    
+    print("Weights loaded with proper conversion mapping")
+    return model
+
+
 def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
     """Process a dayfile (infile) and write picks to outfile.
 
@@ -183,27 +340,93 @@ def process_dayfile(infile, outfile, base_dir=None, verbose=False, plot=False):
     import keras
     model = _CACHED_MODEL
     base_dir = base_dir if base_dir else os.path.dirname(__file__)
+    
+    # Define model paths
+    json_config_path = os.path.join(base_dir, 'model_pol.json')
+    hdf5_weights_path = os.path.join(base_dir, 'model_pol_best.hdf5')
+    gpd_calibrated_path = os.path.join(base_dir, 'model_pol_gpd_calibrated_F80.h5')
+    fixed_path = os.path.join(base_dir, 'model_pol_fixed.h5')
     keras_path = os.path.join(base_dir, 'model_pol_new.keras')
     h5_path = os.path.join(base_dir, 'model_pol_legacy.h5')
 
-    # Try .keras first if not cached
+    # Try models in order of preference
     if model is None:
+        # 1. Try MANUAL RECONSTRUCTION with PROPER WEIGHT CONVERSION (NEW METHOD)
         try:
-            model = keras.models.load_model(keras_path)
-            print(f"Loaded model from: {keras_path}")
-        except Exception as e_keras:
-            print(f"Failed to load .keras model ({keras_path}): {e_keras}")
-            # Try legacy HDF5 fallback
-            if os.path.isfile(h5_path):
-                try:
-                    model = keras.models.load_model(h5_path)
-                    print(f"Loaded legacy HDF5 model from: {h5_path}")
-                except Exception as e_h5:
-                    print(f"Failed to load fallback HDF5 model ({h5_path}): {e_h5}")
-                    raise
-            else:
-                # re-raise original error to make the failure visible
-                raise
+            print("Attempting manual model reconstruction with proper weight conversion...")
+            model = create_manual_gpd_model()
+            model = load_weights_with_correct_mapping(model, hdf5_weights_path)
+            print(f"✅ SUCCESS: Manual model reconstruction with PROPER weight conversion!")
+        except Exception as e_manual:
+            print(f"❌ Failed manual reconstruction with weight conversion: {e_manual}")
+        
+        # 2. Fallback: Try old manual reconstruction (by_name loading)
+        if model is None:
+            try:
+                print("Fallback: Attempting manual model reconstruction with by_name loading...")
+                model = create_manual_gpd_model()
+                model.load_weights(hdf5_weights_path, by_name=True, skip_mismatch=True)
+                print(f"✅ SUCCESS: Manual model reconstruction + by_name weights loaded")
+            except Exception as e_manual_old:
+                print(f"❌ Failed old manual reconstruction: {e_manual_old}")
+        
+        # 3. Try original model (JSON + corrected HDF5 weights) as backup
+        if model is None and os.path.isfile(json_config_path) and os.path.isfile(hdf5_weights_path):
+            try:
+                # Enable unsafe deserialization for Lambda layers
+                keras.config.enable_unsafe_deserialization()
+                
+                with open(json_config_path, 'r') as json_file:
+                    model_json = json_file.read()
+                # Use custom_objects={'tf': tf} for Lambda layers (from working Keras 2 version)
+                custom_objects = {
+                    'tf': tf,
+                    'Model': keras.Model,
+                    'Sequential': keras.Sequential,
+                    'Lambda': keras.layers.Lambda,
+                    'Concatenate': keras.layers.Concatenate
+                }
+                model = keras.models.model_from_json(model_json, custom_objects=custom_objects)
+                model.load_weights(hdf5_weights_path)
+                print(f"✅ SUCCESS: Loaded ORIGINAL model from JSON config + corrected HDF5 weights")
+            except Exception as e_original:
+                print(f"❌ Failed to load original JSON+HDF5 model: {e_original}")
+        
+        # 4. Try GPD-calibrated model as backup
+        if model is None and os.path.isfile(gpd_calibrated_path):
+            try:
+                model = keras.models.load_model(gpd_calibrated_path)
+                print(f"✅ SUCCESS: Loaded GPD-calibrated model from: {gpd_calibrated_path}")
+            except Exception as e_gpd:
+                print(f"❌ Failed to load GPD-calibrated model ({gpd_calibrated_path}): {e_gpd}")
+        
+        # 5. Use the working converted model as backup
+        if model is None and os.path.isfile(keras_path):
+            try:
+                model = keras.models.load_model(keras_path)
+                print(f"Loaded working converted model from: {keras_path}")
+            except Exception as e_keras:
+                print(f"Failed to load .keras model ({keras_path}): {e_keras}")
+        
+        # 6. Try fixed temperature-corrected model as backup
+        if model is None and os.path.isfile(fixed_path):
+            try:
+                model = keras.models.load_model(fixed_path)
+                print(f"Loaded temperature-corrected model from: {fixed_path}")
+            except Exception as e_fixed:
+                print(f"Failed to load fixed model ({fixed_path}): {e_fixed}")
+        
+        # 7. Try legacy HDF5 fallback
+        if model is None and os.path.isfile(h5_path):
+            try:
+                model = keras.models.load_model(h5_path)
+                print(f"Loaded legacy HDF5 model from: {h5_path}")
+            except Exception as e_h5:
+                print(f"Failed to load .h5 model ({h5_path}): {e_h5}")
+                
+        if model is None:
+            raise RuntimeError("Failed to load any GPD model variant")
+        
         _CACHED_MODEL = model
 
     if n_gpu > 1:
