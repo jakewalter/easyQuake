@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    name: Fast test (lite install)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: [3.10, 3.11]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip and build tools
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install (lite) dependencies
+        run: |
+          python -m pip install -e '.[lite]'
+
+      - name: Import smoke test
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, '${{ github.workspace }}')
+          import easyQuake
+          print('easyQuake imported, version=', easyQuake.__version__)
+          PY
+
+      - name: Run pytest
+        run: |
+          python -m pip install pytest
+          pytest -q
+
+  ml-check:
+    name: ML smoke-check (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        python-version: [3.10]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install ML extras (may take time)
+        run: |
+          python -m pip install -e '.[ml]'
+
+      - name: ML import smoke test
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, '${{ github.workspace }}')
+          try:
+              import tensorflow as tf
+              import torch
+              import easyQuake
+              print('tf', tf.__version__, 'torch', torch.__version__, 'easyQuake', easyQuake.__version__)
+          except Exception as e:
+              import traceback
+              traceback.print_exc()
+              raise
+          PY

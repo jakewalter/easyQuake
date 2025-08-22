@@ -211,7 +211,7 @@ def plot_gpd_results(z_trace, prob_times, prob_P, prob_S, picks_file=None):
     ax2.plot(prob_times_mpl, prob_S, 'b-', linewidth=1.5, label='S-wave probability', alpha=0.8)
     
     # Add threshold line
-    min_proba = 0.25  # Current threshold
+    min_proba = 0.994  # Same threshold as main GPD code
     ax2.axhline(y=min_proba, color='gray', linestyle='--', alpha=0.7, label=f'Threshold ({min_proba})')
     
     # Add probability statistics to the plot

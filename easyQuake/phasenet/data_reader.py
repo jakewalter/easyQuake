@@ -1,10 +1,22 @@
 import tensorflow as tf
+
+# Keep eager execution enabled (TF2). The original code disabled eager
+# execution for TF1-style graphs which causes Keras to return symbolic
+# tensors that cannot be converted to numpy. Commenting those out to
+# ensure compatibility with TF 2.20 / Keras 3.
+# tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import logging
 import os
+
 import numpy as np
 import pandas as pd
+
 pd.options.mode.chained_assignment = None
 import json
+import random
+from collections import defaultdict
+
 # import s3fs
 import h5py
 import obspy
@@ -62,6 +74,7 @@ def normalize_long(data, axis=(0,), window=3000):
         window = nt
     shift = window // 2
 
+    dtype = data.dtype
     ## std in slide windows
     data_pad = np.pad(data, ((window // 2, window // 2), (0, 0), (0, 0)), mode="reflect")
     t = np.arange(0, nt, shift, dtype="int")
@@ -93,7 +106,7 @@ def normalize_long(data, axis=(0,), window=3000):
     if (nonzero < 3) and (nonzero > 0):
         data *= 3.0 / nonzero
 
-    return data
+    return data.astype(dtype)
 
 
 def normalize_batch(data, window=3000):
@@ -139,7 +152,6 @@ def normalize_batch(data, window=3000):
 
 
 class DataConfig:
-
     seed = 123
     use_seed = True
     n_channel = 3
@@ -159,7 +171,9 @@ class DataConfig:
 
 
 class DataReader:
-    def __init__(self, format="numpy", config=DataConfig(), **kwargs):
+    def __init__(
+        self, format="numpy", config=DataConfig(), response_xml=None, sampling_rate=100, highpass_filter=0, **kwargs
+    ):
         self.buffer = {}
         self.n_channel = config.n_channel
         self.n_class = config.n_class
@@ -171,22 +185,51 @@ class DataReader:
         self.label_width = config.label_width
         self.config = config
         self.format = format
-        if "highpass_filter" in kwargs:
-            self.highpass_filter = kwargs["highpass_filter"]
+        # if "highpass_filter" in kwargs:
+        #     self.highpass_filter = kwargs["highpass_filter"]
+        self.highpass_filter = highpass_filter
+        # self.response_xml = response_xml
+        if response_xml is not None:
+            self.response = obspy.read_inventory(response_xml)
+        else:
+            self.response = None
+        self.sampling_rate = sampling_rate
         if format in ["numpy", "mseed", "sac"]:
             self.data_dir = kwargs["data_dir"]
-            # try:
-            #     csv = pd.read_csv(kwargs["data_list"], header=0, sep="[,|\s+]", engine="python")
-            # except:
-            #     csv = pd.read_csv(kwargs["data_list"], header=0, sep="\t")
-            fdir = []
-            with open(kwargs["data_list"]) as f:
-                for line in f:
-                    tmp = line.split()
-                    fdir.append([tmp[0], tmp[1], tmp[2]])
-            nsta = len(fdir)
-            self.data_list = fdir
-            self.num_data = nsta
+            data_list_path = kwargs["data_list"]
+            # Try CSV read first; if it yields rows use it, otherwise fall back to manual parsing
+            parsed = False
+            try:
+                csv = pd.read_csv(data_list_path, header=0, sep="[,|\s+]", engine="python")
+                if csv is not None and len(csv) > 0:
+                    if "fname" in csv.columns:
+                        self.data_list = csv["fname"].astype(str).tolist()
+                    else:
+                        self.data_list = csv.iloc[:, 0].astype(str).tolist()
+                    parsed = True
+            except Exception:
+                parsed = False
+
+            if not parsed:
+                # Manual, robust line-based parsing. Handles files with single line and no trailing newline.
+                self.data_list = []
+                try:
+                    with open(data_list_path, "r") as fp:
+                        content = fp.read()
+                except Exception:
+                    content = ""
+
+                # Split into logical lines regardless of trailing newline
+                lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+                for line in lines:
+                    components = line.split()
+                    if len(components) == 3:
+                        # three-component entry (E, N, Z)
+                        self.data_list.append(components)
+                    else:
+                        # fallback to entire line as filename
+                        self.data_list.append(line)
+            self.num_data = len(self.data_list)
         elif format == "hdf5":
             self.h5 = h5py.File(kwargs["hdf5_file"], "r", libver="latest", swmr=True)
             self.h5_data = self.h5[kwargs["hdf5_group"]]
@@ -200,7 +243,11 @@ class DataReader:
                 client_kwargs={"endpoint_url": kwargs["s3_url"]},
                 use_ssl=kwargs["use_ssl"],
             )
-            self.num_data = 0
+        elif format == "mseed_3c":
+            with open(kwargs["data_list"], "r") as fp:
+                self.data_list = fp.readlines()
+            self.num_data = len(self.data_list)
+            self.data_dir = kwargs["data_dir"]
         else:
             raise (f"{format} not support!")
 
@@ -292,49 +339,157 @@ class DataReader:
                 raise (f"Format {format} not supported")
         return meta
 
-    def read_mseed(self, fname):
-        print(fname[0])
-        mseed = obspy.read(fname[0])
-        mseed.extend(obspy.read(fname[1]))
-        mseed.extend(obspy.read(fname[2]))
-        mseed.resample(100)
-        mseed = mseed.merge(fill_value=0)
-        for tr in mseed:
-            if isinstance(tr.data, np.ma.masked_array):
-                tr.data = tr.data.filled()
-        mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
-        if self.highpass_filter > 0:
-            mseed = mseed.filter("highpass", freq=self.highpass_filter)
-        starttime = min([st.stats.starttime for st in mseed])
-        endtime = max([st.stats.endtime for st in mseed])
-        mseed = mseed.trim(starttime, endtime, pad=True, fill_value=0)
-        # if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
-        #     logging.warning(
-        #         f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
-        #     )
+    def read_mseed(self, fname, response=None, highpass_filter=0.0, sampling_rate=100, return_single_station=True):
+        try:
+            stream = obspy.read(fname)
+            stream = stream.merge(fill_value="latest")
+            if response is not None:
+                # response = obspy.read_inventory(response_xml)
+                stream = stream.remove_sensitivity(response)
+        except Exception as e:
+            print(f"Error reading {fname}:\n{e}")
+            return {}
+        tmp_stream = obspy.Stream()
+        for trace in stream:
+            if len(trace.data) < 10:
+                continue
 
-        order = ["3", "2", "1", "E", "N", "Z"]
-        order = {key: i for i, key in enumerate(order)}
-        comp2idx = {"3": 0, "2": 1, "1": 2, "E": 0, "N": 1, "Z": 2}
+            ## interpolate to 100 Hz
+            if abs(trace.stats.sampling_rate - sampling_rate) > 0.1:
+                logging.warning(f"Resampling {trace.id} from {trace.stats.sampling_rate} to {sampling_rate} Hz")
+                try:
+                    trace = trace.interpolate(sampling_rate, method="linear")
+                except Exception as e:
+                    print(f"Error resampling {trace.id}:\n{e}")
 
-        t0 = starttime.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
-        nt = len(mseed[0].data)
-        data = np.zeros([nt, self.config.n_channel], dtype=self.dtype)
-        ids = [x.get_id() for x in mseed]
+            trace = trace.detrend("demean")
 
-        for j, id in enumerate(sorted(ids, key=lambda x: order[x[-1]])):
-            if len(ids) != 3:
-                if len(ids) > 3:
-                    logging.warning(f"More than 3 channels {ids}!")
-                j = comp2idx[id[-1]]
-            data[:, j] = mseed.select(id=id)[0].data.astype(self.dtype)
+            ## highpass filtering > 1Hz
+            if highpass_filter > 0.0:
+                trace = trace.filter("highpass", freq=highpass_filter)
 
-        data = data[:, np.newaxis, :]
-        meta = {"data": data, "t0": t0}
+            tmp_stream.append(trace)
+
+        if len(tmp_stream) == 0:
+            return {}
+        stream = tmp_stream
+
+        begin_time = min([st.stats.starttime for st in stream])
+        end_time = max([st.stats.endtime for st in stream])
+        stream = stream.trim(begin_time, end_time, pad=True, fill_value=0)
+
+        comp = ["3", "2", "1", "E", "N", "U", "V", "Z"]
+        order = {key: i for i, key in enumerate(comp)}
+        comp2idx = {
+            "3": 0,
+            "2": 1,
+            "1": 2,
+            "E": 0,
+            "N": 1,
+            "Z": 2,
+            "U": 0,
+            "V": 1,
+        }  ## only for cases less than 3 components
+
+        station_ids = defaultdict(list)
+        for tr in stream:
+            station_ids[tr.id[:-1]].append(tr.id[-1])
+            if tr.id[-1] not in comp:
+                print(f"Unknown component {tr.id[-1]}")
+
+        station_keys = sorted(list(station_ids.keys()))
+
+        nx = len(station_ids)
+        nt = len(stream[0].data)
+        data = np.zeros([3, nt, nx], dtype=np.float32)
+        for i, sta in enumerate(station_keys):
+            for j, c in enumerate(sorted(station_ids[sta], key=lambda x: order[x])):
+                if len(station_ids[sta]) != 3:  ## less than 3 component
+                    j = comp2idx[c]
+
+                if len(stream.select(id=sta + c)) == 0:
+                    print(f"Empty trace: {sta+c} {begin_time}")
+                    continue
+
+                trace = stream.select(id=sta + c)[0]
+
+                ## accerleration to velocity
+                if sta[-1] == "N":
+                    trace = trace.integrate().filter("highpass", freq=1.0)
+
+                tmp = trace.data.astype("float32")
+                data[j, : len(tmp), i] = tmp[:nt]
+
+        # if return_single_station and (len(station_keys) > 1):
+        #     print(f"Warning: {fname} has multiple stations, returning only the first one {station_keys[0]}")
+        #     data = data[:, :, 0:1]
+        #     station_keys = station_keys[0:1]
+
+        meta = {
+            "data": data.transpose([1, 2, 0]),
+            "t0": begin_time.datetime.isoformat(timespec="milliseconds"),
+            "station_id": station_keys,
+        }
+        return meta
+
+    def read_mseed_3c(self, fname, response=None, highpass_filter=0.0, sampling_rate=100):
+        try:
+            # stream = obspy.read(fname)
+            files = fname.rstrip("\n").split(",")
+
+            traces = []
+            station_ids = []
+            for file in files:
+                # with fsspec.open(file, "rb", anon=True) as fp:
+                #     stream += obspy.read(fp)
+                stream = obspy.read(file)
+                trace = stream.merge(fill_value="latest")[0]
+                # station_ids.append(trace.id[:-1])
+                station_ids.append(trace.id.rstrip("B")[:-1])  # Hardcode for station N.WJMF.EB
+
+                ## interpolate to 100 Hz
+                if abs(trace.stats.sampling_rate - sampling_rate) > 0.1:
+                    logging.warning(f"Resampling {trace.id} from {trace.stats.sampling_rate} to {sampling_rate} Hz")
+                    try:
+                        trace = trace.interpolate(sampling_rate, method="linear")
+                    except Exception as e:
+                        print(f"Error resampling {trace.id}:\n{e}")
+
+                trace = trace.detrend("demean")
+                if highpass_filter > 0.0:
+                    trace = trace.filter("highpass", freq=highpass_filter)
+
+                traces.append(trace)
+
+            station_ids = list(set(station_ids))
+            if len(station_ids) > 1:
+                print(f"station_ids = {station_ids}")
+                raise
+            assert len(station_ids) == 1, f"Error: {fname} has multiple stations {station_ids}"
+
+            begin_time = min([st.stats.starttime for st in traces])
+            end_time = max([st.stats.endtime for st in traces])
+            [trace.trim(begin_time, end_time, pad=True, fill_value=0) for trace in traces]
+
+        except Exception as e:
+            print(f"Error reading {fname}:\n{e}")
+            return {}
+
+        nt = len(traces[0].data)
+        data = np.zeros([3, nt], dtype=np.float32)
+        for i, trace in enumerate(traces):
+            tmp = trace.data.astype("float32")
+            data[i, : len(tmp)] = tmp[:nt]
+
+        data = data.T[:, np.newaxis, :]
+        meta = {
+            "data": data,
+            "t0": begin_time.datetime.isoformat(timespec="milliseconds"),
+            "station_id": station_ids,
+        }
         return meta
 
     def read_sac(self, fname):
-
         mseed = obspy.read(fname)
         mseed = mseed.detrend("spline", order=2, dspline=5 * mseed[0].stats.sampling_rate)
         mseed = mseed.merge(fill_value=0)
@@ -343,10 +498,10 @@ class DataReader:
         starttime = min([st.stats.starttime for st in mseed])
         endtime = max([st.stats.endtime for st in mseed])
         mseed = mseed.trim(starttime, endtime, pad=True, fill_value=0)
-        # if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
-        #     logging.warning(
-        #         f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
-        #     )
+        if abs(mseed[0].stats.sampling_rate - self.config.sampling_rate) > 1:
+            logging.warning(
+                f"Sampling rate mismatch in {fname.split('/')[-1]}: {mseed[0].stats.sampling_rate}Hz != {self.config.sampling_rate}Hz "
+            )
 
         order = ["3", "2", "1", "E", "N", "Z"]
         order = {key: i for i, key in enumerate(order)}
@@ -368,7 +523,6 @@ class DataReader:
         return meta
 
     def read_mseed_array(self, fname, stations, amplitude=False, remove_resp=True):
-
         data = []
         station_id = []
         t0 = []
@@ -431,7 +585,6 @@ class DataReader:
                     resp = stations[sta]["response"]
 
                 for j, c in enumerate(sorted(comp, key=lambda x: order[x[-1]])):
-
                     resp_j = resp[j]
                     if len(comp) != 3:  ## less than 3 component
                         j = comp2idx[c]
@@ -446,20 +599,23 @@ class DataReader:
                     trace_data[: len(tmp), j] = tmp[:nt]
                     if amplitude:
                         # if stations.iloc[i]["unit"] == "m/s**2":
-                        if stations[sta]["unit"] == "m/s**2":
+                        if stations[sta]["unit"].lower() == "m/s**2":
                             tmp = mseed.select(id=sta + c)[0]
                             tmp = tmp.integrate()
                             tmp = tmp.filter("highpass", freq=1.0)
                             tmp = tmp.data.astype(self.dtype)
                             trace_amp[: len(tmp), j] = tmp[:nt]
                         # elif stations.iloc[i]["unit"] == "m/s":
-                        elif stations[sta]["unit"] == "m/s":
+                        elif stations[sta]["unit"].lower() == "m":
+                            tmp = mseed.select(id=sta + c)[0]
+                            tmp = tmp.differentiate()
+                            tmp = tmp.data.astype(self.dtype)
+                            trace_amp[: len(tmp), j] = tmp[:nt]
+                        elif stations[sta]["unit"].lower() == "m/s":
                             tmp = mseed.select(id=sta + c)[0].data.astype(self.dtype)
                             trace_amp[: len(tmp), j] = tmp[:nt]
                         else:
-                            print(
-                                f"Error in {stations.iloc[i]['station']}\n{stations.iloc[i]['unit']} should be m/s**2 or m/s!"
-                            )
+                            print(f"Error in {stations[sta]}\n{stations[sta]['unit']} should be m/s**2 or m/s or m!")
                     if amplitude and remove_resp:
                         # trace_amp[:, j] /= float(resp[j])
                         trace_amp[:, j] /= float(resp_j)
@@ -468,7 +624,7 @@ class DataReader:
                     data.append(trace_data)
                     if amplitude:
                         raw_amp.append(trace_amp)
-                    station_id.append(sta)
+                    station_id.append([sta])
                     t0.append(starttime.datetime.isoformat(timespec="milliseconds"))
 
         if len(data) > 0:
@@ -571,7 +727,6 @@ class DataReader:
         return shifted_sample, shift_pick(itp, shift), shift_pick(its, shift), shift
 
     def stack_events(self, sample_old, itp_old, its_old, shift_range=None, mask_old=None):
-
         i = np.random.randint(self.num_data)
         base_name = self.data_list[i]
         if self.format == "numpy":
@@ -609,7 +764,6 @@ class DataReader:
 
 class DataReader_train(DataReader):
     def __init__(self, format="numpy", config=DataConfig(), **kwargs):
-
         super().__init__(format=format, config=config, **kwargs)
 
         self.min_event_gap = config.min_event_gap
@@ -618,7 +772,6 @@ class DataReader_train(DataReader):
         self.select_range = [5000, 8000]
 
     def __getitem__(self, i):
-
         base_name = self.data_list[i]
         if self.format == "numpy":
             meta = self.read_numpy(os.path.join(self.data_dir, base_name))
@@ -662,13 +815,11 @@ class DataReader_train(DataReader):
 
 class DataReader_test(DataReader):
     def __init__(self, format="numpy", config=DataConfig(), **kwargs):
-
         super().__init__(format=format, config=config, **kwargs)
 
         self.select_range = [5000, 8000]
 
     def __getitem__(self, i):
-
         base_name = self.data_list[i]
         if self.format == "numpy":
             meta = self.read_numpy(os.path.join(self.data_dir, base_name))
@@ -702,23 +853,9 @@ class DataReader_test(DataReader):
 
 class DataReader_pred(DataReader):
     def __init__(self, format="numpy", amplitude=True, config=DataConfig(), **kwargs):
-
         super().__init__(format=format, config=config, **kwargs)
 
         self.amplitude = amplitude
-        self.X_shape = self.get_data_shape()
-
-    def get_data_shape(self):
-        base_name = self.data_list[0]
-        if self.format == "numpy":
-            meta = self.read_numpy(os.path.join(self.data_dir, base_name))
-        elif self.format == "mseed":
-            meta = self.read_mseed(base_name)
-        elif self.format == "sac":
-            meta = self.read_sac(os.path.join(self.data_dir, base_name))
-        elif self.format == "hdf5":
-            meta = self.read_hdf5(base_name)
-        return meta["data"].shape
 
     def adjust_missingchannels(self, data):
         tmp = np.max(np.abs(data), axis=0, keepdims=True)
@@ -728,28 +865,54 @@ class DataReader_pred(DataReader):
         return data
 
     def __getitem__(self, i):
-
         base_name = self.data_list[i]
-
-        if self.format == "numpy":
-            meta = self.read_numpy(os.path.join(self.data_dir, base_name))
-        elif self.format == "mseed":
-            meta = self.read_mseed(base_name)
-        elif self.format == "sac":
-            meta = self.read_sac(os.path.join(self.data_dir, base_name))
-        elif self.format == "hdf5":
-            meta = self.read_hdf5(base_name)
+        # Support dayfile entries that are lists of three component file paths
+        # (as written by make_dayfile). If base_name is a list, join components
+        # with commas and pass to read_mseed_3c which accepts comma-separated
+        # filenames.
+        if isinstance(base_name, (list, tuple)):
+            # If entries are relative, prepend data_dir
+            files = []
+            for p in base_name:
+                p = p.strip()
+                if not p:
+                    continue
+                if not os.path.isabs(p) and hasattr(self, 'data_dir') and self.data_dir:
+                    files.append(os.path.join(self.data_dir, p))
+                else:
+                    files.append(p)
+            fname = ",".join(files)
+            meta = self.read_mseed_3c(fname, response=self.response, highpass_filter=self.highpass_filter, sampling_rate=self.sampling_rate)
         else:
-            raise (f"{self.format} does not support!")
-        if meta == -1:
-            return (np.zeros(self.X_shape, dtype=self.dtype), base_name)
+            if self.format == "numpy":
+                meta = self.read_numpy(os.path.join(self.data_dir, base_name))
+            elif (self.format == "mseed") or (self.format == "sac"):
+                meta = self.read_mseed(
+                    os.path.join(self.data_dir, base_name) if not isinstance(base_name, (list, tuple)) else base_name,
+                    response=self.response,
+                    sampling_rate=self.sampling_rate,
+                    highpass_filter=self.highpass_filter,
+                    return_single_station=True,
+                )
+            elif self.format == "hdf5":
+                meta = self.read_hdf5(base_name)
+            elif self.format == "mseed_3c":
+                meta = self.read_mseed_3c(
+                    os.path.join(self.data_dir, base_name),
+                    response=self.response,
+                    sampling_rate=self.sampling_rate,
+                    highpass_filter=self.highpass_filter,
+                )
+                base_name = ""
+            else:
+                raise (f"{self.format} does not support!")
 
-        raw_amp = np.zeros(self.X_shape, dtype=self.dtype)
-        raw_amp[: meta["data"].shape[0], ...] = meta["data"][: self.X_shape[0], ...]
-        sample = np.zeros(self.X_shape, dtype=self.dtype)
-        sample[: meta["data"].shape[0], ...] = normalize_long(meta["data"])[: self.X_shape[0], ...]
-        # if abs(meta["data"].shape[0] - self.X_shape[0]) > 1:
-        #     logging.warning(f"Data length mismatch in {base_name}: {meta['data'].shape[0]} != {self.X_shape[0]}")
+        if "data" in meta:
+            raw_amp = meta["data"].copy()
+            sample = normalize_long(meta["data"])
+        else:
+            raw_amp = np.zeros([3000, 1, 3], dtype=np.float32)
+            sample = np.zeros([3000, 1, 3], dtype=np.float32)
 
         if "t0" in meta:
             t0 = meta["t0"]
@@ -757,11 +920,10 @@ class DataReader_pred(DataReader):
             t0 = "1970-01-01T00:00:00.000"
 
         if "station_id" in meta:
-            station_id = meta["station_id"].split("/")[-1].rstrip("*")
+            station_id = meta["station_id"]
         else:
             # station_id = base_name.split("/")[-1].rstrip("*")
-            #station_id = os.path.basename(base_name).rstrip("*")
-            station_id = base_name[0].split('.')[1]
+            station_id = os.path.basename(base_name).rstrip("*")
 
         if np.isnan(sample).any() or np.isinf(sample).any():
             logging.warning(f"Data error: Nan or Inf found in {base_name}")
@@ -769,17 +931,18 @@ class DataReader_pred(DataReader):
             sample[np.isinf(sample)] = 0
 
         # sample = self.adjust_missingchannels(sample)
+
         if self.amplitude:
-            return (sample[: self.X_shape[0], ...], raw_amp[: self.X_shape[0], ...], base_name, t0, station_id)
+            return (sample, raw_amp, base_name, t0, station_id)
         else:
-            return (sample[: self.X_shape[0], ...], base_name, t0, station_id)
+            return (sample, base_name, t0, station_id)
 
     def dataset(self, batch_size, num_parallel_calls=2, shuffle=False, drop_remainder=False):
         if self.amplitude:
             dataset = dataset_map(
                 self,
                 output_types=(self.dtype, self.dtype, "string", "string", "string"),
-                output_shapes=(self.X_shape, self.X_shape, None, None, None),
+                output_shapes=([None, None, 3], [None, None, 3], None, None, None),
                 num_parallel_calls=num_parallel_calls,
                 shuffle=shuffle,
             )
@@ -787,7 +950,7 @@ class DataReader_pred(DataReader):
             dataset = dataset_map(
                 self,
                 output_types=(self.dtype, "string", "string", "string"),
-                output_shapes=(self.X_shape, None, None, None),
+                output_shapes=([None, None, 3], None, None, None),
                 num_parallel_calls=num_parallel_calls,
                 shuffle=shuffle,
             )
@@ -797,7 +960,6 @@ class DataReader_pred(DataReader):
 
 class DataReader_mseed_array(DataReader):
     def __init__(self, stations, amplitude=True, remove_resp=True, config=DataConfig(), **kwargs):
-
         super().__init__(format="mseed", config=config, **kwargs)
 
         # self.stations = pd.read_json(stations)
@@ -815,7 +977,6 @@ class DataReader_mseed_array(DataReader):
         return meta["data"].shape
 
     def __getitem__(self, i):
-
         fp = os.path.join(self.data_dir, self.data_list[i])
         # try:
         meta = self.read_mseed_array(fp, self.stations, self.amplitude, self.remove_resp)
@@ -967,5 +1128,4 @@ def test_DataReader():
 
 
 if __name__ == "__main__":
-
     test_DataReader()

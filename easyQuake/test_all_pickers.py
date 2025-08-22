@@ -151,15 +151,24 @@ def main():
     if not project_folder:
         return
     
-    # Define pickers to test
-    pickers = ['GPD', 'EQTransformer', 'PhaseNet', 'STALTA']
-    
+    # Define pickers to test (include Seisbench by default; it will be skipped if no model)
+    pickers = ['GPD', 'EQTransformer', 'PhaseNet', 'STALTA', 'Seisbench']
+
     # Test each picker
     results = {}
     total_picks = 0
     
     for picker in pickers:
-        success, picks = test_picker(picker, project_folder, test_date)
+        # Lookup model path (may be None) and pass through for Seisbench
+        seisbench_model = os.environ.get('SEISBENCH_MODEL_PATH')
+        if picker == 'Seisbench':
+            if seisbench_model and os.path.exists(seisbench_model):
+                success, picks = test_picker(picker, project_folder, test_date)
+            else:
+                print('Seisbench model not provided; skipping Seisbench test')
+                success, picks = True, 0
+        else:
+            success, picks = test_picker(picker, project_folder, test_date)
         results[picker] = (success, picks)
         if success:
             total_picks += picks

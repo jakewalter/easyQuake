@@ -95,20 +95,45 @@ from multiprocessing import cpu_count
 # from multiprocessing import get_context
 
 #import os
-from obspy import UTCDateTime
-from obspy import Inventory, read_inventory
-from obspy.clients.fdsn import Client
-from obspy import read
-import numpy as np
-import glob
+_HAS_OBSPY = True
+try:
+    from obspy import UTCDateTime
+    from obspy import Inventory, read_inventory
+    from obspy.clients.fdsn import Client
+    from obspy import read
+    import numpy as np
+    import glob
 
-import obspy.taup as taup
-from obspy.taup import TauPyModel
-#from obspy.taup.velocity_model import VelocityModel
-from obspy.taup.taup_create import build_taup_model
-from obspy import geodetics
-from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
-from obspy.core.event.base import WaveformStreamID
+    import obspy.taup as taup
+    from obspy.taup import TauPyModel
+    #from obspy.taup.velocity_model import VelocityModel
+    from obspy.taup.taup_create import build_taup_model
+    from obspy import geodetics
+    from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
+    from obspy.core.event.base import WaveformStreamID
+    from obspy import Stream
+    from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
+    from obspy.geodetics import gps2dist_azimuth, kilometer2degrees
+except Exception:
+    _HAS_OBSPY = False
+    # minimal safe fallbacks so module import doesn't crash; functions will check _HAS_OBSPY
+    UTCDateTime = None
+    Inventory = None
+    read_inventory = None
+    Client = None
+    read = None
+    np = __import__('numpy') if 'numpy' in globals() else None
+    glob = __import__('glob')
+    taup = None
+    TauPyModel = None
+    build_taup_model = None
+    geodetics = None
+    CircularDomain = RectangularDomain = Restrictions = MassDownloader = None
+    WaveformStreamID = None
+    Stream = None
+    Catalog = Event = Magnitude = Origin = Pick = StationMagnitude = Amplitude = Arrival = OriginUncertainty = OriginQuality = ResourceIdentifier = Comment = None
+    gps2dist_azimuth = kilometer2degrees = None
+    print("Warning: 'obspy' package not available. Install it to run pickers (e.g. pip install obspy).")
 from sqlalchemy.orm import *
 from sqlalchemy import create_engine
 import pandas as pd
@@ -445,43 +470,79 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
 
 
                     
-def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10):
-    #add sta/lta stuff
+def queue_sta_lta(infile, outfile, dirname, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10, use_multiprocessing=False):
+    # add sta/lta stuff
     fdir = []
     with open(infile) as f:
         for line in f:
             tmp = line.split()
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
+
+    # Determine available CPUs to use
     n_cpus1 = min(cpu_count(), nsta)
     if n_cpus1 == cpu_count():
-        n_cpus = n_cpus1-1
+        n_cpus = max(1, n_cpus1 - 1)
     else:
-        n_cpus = n_cpus1
-    #with get_context("spawn").Pool() as pool:
-    # Ensure at least 1 process
-    pool_processes = max(1, n_cpus-1)
-    pool = Pool(pool_processes)
-    #results = []
-    for i in range(nsta):
-        #try:
-        print(str(i+1)+" of "+str(nsta)+" stations")
-        print(fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,trig_horz, trig_vert,)
-        pool.apply(trigger_p_s, (fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert,))
-        #print(r.get())
-        #results.append((i,r))
-    pool.close()
-    pool.join()
+        n_cpus = max(1, n_cpus1)
+    pool_processes = max(1, n_cpus)
+
+    # Use a progress bar per station for clearer feedback
+    try:
+        from tqdm import tqdm
+    except Exception:
+        # Fallback to simple range if tqdm isn't available
+        tqdm = lambda x, **kw: x
+
+    if use_multiprocessing and pool_processes > 1:
+        # Multiprocessing branch: submit tasks and wait for completion
+        try:
+            from multiprocessing import get_context
+            ctx = get_context('spawn')
+            pool = ctx.Pool(pool_processes)
+            async_results = []
+            for i in range(nsta):
+                tmp_out = outfile.split('.')[0] + str(i)
+                async_results.append(pool.apply_async(trigger_p_s, (fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)))
+            pool.close()
+            # Wait for tasks with tqdm progress
+            for r in tqdm(async_results, desc="STA/LTA stations"):
+                try:
+                    r.get()
+                except Exception as e:
+                    print(f"STA/LTA station task failed: {e}")
+            pool.join()
+        except Exception as e:
+            print(f"Multiprocessing failed ({e}), falling back to serial execution")
+            for i in tqdm(range(nsta), desc="STA/LTA stations"):
+                tmp_out = outfile.split('.')[0] + str(i)
+                try:
+                    trigger_p_s(fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+                except Exception as e2:
+                    print(f"STA/LTA station {i} failed: {e2}")
+    else:
+        # Serial execution (default) for reliability in tests
+        for i in tqdm(range(nsta), desc="STA/LTA stations"):
+            tmp_out = outfile.split('.')[0] + str(i)
+            try:
+                trigger_p_s(fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+            except Exception as e:
+                print(f"STA/LTA station {i} failed: {e}")
+
+    # Concatenate temporary per-station files into final outfile
     if os.path.exists(outfile):
         os.remove(outfile)
-    filenames = glob.glob(outfile.split('.')[0]+'*')
-    with open(outfile, 'w') as outfile:
+    filenames = glob.glob(outfile.split('.')[0] + '*')
+    with open(outfile, 'w') as outfp:
         for fname in filenames:
-            with open(fname) as infile:
-                for line in infile:
-                    outfile.write(line)
+            with open(fname) as infile_fp:
+                for line in infile_fp:
+                    outfp.write(line)
     for file1 in filenames:
-        os.remove(file1)
+        try:
+            os.remove(file1)
+        except Exception:
+            pass
                     
 
 def pick_add(dbsession=None,fileinput=None,inventory=None):
@@ -650,7 +711,7 @@ def make_dayfile(dir1, make3):
     return dir1+'/dayfile.in'
         
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None, use_multiprocessing=False):
     """
     Continuous detection of seismic events using single-station waveform data.
     
@@ -682,6 +743,10 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     
     This function performs continuous detection of seismic events using waveform data from a single station. It creates an SQLite database for storing the detection results, and uses automated detection algorithms (GPD, EQTransformer, or PhaseNet), or alternatively, STA/LTA.
     """
+    # Runtime dependency guard: obspy is required for I/O and many pickers
+    if not _HAS_OBSPY:
+        print("Seisquake runtime error: 'obspy' is not installed. Install obspy to run pickers (e.g. pip install obspy) and re-run.")
+        return
     
 
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -862,7 +927,26 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
             os.remove(outfile)
         # require a model path for seisbench inline execution
         if not seisbenchmodel:
-            # No model provided: skip inline and do not call external CLI (would fail trying to open 'None')
+            # attempt to auto-discover a model in the repository default models directory
+            try:
+                default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+                if default_models_dir.exists():
+                    candidates = list(default_models_dir.glob('*.pth')) + list(default_models_dir.glob('*.pt')) + list(default_models_dir.glob('*.ckpt'))
+                    if candidates:
+                        # Prefer explicit 'best' models when available
+                        bests = [c for c in candidates if 'best_model' in c.name]
+                        selected = bests[0] if bests else candidates[0]
+                        seisbenchmodel = str(selected)
+                        print(f"Seisbench: discovered model {seisbenchmodel}")
+                    else:
+                        print('Seisbench: no model files found in default models directory; skipping Seisbench run')
+                else:
+                    print(f'Seisbench: default models directory not found: {default_models_dir}; skipping Seisbench run')
+            except Exception:
+                print('Seisbench: model discovery failed; skipping Seisbench run')
+
+        if not seisbenchmodel:
+            # still no model provided: skip inline and do not call external CLI
             print('Seisbench model not provided; skipping Seisbench run (no CLI fallback because model is missing)')
             # leave outfile absent and continue
             pass
@@ -875,15 +959,18 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
                 try:
                     seis_main()
                 except TypeError:
+                    # Prefer running the workspace script directly to avoid using an
+                    # installed console entry point which may be out-of-sync.
                     if fullpath_python:
                         os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
                     else:
-                        os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                        # Explicitly invoke the workspace script with python3
+                        os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
             except Exception:
                 if fullpath_python:
                     os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
                 else:
-                    os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                    os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
@@ -894,7 +981,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert, use_multiprocessing=use_multiprocessing)
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:

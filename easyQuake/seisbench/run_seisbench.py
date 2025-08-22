@@ -65,13 +65,44 @@ def main():
     #model_path = model_directory / base_name
     model_path = args.M
 
+    # If no model path provided, look for models in the workspace default directory
+    if not model_path:
+        default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+        if default_models_dir.exists() and default_models_dir.is_dir():
+                # Accept common model extensions and prefer files containing 'best_model'
+            candidates = []
+            for ext in ('*.pth', '*.pt', '*.ptl', '*.ckpt', '*.tar'):
+                candidates.extend(sorted(default_models_dir.glob(ext)))
+            if candidates:
+                    bests = [c for c in candidates if 'best_model' in c.name]
+                    selected = bests[0] if bests else candidates[0]
+                    model_path = str(selected)
+                    print(f"Using default Seisbench model: {model_path}")
+            else:
+                print(f"No model files found in {default_models_dir}; Seisbench will require -M model path")
+        else:
+            print(f"Default Seisbench models directory not found: {default_models_dir}")
+
+    if not model_path:
+        raise FileNotFoundError('Seisbench model not specified and no default model found')
+
     loaded_model = sbm.PhaseNet()
-    loaded_model.load_state_dict(torch.load(model_path))
-    loaded_model.cuda()
+    # Choose device-aware map_location to avoid attempting to deserialize CUDA tensors
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    try:
+        state = torch.load(model_path, map_location=device)
+    except Exception:
+        # Fallback: try loading to CPU explicitly
+        state = torch.load(model_path, map_location=torch.device('cpu'))
+
+    loaded_model.load_state_dict(state)
+    # Move model to device if available (only call cuda when CUDA is present)
+    loaded_model.to(device)
+    if device.type == 'cuda':
+        loaded_model.cuda()
+
     print(loaded_model)
 
-    
-    #loaded_model.cuda()
     torch.set_num_threads(2)
 
 

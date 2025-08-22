@@ -1,5 +1,7 @@
 # easyQuake
 
+[![CI](https://github.com/jakewalter/easyQuake/actions/workflows/ci.yml/badge.svg)](https://github.com/jakewalter/easyQuake/actions/workflows/ci.yml)
+
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
 
