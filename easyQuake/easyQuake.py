@@ -816,19 +816,21 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         except:
             pass
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet + '/phasenet_predict.py'
+        # Force use of the current workspace PhaseNet CLI only. Remove legacy TF1 fallback.
+        fullpath3 = os.path.join(pathphasenet, 'phasenet_predict.py')
         outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
 
-        # Run PhaseNet using the CLI script to avoid inline TF1/TF2 compatibility issues.
+        phasenet_success = False
         try:
             model_arg = os.path.join(pathphasenet, 'model', '190703-214543')
             if fullpath_python:
-                cmd = f"{fullpath_python} {fullpath3} --model={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+                cmd = f"{fullpath_python} {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
             else:
-                cmd = f"python3 {fullpath3} --model={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
-            print('PhaseNet: running CLI:', cmd)
+                cmd = f"python3 {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+
+            print('PhaseNet: running current CLI:', cmd)
             import subprocess
             res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             print('PhaseNet CLI exit code:', res.returncode)
@@ -836,10 +838,18 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
                 print('PhaseNet CLI stdout:\n', res.stdout)
             if res.stderr:
                 print('PhaseNet CLI stderr:\n', res.stderr)
-            if res.returncode != 0:
-                print('PhaseNet: CLI returned non-zero exit code')
+            if res.returncode == 0:
+                phasenet_success = True
+                print('PhaseNet: current version completed successfully')
+            else:
+                print('PhaseNet: current version failed')
         except Exception as _e:
             print('PhaseNet: CLI invocation failed:', _e)
+
+        if not phasenet_success:
+            print('PhaseNet: current version failed; creating empty output file')
+            with open(outfile, 'w') as f:
+                pass
 
         try:
             pick_add(dbsession=session, fileinput=outfile, inventory=inv)
