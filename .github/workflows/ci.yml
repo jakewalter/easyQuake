@@ -2,19 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, easyquake_seisbench ]
   pull_request:
-    branches: [ main, master ]
-  workflow_dispatch: {}
+    branches: [ main, master, easyquake_seisbench ]
+  workflow_dispatch:
 
 jobs:
-  test:
-    name: Fast test (lite install)
+  test-cpu:
+    name: Test CPU on ${{ matrix.os }} (Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: [3.10, 3.11]
+        os: [ubuntu-22.04, macos-14]
+        python-version: ['3.10', '3.11']
 
     steps:
       - name: Checkout repository
@@ -25,64 +26,81 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Upgrade pip and build tools
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
-      - name: Install (lite) dependencies
-        run: |
-          python -m pip install -e '.[lite]'
+      - name: Install CPU-specific PyTorch
+        run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Import smoke test
-        run: |
-          python - <<'PY'
-          import sys
-          sys.path.insert(0, '${{ github.workspace }}')
-          import easyQuake
-          print('easyQuake imported, version=', easyQuake.__version__)
-          PY
+      - name: Install easyQuake with ML dependencies
+        run: pip install .[ml]
 
-      - name: Run pytest
-        run: |
-          python -m pip install pytest
-          pytest -q
+      - name: Install test dependencies
+        run: pip install pytest
 
-  ml-check:
-    name: ML smoke-check (manual)
+      - name: Run tests
+        run: pytest
+
+  test-cpu-rockylinux:
+    name: Test CPU on Rocky Linux 9 (Python 3.10)
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    strategy:
-      matrix:
-        python-version: [3.10]
+    container:
+      image: rockylinux:9
 
     steps:
-      - name: Checkout
+      - name: Install system dependencies
+        run: |
+          dnf install -y python3.10 python3.10-pip git-core
+          ln -s /usr/bin/python3.10 /usr/bin/python
+          ln -s /usr/bin/pip3.10 /usr/bin/pip
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+
+      - name: Install CPU-specific PyTorch
+        run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install easyQuake with ML dependencies
+        run: pip install .[ml]
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run tests
+        run: pytest
+
+  test-gpu:
+    name: Test GPU on Ubuntu (Python 3.10)
+    runs-on: ubuntu-22.04-gpu
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.10'
 
       - name: Upgrade pip
-        run: python -m pip install --upgrade pip setuptools wheel
+        run: python -m pip install --upgrade pip
 
-      - name: Install ML extras (may take time)
-        run: |
-          python -m pip install -e '.[ml]'
+      - name: Install GPU-enabled PyTorch
+        run: pip install torch torchvision torchaudio
 
-      - name: ML import smoke test
+      - name: Install easyQuake with ML dependencies
+        run: pip install .[ml]
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Verify GPU is available
         run: |
-          python - <<'PY'
-          import sys
-          sys.path.insert(0, '${{ github.workspace }}')
-          try:
-              import tensorflow as tf
-              import torch
-              import easyQuake
-              print('tf', tf.__version__, 'torch', torch.__version__, 'easyQuake', easyQuake.__version__)
-          except Exception as e:
-              import traceback
-              traceback.print_exc()
-              raise
-          PY
+          python -c "import torch; print('PyTorch version:', torch.__version__); print('CUDA available:', torch.cuda.is_available())"
+          python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__); print('Num GPUs Available: ', len(tf.config.list_physical_devices('GPU')))"
+
+      - name: Run tests
+        run: pytest
