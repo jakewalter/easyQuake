@@ -327,7 +327,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     inv = Inventory()
-    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
     for file1 in dir1a:
         inv1a = read_inventory(file1)
         inv.networks.extend(inv1a)
@@ -621,7 +621,7 @@ def make_dayfile(dir1, make3):
     for stationin in stations:
         station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
         station3a = [None,None,None]
-        if len(station3)>3:
+        if len(station3)==6:
             #print(station3)
             ind1 = np.empty((len(station3),1))
             ind1[:] = np.nan
@@ -641,6 +641,25 @@ def make_dayfile(dir1, make3):
                     #print(ind2a)
                     #print(station3a)
                     station3a[int(ind2a[0])] = station3[idxsa]
+        elif len(station3)==4: #RS4D instruments with 1 geophone and 3 accelerometer channels
+            ind1 = np.empty((len(station3),1))
+            ind1[:] = np.nan
+            for idxs, station1 in enumerate(station3):
+                if get_chan3(station1)[1:3] == 'NZ':
+                    ind1[idxs] = 2
+                elif get_chan3(station1)[1:3] == 'NN' or get_chan3(station1)[1:3] == 'N1':
+                    ind1[idxs] = 0
+                elif get_chan3(station1)[1:3] == 'NE' or get_chan3(station1)[1:3] == 'N2':
+                    ind1[idxs] = 1
+                #print(idxs)
+                #if ind1:
+                #    station3a[ind1] = station1
+            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
+            for idxsa, ind2a in enumerate(ind1):
+                if ~np.isnan(ind2a[0]):
+                    #print(ind2a)
+                    #print(station3a)
+                    station3a[int(ind2a[0])] = station3[idxsa]            
         else:
             for station1 in station3:
                 if get_chan1(station1)  == 'Z':
@@ -1182,7 +1201,7 @@ def select_all_associated(conn, f0):
         origin.depth = 5000
         origin.time = row[1]
         origin.arrivals = []
-        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]
+        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]+row[1][11:13]+row[1][14:16]+row[1][17:19]
         cur1.execute('SELECT * FROM picks_modified WHERE assoc_id IN (?)',[int(row[0])])
         picks1a = sorted(cur1.fetchall())
         stas = []
@@ -1513,6 +1532,9 @@ def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
     pre_filt = (0.05, 0.06, 30.0, 35.0)
     st3.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt, zero_mean=True)
     st3.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
+    starttime = min([st.stats.starttime for st in st3])
+    endtime = max([st.stats.endtime for st in st3])
+    st3 = st3.trim(starttime, endtime, pad=True, fill_value=0)
     
     epid, az, baz = gps2dist_azimuth(event.preferred_origin().latitude, event.preferred_origin().longitude, inv[0][0].latitude, inv[0][0].longitude)
     #rotate to radial/transverse
@@ -1577,39 +1599,41 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
     st = st3.select(channel='[EHB]H[EN12]')
-    for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-        if len(inventory_local)>0:
-            inv = read_inventory(inventory_local[0])
-        else:
-            try:
-                #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                try:
-                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                    #print(project_folder+'/'+strday+'*/dailyinventory.xml')
-                except:
-                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
-                    pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
-                if not inv:
-                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                    if not inv:
-                        print('Getting response from DMC 1')
-                        client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
+    inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+    if len(inventory_local)>0:
+        inv = read_inventory(inventory_local[0])
+    else:
+        try:
+            #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+            try:
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                #print(project_folder+'/'+strday+'*/dailyinventory.xml')
             except:
-                print('Station metadata error')
-                print('Getting response from DMC 2')
-                client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-                #starttime = UTCDateTime(origin.time-10)
-                #endtime = UTCDateTime(origin.time+10)
-                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                 pass
-                #                    paz = [x for x in pazs if tr.stats.channel in x]
+            inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+            if not inv:
+                inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                if not inv:
+                    print('Response issue - not in local directories')
+                    #client = Client()
+                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+
+        except:
+            print('Response issue - not in local directories')
+            print('Notetting response from DMC 2')
+            #client = Client()
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+            #starttime = UTCDateTime(origin.time-10)
+            #endtime = UTCDateTime(origin.time+10)
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+            pass
+            #                    paz = [x for x in pazs if tr.stats.channel in x]
 #                    attach_paz(tr, paz[0])
         #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+    
+    for tr in st3:
         tr.stats.network = inv[0].code
         tr.stats.location = inv[0][0][0].location_code
         pre_filt = (0.05, 0.06, 30.0, 35.0)
@@ -1652,51 +1676,52 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
     
-    for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-        if len(inventory_local)>0:
-            inv = read_inventory(inventory_local[0])
-        else:
+    #for tr in st3:
+    inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+    if len(inventory_local)>0:
+        inv = read_inventory(inventory_local[0])
+    else:
+        try:
             try:
-                try:
-                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                except:
-                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
-                    pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
-                if not inv:
-                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                    if not inv:
-                        print('Getting response from DMC')
-                        starttime = UTCDateTime(origin.time-10)
-                        endtime = UTCDateTime(origin.time+10)
-                        client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
             except:
-                print('Station metadata error')
-                print('Getting response from DMC')
-                client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-                #starttime = UTCDateTime(origin.time-10)
-                #endtime = UTCDateTime(origin.time+10)
-                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                 pass
-                #                    paz = [x for x in pazs if tr.stats.channel in x]
-#                    attach_paz(tr, paz[0])
-        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-        tr.stats.network = inv[0].code
-        tr.stats.location = inv[0][0][0].location_code
-        #pre_filt = (0.05, 0.06, 30.0, 35.0)
-        tr.trim(pick.time-30, pick.time+120)
+            inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+            if not inv:
+                inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                if not inv:
+                    print('Response issue - not in local directories')
+                    # starttime = UTCDateTime(origin.time-10)
+                    # endtime = UTCDateTime(origin.time+10)
+                    # client = Client()
+                    # inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
+        except:
+            print('Station metadata error')
+            #print('Getting response from DMC')
+            #client = Client()
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+            #starttime = UTCDateTime(origin.time-10)
+            #endtime = UTCDateTime(origin.time+10)
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+            pass
+            #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+    tr.stats.network = inv[0].code
+    tr.stats.location = inv[0][0][0].location_code
+    #pre_filt = (0.05, 0.06, 30.0, 35.0)
+    tr.trim(pick.time-30, pick.time+120)
+
+    print(inv)
 
 
         
     return st3, inv
 
 
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dist=200, estimate_sp=False, eventmode=False, dirname=None):
     """
     Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
     
@@ -1743,7 +1768,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
 
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-            print(strday)
+            #print(strday)
             
             if pick.phase_hint == 'S':
                 ### make Amplitude
@@ -1751,7 +1776,10 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 try:
                     starttime_inv=origin.time-10
                     endtime_inv=origin.time+10
-                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                    if eventmode:
+                        st3, inv =  select_3comp_remove_response(project_folder,dirname,pick,starttime_inv,endtime_inv)
+                    else:
+                        st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
@@ -2032,9 +2060,13 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
             try:
                 st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
             except:
-                st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                try:
+                    st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                except:
+                    pass
                 pass
             #arrivals.append(arrv)
+            
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
@@ -2046,10 +2078,27 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
                     st3 += tr2
             st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.merge(fill_value=0)
+            for tr in st3:
+                if isinstance(tr.data, np.ma.masked_array):
+                    tr.data = tr.data.filled()
             st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
-
+        
+        st1.merge(fill_value=0)
+        #print(st3)
+        for tr in st1:
+            if isinstance(tr.data, np.ma.masked_array):
+                tr.data = tr.data.filled()
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
+        if not os.path.exists(project_folder+'/'+strday+'/dailyinventory.xml'):
+            inv = Inventory()
+            print('creating inventory')
+            dir1a = glob.glob(project_folder+'/'+strday+'/??.*.xml') + glob.glob(project_folder+'/'+strday+'/rt.xml')
+            for file1 in dir1a:
+                inv1a = read_inventory(file1)
+                inv.networks.extend(inv1a)
+            inv.write(project_folder+'/'+strday+'/dailyinventory.xml',format='STATIONXML')
         
         os.system('cp '+project_folder+'/'+strday+'/*dailyinventory.xml '+dirname+'/'+str(ev.resource_id).split('/')[-1]+'_inv.xml')
         #os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
@@ -2098,7 +2147,9 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
                 plt.title('M '+str(ev.preferred_magnitude().mag)+' '+str(origin.time))
                 plt.close(fig)
-            except:
+            except Exception:
+                print(traceback.format_exc())#input("push")
+                print('Something went wrong here')
                 pass
 
 
@@ -2136,7 +2187,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
     if local:
         inv = Inventory()
-        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
         for file1 in dir1a:
             inv1a = read_inventory(file1)
             inv.networks.extend(inv1a)
@@ -2366,13 +2417,87 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         pass
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
+
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True)
+        # Quality control: Remove bad picks and events with insufficient picks
+        print(f"Starting QC on {len(cat)} events...")
+        cleaned_events = []
+        
+        for event_idx, event in enumerate(cat):
+            origin = event.preferred_origin() or event.origins[0]
+            picks_to_remove = []
+            
+            # Check each pick for timing issues
+            for pick in event.picks:
+                # Look for waveform files to get start times
+                try:
+                    # Try multiple file patterns to find waveform data
+                    file_patterns = [
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*mseed",
+                        f"{project_folder}/{dirname}/*{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*SAC",
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code[0:2]}*mseed",
+                    ]
+                    
+                    waveform_found = False
+                    trace_start_time = None
+                    
+                    for pattern in file_patterns:
+                        matching_files = glob.glob(pattern)
+                        if matching_files:
+                            try:
+                                st = read(matching_files[0], headonly=True)  # Read header only for speed
+                                trace_start_time = st[0].stats.starttime
+                                waveform_found = True
+                                break
+                            except:
+                                continue
+                    
+                    if waveform_found and trace_start_time:
+                        # Calculate pick time relative to trace start
+                        time_diff = float(pick.time - trace_start_time)
+                        
+                        # QC check: Remove picks that are negative or within 1 second of start
+                        if time_diff < 1.0:
+                            print(f"  Removing pick {pick.phase_hint} at station {pick.waveform_id.station_code}: time diff = {time_diff:.2f}s")
+                            picks_to_remove.append(pick)
+                    else:
+                        print(f"  Warning: No waveform found for pick at station {pick.waveform_id.station_code}")
+                        
+                except Exception as e:
+                    print(f"  Error checking pick at station {pick.waveform_id.station_code}: {e}")
+            
+            # Remove bad picks from the event
+            for pick in picks_to_remove:
+                event.picks.remove(pick)
+                # Also remove corresponding arrivals
+                arrivals_to_remove = [arr for arr in origin.arrivals if arr.pick_id == pick.resource_id]
+                for arr in arrivals_to_remove:
+                    origin.arrivals.remove(arr)
+            
+            # QC check: Keep events with at least 6 picks
+            if len(event.picks) >= 6:
+                cleaned_events.append(event)
+                print(f"  Event {event_idx+1}: Kept with {len(event.picks)} picks")
+            else:
+                print(f"  Event {event_idx+1}: Removed (only {len(event.picks)} picks remaining)")
+        
+        # Create new catalog with cleaned events
+        cleaned_cat = Catalog(cleaned_events)
+        print(f"QC complete: {len(cleaned_cat)} events remain (removed {len(cat) - len(cleaned_cat)} events)")
+        cat = cleaned_cat
+        
+        # Add project_folder information as comments to each event
+        for event in cat:
+            comment = Comment(text=f"{approxorigintime}")
+            event.comments.append(comment)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
+        filename = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
+        filename2 = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+'_seiscomp'+".xml"
+        ev.write(project_folder+'/'+filename2, format='SC3ML')
 
 
 def simple_cat_df(cat=None, uncertainty=False):
@@ -2775,6 +2900,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
+        if os.path.exists(phafile):
+            os.system('rm '+phafile)        
         fcur = open(phafile,'w')
         fcur.write(str(hypo71_string))
         fcur.close()

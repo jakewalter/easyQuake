@@ -373,7 +373,9 @@ def _mseed2nparry(args, fdir, i, time_slots, comp_types):
 
     st.detrend(type='linear')
     st.filter(type='bandpass', freqmin = 1.0, freqmax = 45, corners=2, zerophase=True)
-    st.taper(max_percentage=0.001, type='cosine', max_length=2)
+    #st.taper(max_percentage=0.001, type='cosine', max_length=2)
+    st.taper(max_percentage=0.05, type="cosine", side="both")
+
     time_slots.append((st[0].stats.starttime, st[0].stats.endtime))
 
     if len([tr for tr in st if tr.stats.sampling_rate != 100.0]) != 0:
