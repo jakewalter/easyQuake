@@ -87,19 +87,46 @@ def main():
         raise FileNotFoundError('Seisbench model not specified and no default model found')
 
     loaded_model = sbm.PhaseNet()
-    # Choose device-aware map_location to avoid attempting to deserialize CUDA tensors
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Load model state onto CPU first to avoid deserialization issues
     try:
-        state = torch.load(model_path, map_location=device)
-    except Exception:
-        # Fallback: try loading to CPU explicitly
         state = torch.load(model_path, map_location=torch.device('cpu'))
+    except Exception:
+        # If loading fails entirely, reraise so caller sees the issue
+        raise
 
     loaded_model.load_state_dict(state)
-    # Move model to device if available (only call cuda when CUDA is present)
+
+    # Decide whether to use CUDA. Try a safe, small smoke-test move to CUDA and
+    # run a trivial operation; if that fails (device incompatible with the
+    # installed PyTorch/CUDA build), fall back to CPU to avoid runtime kernel
+    # errors like "no kernel image is available for execution on the device".
+    use_cuda = False
+    if torch.cuda.is_available():
+        try:
+            # Attempt to move model to CUDA and run a tiny op
+            loaded_model.to(torch.device('cuda'))
+            # small smoke tensor operation
+            t = torch.randn((1,), device=torch.device('cuda'))
+            _ = (t * 1.0).cpu()
+            use_cuda = True
+        except Exception as e:
+            print("GPU appears incompatible with the current PyTorch build or model; falling back to CPU. GPU error:", e)
+            # Ensure model is back on CPU
+            try:
+                loaded_model.to(torch.device('cpu'))
+            except Exception:
+                pass
+
+    # If CUDA won't be used, ensure model is on CPU
+    device = torch.device('cuda' if use_cuda else 'cpu')
     loaded_model.to(device)
-    if device.type == 'cuda':
-        loaded_model.cuda()
+    if use_cuda:
+        # Only call .cuda() when we've verified CUDA works
+        try:
+            loaded_model.cuda()
+        except Exception:
+            pass
 
     print(loaded_model)
 

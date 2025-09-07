@@ -1,6 +1,9 @@
 from pathlib import Path
 from setuptools import setup, find_packages
 
+# WARNING: This package prefers GPU usage for ML components but falls back to CPU.
+# CI tests are CPU-only; for GPU support, install GPU-enabled TensorFlow/PyTorch.
+
 # Readme for long description
 HERE = Path(__file__).parent
 long_description = (HERE / "README.md").read_text(encoding="utf-8")

@@ -12,7 +12,7 @@ phasenet_dir = os.path.dirname(__file__)
 if phasenet_dir not in sys.path:
     sys.path.insert(0, phasenet_dir)
 
-from data_reader import DataReader_pred, DataConfig
+from .data_reader import DataReader_pred, DataConfig
 
 
 class DataReaderWrapper:

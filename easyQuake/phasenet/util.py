@@ -4,7 +4,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from data_reader import DataConfig
+from .data_reader import DataConfig
 from detect_peaks import detect_peaks
 import logging
 

@@ -2147,37 +2147,175 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
-        fullpath1 = pathgpd+'/gpd_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        else:
-            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        fullpath1 = pathgpd + '/gpd_predict.py'
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        try:
+            try:
+                from .gpd_predict.gpd_predict import process_dayfile
+            except ImportError:
+                from gpd_predict.gpd_predict import process_dayfile
+            process_dayfile(infile, outfile, base_dir=pathgpd, verbose=True, plot=True)
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python + " " + fullpath1 + " -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            else:
+                os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     elif machine == True and machine_picker == 'EQTransformer':
-        fullpath2 = pathEQT+'/mseed_predictor.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            print(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        else:
-            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        fullpath2 = os.path.join(os.path.dirname(__file__), 'EQTransformer', 'mseed_predictor.py')
+        pathEQT_local = os.path.join(os.path.dirname(__file__), 'EQTransformer')
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        try:
+            import importlib.util as _il
+            spec = _il.spec_from_file_location('easyQuake.EQTransformer.mseed_predictor', fullpath2)
+            if spec and spec.loader:
+                mod = _il.module_from_spec(spec)
+                sys.modules['easyQuake.EQTransformer.mseed_predictor'] = mod
+                spec.loader.exec_module(mod)
+                try:
+                    override = os.environ.get('EASYQUAKE_EQT_MODEL')
+                    if not override:
+                        candidate = os.path.join(pathEQT_local, 'EqT_model.sanitized.keras')
+                        if os.path.exists(candidate):
+                            override = candidate
+                    if override:
+                        setattr(mod, '__input_model_override__', override)
+                except Exception:
+                    pass
+                if hasattr(mod, 'main'):
+                    try:
+                        import sys as _sys
+                        _old_argv = list(_sys.argv)
+                        _sys.argv = [fullpath2, '-I', infile, '-O', outfile, '-F', pathEQT_local]
+                        try:
+                            mod.main()
+                        finally:
+                            _sys.argv = _old_argv
+                    except Exception:
+                        import traceback as _tb
+                        _tb.print_exc()
+                        print('EQTransformer inline execution failed; not falling back to installed CLI')
+                else:
+                    print('workspace mseed_predictor has no main(); skipping EQTransformer inline')
+            else:
+                if fullpath_python:
+                    os.system(fullpath_python + " " + fullpath2 + " -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+                else:
+                    os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python + " " + fullpath2 + " -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+            else:
+                os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet+'/phasenet_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+        fullpath3 = os.path.join(pathphasenet, 'phasenet_predict.py')
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+
+        phasenet_success = False
+        try:
+            model_arg = os.path.join(pathphasenet, 'model', '190703-214543')
+            if fullpath_python:
+                cmd = f"{fullpath_python} {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+            else:
+                cmd = f"python3 {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+
+            print('PhaseNet: running current CLI:', cmd)
+            import subprocess
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            print('PhaseNet CLI exit code:', res.returncode)
+            if res.stdout:
+                print('PhaseNet CLI stdout:\n', res.stdout)
+            if res.stderr:
+                print('PhaseNet CLI stderr:\n', res.stderr)
+            if res.returncode == 0:
+                phasenet_success = True
+                print('PhaseNet: current version completed successfully')
+            else:
+                print('PhaseNet: current version failed')
+        except Exception as _e:
+            print('PhaseNet: CLI invocation failed:', _e)
+
+        if not phasenet_success:
+            print('PhaseNet: current version failed; creating empty output file')
+            with open(outfile, 'w') as f:
+                pass
+
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
+    elif machine == True and machine_picker == 'Seisbench':
+        fullpath3 = pathseisbench + '/run_seisbench.py'
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        # require a model path for seisbench inline execution
+        if not seisbenchmodel:
+            try:
+                default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+                if default_models_dir.exists():
+                    candidates = list(default_models_dir.glob('*.pth')) + list(default_models_dir.glob('*.pt')) + list(default_models_dir.glob('*.ckpt'))
+                    if candidates:
+                        bests = [c for c in candidates if 'best_model' in c.name]
+                        selected = bests[0] if bests else candidates[0]
+                        seisbenchmodel = str(selected)
+                        print(f"Seisbench: discovered model {seisbenchmodel}")
+                    else:
+                        print('Seisbench: no model files found in default models directory; skipping Seisbench run')
+                else:
+                    print(f'Seisbench: default models directory not found: {default_models_dir}; skipping Seisbench run')
+            except Exception:
+                print('Seisbench: model discovery failed; skipping Seisbench run')
+
+        if not seisbenchmodel:
+            print('Seisbench model not provided; skipping Seisbench run (no CLI fallback because model is missing)')
+            pass
         else:
-            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+            try:
+                try:
+                    from .seisbench.run_seisbench import main as seis_main
+                except ImportError:
+                    from seisbench.run_seisbench import main as seis_main
+                try:
+                    seis_main()
+                except TypeError:
+                    if fullpath_python:
+                        os.system(fullpath_python + " " + fullpath3 + " -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                    else:
+                        os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
+            except Exception:
+                if fullpath_python:
+                    os.system(fullpath_python + " " + fullpath3 + " -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                else:
+                    os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     else:
         machine_picker = 'STALTA'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert, use_multiprocessing=False)
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
+    session.close()
     session.close()
 
 

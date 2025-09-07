@@ -19,6 +19,27 @@ import shutil
 from pathlib import Path
 from datetime import datetime, date
 
+# Ensure headless plotting works in CI / headless environments. Set a
+# non-interactive backend before any code can import pyplot or other
+# matplotlib submodules. Also defensively ensure figure dpi is positive
+# to avoid ValueError: dpi must be positive coming from the QtAgg/Agg
+# renderer when DPI is misconfigured or zero.
+try:
+    if "DISPLAY" not in os.environ or os.environ.get("MPLBACKEND", "") == "Agg":
+        import matplotlib
+
+        matplotlib.use("Agg")
+        try:
+            dpi = matplotlib.rcParams.get("figure.dpi", 100)
+            if dpi is None or dpi <= 0:
+                matplotlib.rcParams["figure.dpi"] = 100
+        except Exception:
+            matplotlib.rcParams["figure.dpi"] = 100
+except Exception:
+    # If matplotlib isn't installed or backend setting fails, continue; tests
+    # that need plotting will still proceed but may error elsewhere.
+    pass
+
 
 def find_and_add_easyquake_to_path():
     """Locate the repository root that contains `easyQuake/` and add it to sys.path.

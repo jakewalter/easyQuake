@@ -1,5 +1,9 @@
 """easyQuake package initializer.
 
+WARNING: This package is designed to prefer GPU usage for ML components (e.g., Seisbench, EQTransformer)
+but falls back to CPU if GPU is unavailable or incompatible. CI tests are CPU-only due to hosted runner
+limitations. For GPU support, ensure compatible CUDA drivers and install GPU-enabled ML frameworks.
+
 Keep the top-level import lightweight but provide lazy access to the
 primary API functions defined in `easyQuake.easyQuake`.
 

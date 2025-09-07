@@ -5,7 +5,7 @@ import os
 import time
 import numpy as np
 import pandas as pd
-from data_reader import DataReader_mseed_array, DataReader_pred
+from .data_reader import DataReader_mseed_array, DataReader_pred
 # Conditional import: use TF2 model if H5 files exist, otherwise TF1
 import os
 import glob

@@ -19,7 +19,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 # Imports for phasenet submodules
-from data_reader import DataReader_mseed_array, DataReader_pred, DataConfig
+from .data_reader import DataReader_mseed_array, DataReader_pred, DataConfig
 from model_tf2 import ModelConfigTF2, UNetTF2
 from postprocess import (
     extract_amplitude,

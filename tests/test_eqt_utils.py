@@ -2,6 +2,10 @@ import pytest
 import numpy as np
 import h5py
 import tempfile
+
+# Tests in this module require TensorFlow; if it's not installed, skip the
+# whole module to avoid import-time errors during pytest collection.
+pytest.importorskip('tensorflow')
 from easyQuake.EQTransformer import EqT_utils
 
 def test_DataGenerator_basic():

@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from data_reader import DataReader_mseed_array, DataReader_pred
+from .data_reader import DataReader_mseed_array, DataReader_pred
 try:
     # Try to use TF2 compatible model first
     from model_tf2 import ModelConfigTF2 as ModelConfig, UNet
