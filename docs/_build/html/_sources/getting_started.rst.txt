@@ -178,6 +178,57 @@ Then on Machine #2, we have a listener written in bash that waits for file inges
         	fi
     	done
 
+HypoDD or Growclust relative relocation
+---------------------------------------
+Oftentimes, ML pickers also are not 100% accurate and we want to determine relative locations through the use of HypoDD or Growclust::
+       
+        git clone https://github.com/jakewalter/hypoDDpy.git
+        cd hypoDDpy
+        pip install .
+
+Once this is installed, you can run it and generate the cross-correlations in the way in which it is described in hypoDDpy below. Note that you should run the easyQuake function fix_picks_catalog before to make sure that the components are correct (easyQuake does not usually correctly have the accurate ::
+       
+        from easyQuake import fix_picks_catalog
+        cat2 = fix_picks_catalog(cat, project_folder)
+        cat2.write('catalog_fixed.xml','QUAKEML')
+        relocator = HypoDDRelocator(working_dir="relocate1",
+            cc_time_before=0.05,
+            cc_time_after=0.2,
+            cc_maxlag=0.2,
+            cc_filter_min_freq=2.0,
+            cc_filter_max_freq=14.0,
+            cc_p_phase_weighting={"Z": 1.0},
+            cc_s_phase_weighting={"E": 1.0, "N": 1.0, "1": 1.0, "2": 1.0},
+            cc_min_allowed_cross_corr_coeff=0.4)
+
+        # Add the necessary files. Call a function multiple times if necessary.
+        relocator.add_event_files(glob.glob("/data/proj_dir/catalog_fixed.xml"))
+        relocator.add_waveform_files(glob.glob("/data/proj_dir/20*/*mseed"))
+        relocator.add_station_files(glob.glob("/data/proj_dir/20*/*.xml"))
+
+        # Setup the velocity model. This is just a constant velocity model.
+        relocator.setup_velocity_model(
+            model_type="layered_p_velocity_with_constant_vp_vs_ratio",
+            layer_tops=[(0, 2.7),(0.3,2.95),(1.0,4.15),(1.5,5.8),(21,6.3)],
+            vp_vs_ratio=1.73)
+
+        # Start the relocation with the desired output file.
+        relocator.start_relocation(output_event_file="relocated_events.xml")            
+
+You can use the easyQuake utility::
+       
+        from easyQuake import quakeml_to_growclust
+        quakeml_to_growclust(project_folder='.')
+
+
+HypoDD or Growclust relative relocation
+---------------------------------------
+Focal mechanisms::
+       
+        git clone https://github.com/jakewalter/hashpy.git
+        cd hashpy
+        pip install .
+        
 
 Tips for Success
 ================

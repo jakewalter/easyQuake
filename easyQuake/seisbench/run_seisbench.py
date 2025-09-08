@@ -65,11 +65,71 @@ def main():
     #model_path = model_directory / base_name
     model_path = args.M
 
-    # Load the model
-    version_str = '1'  # Specify the version string of the model you want to load
-    loaded_model = sbm.GPD.load(model_path, version_str=version_str)
-    
-    loaded_model.cuda()
+    # If no model path provided, look for models in the workspace default directory
+    if not model_path:
+        default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+        if default_models_dir.exists() and default_models_dir.is_dir():
+                # Accept common model extensions and prefer files containing 'best_model'
+            candidates = []
+            for ext in ('*.pth', '*.pt', '*.ptl', '*.ckpt', '*.tar'):
+                candidates.extend(sorted(default_models_dir.glob(ext)))
+            if candidates:
+                    bests = [c for c in candidates if 'best_model' in c.name]
+                    selected = bests[0] if bests else candidates[0]
+                    model_path = str(selected)
+                    print(f"Using default Seisbench model: {model_path}")
+            else:
+                print(f"No model files found in {default_models_dir}; Seisbench will require -M model path")
+        else:
+            print(f"Default Seisbench models directory not found: {default_models_dir}")
+
+    if not model_path:
+        raise FileNotFoundError('Seisbench model not specified and no default model found')
+
+    loaded_model = sbm.PhaseNet()
+
+    # Load model state onto CPU first to avoid deserialization issues
+    try:
+        state = torch.load(model_path, map_location=torch.device('cpu'))
+    except Exception:
+        # If loading fails entirely, reraise so caller sees the issue
+        raise
+
+    loaded_model.load_state_dict(state)
+
+    # Decide whether to use CUDA. Try a safe, small smoke-test move to CUDA and
+    # run a trivial operation; if that fails (device incompatible with the
+    # installed PyTorch/CUDA build), fall back to CPU to avoid runtime kernel
+    # errors like "no kernel image is available for execution on the device".
+    use_cuda = False
+    if torch.cuda.is_available():
+        try:
+            # Attempt to move model to CUDA and run a tiny op
+            loaded_model.to(torch.device('cuda'))
+            # small smoke tensor operation
+            t = torch.randn((1,), device=torch.device('cuda'))
+            _ = (t * 1.0).cpu()
+            use_cuda = True
+        except Exception as e:
+            print("GPU appears incompatible with the current PyTorch build or model; falling back to CPU. GPU error:", e)
+            # Ensure model is back on CPU
+            try:
+                loaded_model.to(torch.device('cpu'))
+            except Exception:
+                pass
+
+    # If CUDA won't be used, ensure model is on CPU
+    device = torch.device('cuda' if use_cuda else 'cpu')
+    loaded_model.to(device)
+    if use_cuda:
+        # Only call .cuda() when we've verified CUDA works
+        try:
+            loaded_model.cuda()
+        except Exception:
+            pass
+
+    print(loaded_model)
+
     torch.set_num_threads(2)
 
 
@@ -164,9 +224,10 @@ def main():
             if (earliest_stop>latest_start):
                 st.trim(latest_start, earliest_stop)
             #################### detect
-            detections = loaded_model.classify(st)
+            picks = loaded_model.classify(st).picks
+            
             # Print the number of picks made by GPD
-            print(f"Number of picks made by GPD: {len(detections)}")
+            #print(f"Number of picks made : {len(detections)}")
             
             # Create the output file with the unique name based on the date
             # date_str = directory.name
@@ -178,7 +239,7 @@ def main():
                 #output_file.write("trace_id, start_time, end_time, peak_time, peak_value, phase\n")
             
                 # Iterate through the detections and write each one to the output file
-            for detection in detections:
+            for detection in picks:
                 # Extract the detection attributes
                 trace_id1 = detection.trace_id.split('.')[:-1]
                 #start_time = detection.start_time[0]
@@ -298,6 +359,7 @@ def main():
             traceback.print_exc()
             pass
     ofile.close()
+    print('Seisbench detection finished')
     
     
 

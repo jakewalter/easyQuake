@@ -24,16 +24,62 @@ jwalter@ou.edu
 
 #import sys
 #sys.path.append("/home/jwalter/syncpython")
-from .phasepapy import fbpicker
-pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
-pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
-pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
-pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
-pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
 
-from .phasepapy import tables1D, assoc1D
-from .phasepapy import tt_stations_1D
-from .sta_lta.trigger_p_s import trigger_p_s
+# Handle relative imports with fallback for direct execution
+try:
+    from .phasepapy import fbpicker
+except ImportError:
+    try:
+        from phasepapy import fbpicker
+    except ImportError:
+        # If phasepapy dependencies are missing, create a dummy module
+        print("Warning: phasepapy dependencies not available, some features may be limited")
+        fbpicker = None
+
+if fbpicker:
+    pathgpd = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/gpd_predict'
+    pathEQT = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/EQTransformer'
+    pathhyp = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/hyp2000'
+    pathphasenet = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/phasenet'
+    pathseisbench = '/'.join(str(fbpicker.__file__).split("/")[:-2])+'/seisbench'
+else:
+    # Fallback paths when fbpicker is not available
+    import os
+    base_path = os.path.dirname(__file__)
+    pathgpd = os.path.join(base_path, 'gpd_predict')
+    pathEQT = os.path.join(base_path, 'EQTransformer')
+    pathhyp = os.path.join(base_path, 'hyp2000')
+    pathphasenet = os.path.join(base_path, 'phasenet')
+    pathseisbench = os.path.join(base_path, 'seisbench')
+
+try:
+    from .phasepapy import tables1D, assoc1D
+except ImportError:
+    try:
+        from phasepapy import tables1D, assoc1D
+    except ImportError:
+        print("Warning: phasepapy.tables1D and assoc1D not available")
+        tables1D = assoc1D = None
+
+import sys
+
+try:
+    from .phasepapy import tt_stations_1D
+except ImportError:
+    try:
+        from phasepapy import tt_stations_1D
+    except ImportError:
+        print("Warning: phasepapy.tt_stations_1D not available")
+        tt_stations_1D = None
+
+try:
+    from .sta_lta.trigger_p_s import trigger_p_s
+except ImportError:
+    try:
+        from sta_lta.trigger_p_s import trigger_p_s
+    except ImportError:
+        print("Warning: sta_lta.trigger_p_s not available")
+        trigger_p_s = None
 #from .sta_lta.trigger_p_s import trigger_p_s
 
 import traceback
@@ -49,20 +95,45 @@ from multiprocessing import cpu_count
 # from multiprocessing import get_context
 
 #import os
-from obspy import UTCDateTime
-from obspy import Inventory, read_inventory
-from obspy.clients.fdsn import Client
-from obspy import read
-import numpy as np
-import glob
+_HAS_OBSPY = True
+try:
+    from obspy import UTCDateTime
+    from obspy import Inventory, read_inventory
+    from obspy.clients.fdsn import Client
+    from obspy import read
+    import numpy as np
+    import glob
 
-import obspy.taup as taup
-from obspy.taup import TauPyModel
-#from obspy.taup.velocity_model import VelocityModel
-from obspy.taup.taup_create import build_taup_model
-from obspy import geodetics
-from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
-from obspy.core.event.base import WaveformStreamID
+    import obspy.taup as taup
+    from obspy.taup import TauPyModel
+    #from obspy.taup.velocity_model import VelocityModel
+    from obspy.taup.taup_create import build_taup_model
+    from obspy import geodetics
+    from obspy.clients.fdsn.mass_downloader import CircularDomain, RectangularDomain, Restrictions, MassDownloader
+    from obspy.core.event.base import WaveformStreamID
+    from obspy import Stream
+    from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
+    from obspy.geodetics import gps2dist_azimuth, kilometer2degrees
+except Exception:
+    _HAS_OBSPY = False
+    # minimal safe fallbacks so module import doesn't crash; functions will check _HAS_OBSPY
+    UTCDateTime = None
+    Inventory = None
+    read_inventory = None
+    Client = None
+    read = None
+    np = __import__('numpy') if 'numpy' in globals() else None
+    glob = __import__('glob')
+    taup = None
+    TauPyModel = None
+    build_taup_model = None
+    geodetics = None
+    CircularDomain = RectangularDomain = Restrictions = MassDownloader = None
+    WaveformStreamID = None
+    Stream = None
+    Catalog = Event = Magnitude = Origin = Pick = StationMagnitude = Amplitude = Arrival = OriginUncertainty = OriginQuality = ResourceIdentifier = Comment = None
+    gps2dist_azimuth = kilometer2degrees = None
+    print("Warning: 'obspy' package not available. Install it to run pickers (e.g. pip install obspy).")
 from sqlalchemy.orm import *
 from sqlalchemy import create_engine
 import pandas as pd
@@ -78,57 +149,6 @@ from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
-import subprocess
-
-
-
-#from obspy.signal.invsim import simulate_seismometer as seis_sim
-fmtP = "%4s%1sP%1s%1i %15s"
-fmtS = "%12s%1sS%1s%1i\n"
-
-
-
-fmt = "%6s%02i%05.2f%1s%03i%05.2f%1s%4i\n"
-
-
-#min_proba = 0.993 # Minimum softmax probability for phase detection
-## try 0.992 if you have the computing power
-#freq_min = 3.0
-#freq_max = 20.0
-#filter_data = True
-#decimate_data = True # If false, assumes data is already 100 Hz samprate
-#n_shift = 10 # Number of samples to shift the sliding window at a time
-#n_gpu = 1 # Number of GPUs to use (if any)
-######################
-#batch_size = 1000*3
-#
-#half_dur = 2.00
-#only_dt = 0.01
-#n_win = int(half_dur/only_dt)
-#n_feat = 2*n_win
-
-
-from datetime import timedelta, date
-
-def daterange(start_date, end_date):
-    for n in range(int ((end_date - start_date).days)):
-        yield start_date + timedelta(n)
-
-class SCNL():
-    """ This class is copied from PhasePaPy"""
-    def __init__(self,input=None):
-        if not isinstance(input, SCNL):
-            self.station=None
-            self.channel=None
-            self.network=None
-            self.location=None
-        if type(input) is str:
-            self.parse_scnlstr(input)
-        if type(input) is list:
-            if len(input)==4:
-                self.station,self.channel,self.network,self.location=input
-            if len(input)==3:
-                self.station,self.channel,self.network=input
 
 
 def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
@@ -307,7 +327,7 @@ def build_tt_tables_local_directory(dirname=None,project_folder=None,channel_cod
     TTSession=sessionmaker(bind=tt_engine)
     tt_session=TTSession()
     inv = Inventory()
-    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+    dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
     for file1 in dir1a:
         inv1a = read_inventory(file1)
         inv.networks.extend(inv1a)
@@ -450,41 +470,79 @@ def fb_pick(dbengine=None,picker=None,fileinput=None):
 
 
                     
-def queue_sta_lta(infile,outfile,dirname,filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10):
-    #add sta/lta stuff
+def queue_sta_lta(infile, outfile, dirname, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6, trig_vert=10, use_multiprocessing=False):
+    # add sta/lta stuff
     fdir = []
     with open(infile) as f:
         for line in f:
             tmp = line.split()
             fdir.append([tmp[0], tmp[1], tmp[2]])
     nsta = len(fdir)
+
+    # Determine available CPUs to use
     n_cpus1 = min(cpu_count(), nsta)
     if n_cpus1 == cpu_count():
-        n_cpus = n_cpus1-1
+        n_cpus = max(1, n_cpus1 - 1)
     else:
-        n_cpus = n_cpus1
-    #with get_context("spawn").Pool() as pool:
-    pool = Pool(n_cpus-1)
-    #results = []
-    for i in range(nsta):
-        #try:
-        print(str(i+1)+" of "+str(nsta)+" stations")
-        print(fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off,trig_horz, trig_vert,)
-        pool.apply(trigger_p_s, (fdir[i],outfile.split('.')[0]+str(i), filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert,))
-        #print(r.get())
-        #results.append((i,r))
-    pool.close()
-    pool.join()
+        n_cpus = max(1, n_cpus1)
+    pool_processes = max(1, n_cpus)
+
+    # Use a progress bar per station for clearer feedback
+    try:
+        from tqdm import tqdm
+    except Exception:
+        # Fallback to simple range if tqdm isn't available
+        tqdm = lambda x, **kw: x
+
+    if use_multiprocessing and pool_processes > 1:
+        # Multiprocessing branch: submit tasks and wait for completion
+        try:
+            from multiprocessing import get_context
+            ctx = get_context('spawn')
+            pool = ctx.Pool(pool_processes)
+            async_results = []
+            for i in range(nsta):
+                tmp_out = outfile.split('.')[0] + str(i)
+                async_results.append(pool.apply_async(trigger_p_s, (fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)))
+            pool.close()
+            # Wait for tasks with tqdm progress
+            for r in tqdm(async_results, desc="STA/LTA stations"):
+                try:
+                    r.get()
+                except Exception as e:
+                    print(f"STA/LTA station task failed: {e}")
+            pool.join()
+        except Exception as e:
+            print(f"Multiprocessing failed ({e}), falling back to serial execution")
+            for i in tqdm(range(nsta), desc="STA/LTA stations"):
+                tmp_out = outfile.split('.')[0] + str(i)
+                try:
+                    trigger_p_s(fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+                except Exception as e2:
+                    print(f"STA/LTA station {i} failed: {e2}")
+    else:
+        # Serial execution (default) for reliability in tests
+        for i in tqdm(range(nsta), desc="STA/LTA stations"):
+            tmp_out = outfile.split('.')[0] + str(i)
+            try:
+                trigger_p_s(fdir[i], tmp_out, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+            except Exception as e:
+                print(f"STA/LTA station {i} failed: {e}")
+
+    # Concatenate temporary per-station files into final outfile
     if os.path.exists(outfile):
         os.remove(outfile)
-    filenames = glob.glob(outfile.split('.')[0]+'*')
-    with open(outfile, 'w') as outfile:
+    filenames = glob.glob(outfile.split('.')[0] + '*')
+    with open(outfile, 'w') as outfp:
         for fname in filenames:
-            with open(fname) as infile:
-                for line in infile:
-                    outfile.write(line)
+            with open(fname) as infile_fp:
+                for line in infile_fp:
+                    outfp.write(line)
     for file1 in filenames:
-        os.remove(file1)
+        try:
+            os.remove(file1)
+        except Exception:
+            pass
                     
 
 def pick_add(dbsession=None,fileinput=None,inventory=None):
@@ -563,7 +621,7 @@ def make_dayfile(dir1, make3):
     for stationin in stations:
         station3 = glob.glob(dir1+'/*'+stationin+'.*mseed') or glob.glob(dir1+'/*'+stationin+'.*SAC')
         station3a = [None,None,None]
-        if len(station3)>3:
+        if len(station3)==6:
             #print(station3)
             ind1 = np.empty((len(station3),1))
             ind1[:] = np.nan
@@ -583,6 +641,25 @@ def make_dayfile(dir1, make3):
                     #print(ind2a)
                     #print(station3a)
                     station3a[int(ind2a[0])] = station3[idxsa]
+        elif len(station3)==4: #RS4D instruments with 1 geophone and 3 accelerometer channels
+            ind1 = np.empty((len(station3),1))
+            ind1[:] = np.nan
+            for idxs, station1 in enumerate(station3):
+                if get_chan3(station1)[1:3] == 'NZ':
+                    ind1[idxs] = 2
+                elif get_chan3(station1)[1:3] == 'NN' or get_chan3(station1)[1:3] == 'N1':
+                    ind1[idxs] = 0
+                elif get_chan3(station1)[1:3] == 'NE' or get_chan3(station1)[1:3] == 'N2':
+                    ind1[idxs] = 1
+                #print(idxs)
+                #if ind1:
+                #    station3a[ind1] = station1
+            #ind2 = np.argwhere(~np.isnan(ind1))[:,0]
+            for idxsa, ind2a in enumerate(ind1):
+                if ~np.isnan(ind2a[0]):
+                    #print(ind2a)
+                    #print(station3a)
+                    station3a[int(ind2a[0])] = station3[idxsa]            
         else:
             for station1 in station3:
                 if get_chan1(station1)  == 'Z':
@@ -653,7 +730,7 @@ def make_dayfile(dir1, make3):
     return dir1+'/dayfile.in'
         
 
-def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None):
+def detection_continuous(dirname=None, project_folder=None, project_code=None, local=True, machine=True, machine_picker=None, single_date=None, make3=True, latitude=None, longitude=None, max_radius=None, fullpath_python=None, filtmin=2, filtmax=15, t_sta=0.2, t_lta=2.5, trigger_on=4, trigger_off=2, trig_horz=6.0, trig_vert=10.0, seisbenchmodel=None, use_multiprocessing=False):
     """
     Continuous detection of seismic events using single-station waveform data.
     
@@ -685,6 +762,10 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
     
     This function performs continuous detection of seismic events using waveform data from a single station. It creates an SQLite database for storing the detection results, and uses automated detection algorithms (GPD, EQTransformer, or PhaseNet), or alternatively, STA/LTA.
     """
+    # Runtime dependency guard: obspy is required for I/O and many pickers
+    if not _HAS_OBSPY:
+        print("Seisquake runtime error: 'obspy' is not installed. Install obspy to run pickers (e.g. pip install obspy) and re-run.")
+        return
     
 
 #    starting = UTCDateTime(single_date.strftime("%Y")+'-'+single_date.strftime("%m")+'-'+single_date.strftime("%d")+'T00:00:00.0')
@@ -731,53 +812,184 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        else:
-            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        # Prefer inline callable for performance (loads model once per process).
+        # Fallback to launching the CLI if inline import fails or different env required.
+        try:
+            # lazy import to avoid TF import at module load time
+            try:
+                from .gpd_predict.gpd_predict import process_dayfile
+            except ImportError:
+                from gpd_predict.gpd_predict import process_dayfile
+            process_dayfile(infile, outfile, base_dir=pathgpd, verbose=True, plot=True)
+        except Exception as e:
+            if fullpath_python:
+                os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            else:
+                os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
     elif machine == True and machine_picker == 'EQTransformer':
-        fullpath2 = pathEQT+'/mseed_predictor.py'
+        # Use the workspace EQTransformer mseed_predictor.py to avoid importing
+        # the installed package version which may attempt legacy .h5 loading.
+        fullpath2 = os.path.join(os.path.dirname(__file__), 'EQTransformer', 'mseed_predictor.py')
+        pathEQT = os.path.join(os.path.dirname(__file__), 'EQTransformer')
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        else:
-            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        # Prefer importing the workspace mseed_predictor by file path to avoid
+        # using an installed `mseed_predictor` console script that may try to
+        # load legacy .h5 models. If the inline call fails, fall back to CLI.
+        try:
+            import importlib.util as _il
+            spec = _il.spec_from_file_location('easyQuake.EQTransformer.mseed_predictor', fullpath2)
+            if spec and spec.loader:
+                mod = _il.module_from_spec(spec)
+                try:
+                    # register module in sys.modules so imports inside the module
+                    # resolve to the workspace package
+                    sys.modules['easyQuake.EQTransformer.mseed_predictor'] = mod
+                    spec.loader.exec_module(mod)
+                    # If the module exposes a 'main' callable, call it. Set an
+                    # input model override (env var or sanitized .keras) so the
+                    # module prefers the converted model over legacy .h5.
+                    try:
+                        override = os.environ.get('EASYQUAKE_EQT_MODEL')
+                        if not override:
+                            candidate = os.path.join(pathEQT, 'EqT_model.sanitized.keras')
+                            if os.path.exists(candidate):
+                                override = candidate
+                        if override:
+                            setattr(mod, '__input_model_override__', override)
+                    except Exception:
+                        pass
+
+                    if hasattr(mod, 'main'):
+                        try:
+                            import sys as _sys
+                            _old_argv = list(_sys.argv)
+                            _sys.argv = [fullpath2, '-I', infile, '-O', outfile, '-F', pathEQT]
+                            try:
+                                mod.main()
+                            finally:
+                                _sys.argv = _old_argv
+                        except Exception:
+                            import traceback as _tb
+                            _tb.print_exc()
+                            print('EQTransformer inline execution failed; not falling back to installed CLI')
+                    else:
+                        print('workspace mseed_predictor has no main(); skipping EQTransformer inline')
+                except Exception:
+                    import traceback as _tb
+                    _tb.print_exc()
+                    print('Failed to load workspace mseed_predictor; skipping EQTransformer inline')
+            else:
+                # cannot load spec; fall back to CLI
+                if fullpath_python:
+                    os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+                else:
+                    os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
+            else:
+                os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
             pass
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet+'/phasenet_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
+        # Force use of the current workspace PhaseNet CLI only. Remove legacy TF1 fallback.
+        fullpath3 = os.path.join(pathphasenet, 'phasenet_predict.py')
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            #print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
-        else:
-            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+
+        phasenet_success = False
         try:
-            pick_add(dbsession=session,fileinput=outfile,inventory=inv)
-        except:
+            model_arg = os.path.join(pathphasenet, 'model', '190703-214543')
+            if fullpath_python:
+                cmd = f"{fullpath_python} {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+            else:
+                cmd = f"python3 {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+
+            print('PhaseNet: running current CLI:', cmd)
+            import subprocess
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            print('PhaseNet CLI exit code:', res.returncode)
+            if res.stdout:
+                print('PhaseNet CLI stdout:\n', res.stdout)
+            if res.stderr:
+                print('PhaseNet CLI stderr:\n', res.stderr)
+            if res.returncode == 0:
+                phasenet_success = True
+                print('PhaseNet: current version completed successfully')
+            else:
+                print('PhaseNet: current version failed')
+        except Exception as _e:
+            print('PhaseNet: CLI invocation failed:', _e)
+
+        if not phasenet_success:
+            print('PhaseNet: current version failed; creating empty output file')
+            with open(outfile, 'w') as f:
+                pass
+
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
             pass
     elif machine == True and machine_picker == 'Seisbench':
         fullpath3 = pathseisbench+'/run_seisbench.py'
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        if fullpath_python:
-            #print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+        # require a model path for seisbench inline execution
+        if not seisbenchmodel:
+            # attempt to auto-discover a model in the repository default models directory
+            try:
+                default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+                if default_models_dir.exists():
+                    candidates = list(default_models_dir.glob('*.pth')) + list(default_models_dir.glob('*.pt')) + list(default_models_dir.glob('*.ckpt'))
+                    if candidates:
+                        # Prefer explicit 'best' models when available
+                        bests = [c for c in candidates if 'best_model' in c.name]
+                        selected = bests[0] if bests else candidates[0]
+                        seisbenchmodel = str(selected)
+                        print(f"Seisbench: discovered model {seisbenchmodel}")
+                    else:
+                        print('Seisbench: no model files found in default models directory; skipping Seisbench run')
+                else:
+                    print(f'Seisbench: default models directory not found: {default_models_dir}; skipping Seisbench run')
+            except Exception:
+                print('Seisbench: model discovery failed; skipping Seisbench run')
+
+        if not seisbenchmodel:
+            # still no model provided: skip inline and do not call external CLI
+            print('Seisbench model not provided; skipping Seisbench run (no CLI fallback because model is missing)')
+            # leave outfile absent and continue
+            pass
         else:
-            os.system("run_seisbench -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+            try:
+                try:
+                    from .seisbench.run_seisbench import main as seis_main
+                except ImportError:
+                    from seisbench.run_seisbench import main as seis_main
+                try:
+                    seis_main()
+                except TypeError:
+                    # Prefer running the workspace script directly to avoid using an
+                    # installed console entry point which may be out-of-sync.
+                    if fullpath_python:
+                        os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                    else:
+                        # Explicitly invoke the workspace script with python3
+                        os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
+            except Exception:
+                if fullpath_python:
+                    os.system(fullpath_python+" "+fullpath3+" -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                else:
+                    os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
@@ -788,7 +1000,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
         if os.path.exists(outfile):
             os.remove(outfile)
-        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert, use_multiprocessing=use_multiprocessing)
         try:
             pick_add(dbsession=session,fileinput=outfile,inventory=inv)
         except:
@@ -890,39 +1102,8 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
     t1=datetime.utcnow()
     print('Took '+str(t1-t0))
     print("associate")
-      # Associate events
-    assocXX.associate_candidates()
-    t2=datetime.utcnow()
-    print('Took '+str(t2-t1))
-      # Add singles stations to events
-    try:
-        assocXX.single_phase()
-    except:
-        pass
-
-
-def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
-    try:
-        conn = sqlite3.connect(db_file, check_same_thread = False)
-        return conn
-    except Error as e:
-        print(e)
-
-    return None
-
-
-def hypo_station(project_folder=None, project_code=None, catalog_year=None, year=None, daymode=None, single_date=None):
-    hypo71_string_sta = ""
-    station_strings = []
-    if daymode:
+    if single_date is not None:
         f1 = open(project_folder+'/'+'sta'+single_date.strftime("%Y%m%d"),'w')
-    elif catalog_year:
-        f1 = open(project_folder+'/'+'sta'+str(year),'w')
     else:
         f1 = open(project_folder+'/'+'sta','w')
     #f2 = open(project_folder+'/'+'station.dat', 'w')
@@ -948,7 +1129,7 @@ def hypo_station(project_folder=None, project_code=None, catalog_year=None, year
                 #(row[0])
                 df4 = pd.DataFrame()
                 df4 = pd.DataFrame({'station': row[1], 'net':row[2],'latitude':row[4],'longitude':row[5],'elevation':row[6]}, index=[0])
-                stas1=stas1.append(df4)
+                stas1=pd.concat([stas1,df4])
         conn1.close()
     stas1 = stas1.drop_duplicates()
     stas1 = stas1.reset_index(drop=True)
@@ -1013,14 +1194,14 @@ def select_all_associated(conn, f0):
         #(row[0])
         df4 = pd.DataFrame()
         df4 = pd.DataFrame({'Time': row[1], 'Lat':row[3],'Long':row[4]}, index=[0])
-        dfs1=dfs1.append(df4)
+        dfs1=pd.concat([dfs1,df4])
         origin = Origin()
         origin.latitude = row[3]
         origin.longitude = row[4]
         origin.depth = 5000
         origin.time = row[1]
         origin.arrivals = []
-        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]
+        strday = row[1][0:4]+row[1][5:7]+row[1][8:10]+row[1][11:13]+row[1][14:16]+row[1][17:19]
         cur1.execute('SELECT * FROM picks_modified WHERE assoc_id IN (?)',[int(row[0])])
         picks1a = sorted(cur1.fetchall())
         stas = []
@@ -1199,7 +1380,7 @@ def combine_associated(project_folder=None, project_code=None, catalog_year=Fals
             for stas1 in stalistall:
                 if stas1 not in stalistall1:
                     stalistall1.append(stas1)
-            dfs2 = dfs2.append(dfs1)
+            dfs2 = pd.concat([dfs2,dfs1])
 #            except:
 #                pass
         conn.close()
@@ -1351,6 +1532,9 @@ def sp_ratio(st3,inv,pickP=None,all_picks=None,event=None):
     pre_filt = (0.05, 0.06, 30.0, 35.0)
     st3.remove_response(inventory=inv, output='DISP', pre_filt=pre_filt, zero_mean=True)
     st3.filter('bandpass',freqmin=2,freqmax=15,corners=5,zerophase=True)
+    starttime = min([st.stats.starttime for st in st3])
+    endtime = max([st.stats.endtime for st in st3])
+    st3 = st3.trim(starttime, endtime, pad=True, fill_value=0)
     
     epid, az, baz = gps2dist_azimuth(event.preferred_origin().latitude, event.preferred_origin().longitude, inv[0][0].latitude, inv[0][0].longitude)
     #rotate to radial/transverse
@@ -1415,39 +1599,41 @@ def select_3comp_remove_response(project_folder=None,strday=None,pick=None,start
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
     st = st3.select(channel='[EHB]H[EN12]')
-    for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-        if len(inventory_local)>0:
-            inv = read_inventory(inventory_local[0])
-        else:
-            try:
-                #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                try:
-                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                    #print(project_folder+'/'+strday+'*/dailyinventory.xml')
-                except:
-                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
-                    pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
-                if not inv:
-                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                    if not inv:
-                        print('Getting response from DMC 1')
-                        client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
+    inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+    if len(inventory_local)>0:
+        inv = read_inventory(inventory_local[0])
+    else:
+        try:
+            #inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+            try:
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
+                #print(project_folder+'/'+strday+'*/dailyinventory.xml')
             except:
-                print('Station metadata error')
-                print('Getting response from DMC 2')
-                client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-                #starttime = UTCDateTime(origin.time-10)
-                #endtime = UTCDateTime(origin.time+10)
-                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                 pass
-                #                    paz = [x for x in pazs if tr.stats.channel in x]
+            inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+            if not inv:
+                inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                if not inv:
+                    print('Response issue - not in local directories')
+                    #client = Client()
+                    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+
+        except:
+            print('Response issue - not in local directories')
+            print('Notetting response from DMC 2')
+            #client = Client()
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+            #starttime = UTCDateTime(origin.time-10)
+            #endtime = UTCDateTime(origin.time+10)
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+            pass
+            #                    paz = [x for x in pazs if tr.stats.channel in x]
 #                    attach_paz(tr, paz[0])
         #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+    
+    for tr in st3:
         tr.stats.network = inv[0].code
         tr.stats.location = inv[0][0][0].location_code
         pre_filt = (0.05, 0.06, 30.0, 35.0)
@@ -1490,51 +1676,52 @@ def select_3comp_include_response(project_folder=None,strday=None,pick=None,star
         if isinstance(tr.data, np.ma.masked_array):
             tr.data = tr.data.filled()
     
-    for tr in st3:
-        inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
-        if len(inventory_local)>0:
-            inv = read_inventory(inventory_local[0])
-        else:
+    #for tr in st3:
+    inventory_local = glob.glob(project_folder+'/'+strday+'*/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml') or glob.glob(project_folder+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.xml')
+    if len(inventory_local)>0:
+        inv = read_inventory(inventory_local[0])
+    else:
+        try:
             try:
-                try:
-                    inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
-                except:
-                    inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
-                    pass
-                inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
-                if not inv:
-                    inv = inv0.select(network='*', station=pick.waveform_id.station_code)
-                    if not inv:
-                        print('Getting response from DMC')
-                        starttime = UTCDateTime(origin.time-10)
-                        endtime = UTCDateTime(origin.time+10)
-                        client = Client()
-                        inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-
+                inv0 = read_inventory(project_folder+'/'+strday+'*/dailyinventory.xml')
             except:
-                print('Station metadata error')
-                print('Getting response from DMC')
-                client = Client()
-                inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
-                #starttime = UTCDateTime(origin.time-10)
-                #endtime = UTCDateTime(origin.time+10)
-                #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+                inv0 = read_inventory(project_folder+'*/dailyinventory.xml') 
                 pass
-                #                    paz = [x for x in pazs if tr.stats.channel in x]
-#                    attach_paz(tr, paz[0])
-        #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
-        tr.stats.network = inv[0].code
-        tr.stats.location = inv[0][0][0].location_code
-        #pre_filt = (0.05, 0.06, 30.0, 35.0)
-        tr.trim(pick.time-30, pick.time+120)
+            inv = inv0.select(network=pick.waveform_id.network_code, station=pick.waveform_id.station_code, time=starttime)
+            if not inv:
+                inv = inv0.select(network='*', station=pick.waveform_id.station_code)
+                if not inv:
+                    print('Response issue - not in local directories')
+                    # starttime = UTCDateTime(origin.time-10)
+                    # endtime = UTCDateTime(origin.time+10)
+                    # client = Client()
+                    # inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
 
+        except:
+            print('Station metadata error')
+            #print('Getting response from DMC')
+            #client = Client()
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel="*",level="response")
+            #starttime = UTCDateTime(origin.time-10)
+            #endtime = UTCDateTime(origin.time+10)
+            #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+            pass
+            #                    paz = [x for x in pazs if tr.stats.channel in x]
+#                    attach_paz(tr, paz[0])
+    #inv = client.get_stations(starttime=starttime, endtime=endtime, network="*", sta=tr.stats.station, loc="*", channel=tr.stats.channel,level="response")
+    tr.stats.network = inv[0].code
+    tr.stats.location = inv[0][0][0].location_code
+    #pre_filt = (0.05, 0.06, 30.0, 35.0)
+    tr.trim(pick.time-30, pick.time+120)
+
+    print(inv)
 
 
         
     return st3, inv
 
 
-def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=False, cutoff_dist=200, estimate_sp=False):
+def magnitude_quakeml(cat=None, project_folder=None,plot_event=False, cutoff_dist=200, estimate_sp=False, eventmode=False, dirname=None):
     """
     Computes magnitudes for a set of earthquake events and saves them in QuakeML format.
     
@@ -1581,7 +1768,7 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
             strdaytime = strday+str(pick.time.hour).zfill(2)+str(pick.time.minute).zfill(2)[0]
 
             #    strday = str(origin.time.year).zfill(2)+str(origin.time.month).zfill(2)+str(origin.time.day).zfill(2)
-            print(strday)
+            #print(strday)
             
             if pick.phase_hint == 'S':
                 ### make Amplitude
@@ -1589,7 +1776,10 @@ def magnitude_quakeml(cat=None, project_folder=None,plot_event=False,eventmode=F
                 try:
                     starttime_inv=origin.time-10
                     endtime_inv=origin.time+10
-                    st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
+                    if eventmode:
+                        st3, inv =  select_3comp_remove_response(project_folder,dirname,pick,starttime_inv,endtime_inv)
+                    else:
+                        st3, inv =  select_3comp_remove_response(project_folder,strday,pick,starttime_inv,endtime_inv)
 
                     tr1 = st3.select(channel='[EHB]HZ')[0]
 
@@ -1870,9 +2060,13 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
             try:
                 st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
             except:
-                st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                try:
+                    st1 += read(project_folder+'/'+strday+'/'+pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code[0:2]+'1*mseed') or read(project_folder+'/'+strday+'/*'+pick.waveform_id.station_code+'*'+pick.waveform_id.channel_code+'*SAC')
+                except:
+                    pass
                 pass
             #arrivals.append(arrv)
+            
             stacheck.add(pick.waveform_id.network_code+'.'+pick.waveform_id.station_code+'.'+pick.waveform_id.channel_code)
             picks.append(pick.phase_hint)
             picktimes.append(pick.time)
@@ -1884,10 +2078,27 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 if (tr2.stats.network+'.'+tr2.stats.station+'.'+tr2.stats.channel) not in stacheck:
                     st3 += tr2
             st3 = st3.slice(origin.time-30, origin.time + length)
+            st3.merge(fill_value=0)
+            for tr in st3:
+                if isinstance(tr.data, np.ma.masked_array):
+                    tr.data = tr.data.filled()
             st3.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + "_nopicks.mseed")
-
+        
+        st1.merge(fill_value=0)
+        #print(st3)
+        for tr in st1:
+            if isinstance(tr.data, np.ma.masked_array):
+                tr.data = tr.data.filled()
         st = st1.slice(origin.time-30, origin.time + length)
         st.write(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".mseed")
+        if not os.path.exists(project_folder+'/'+strday+'/dailyinventory.xml'):
+            inv = Inventory()
+            print('creating inventory')
+            dir1a = glob.glob(project_folder+'/'+strday+'/??.*.xml') + glob.glob(project_folder+'/'+strday+'/rt.xml')
+            for file1 in dir1a:
+                inv1a = read_inventory(file1)
+                inv.networks.extend(inv1a)
+            inv.write(project_folder+'/'+strday+'/dailyinventory.xml',format='STATIONXML')
         
         os.system('cp '+project_folder+'/'+strday+'/*dailyinventory.xml '+dirname+'/'+str(ev.resource_id).split('/')[-1]+'_inv.xml')
         #os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
@@ -1936,7 +2147,9 @@ def cut_event_waveforms(catalog=None, project_folder=None, length=120, filteryes
                 fig.savefig(dirname+'/'+str(ev.resource_id).split('/')[-1] + ".png")
                 plt.title('M '+str(ev.preferred_magnitude().mag)+' '+str(origin.time))
                 plt.close(fig)
-            except:
+            except Exception:
+                print(traceback.format_exc())#input("push")
+                print('Something went wrong here')
                 pass
 
 
@@ -1974,7 +2187,7 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
 
     if local:
         inv = Inventory()
-        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml')
+        dir1a = glob.glob(project_folder+'/'+dirname+'/dailyinventory.xml') + glob.glob(project_folder+'/'+dirname+'/??.*.xml') + glob.glob(project_folder+'/'+dirname+'/rt.xml')
         for file1 in dir1a:
             inv1a = read_inventory(file1)
             inv.networks.extend(inv1a)
@@ -1985,37 +2198,175 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
     if machine == True and machine_picker is None:
         machine_picker = 'GPD'
     if machine == True and machine_picker == 'GPD':
-        fullpath1 = pathgpd+'/gpd_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            os.system(fullpath_python+" "+fullpath1+" -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        else:
-            os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        fullpath1 = pathgpd + '/gpd_predict.py'
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        try:
+            try:
+                from .gpd_predict.gpd_predict import process_dayfile
+            except ImportError:
+                from gpd_predict.gpd_predict import process_dayfile
+            process_dayfile(infile, outfile, base_dir=pathgpd, verbose=True, plot=True)
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python + " " + fullpath1 + " -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+            else:
+                os.system("gpd_predict -V -P -I %s -O %s -F %s" % (infile, outfile, pathgpd))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     elif machine == True and machine_picker == 'EQTransformer':
-        fullpath2 = pathEQT+'/mseed_predictor.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            print(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-            os.system(fullpath_python+" "+fullpath2+" -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        else:
-            os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        fullpath2 = os.path.join(os.path.dirname(__file__), 'EQTransformer', 'mseed_predictor.py')
+        pathEQT_local = os.path.join(os.path.dirname(__file__), 'EQTransformer')
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        try:
+            import importlib.util as _il
+            spec = _il.spec_from_file_location('easyQuake.EQTransformer.mseed_predictor', fullpath2)
+            if spec and spec.loader:
+                mod = _il.module_from_spec(spec)
+                sys.modules['easyQuake.EQTransformer.mseed_predictor'] = mod
+                spec.loader.exec_module(mod)
+                try:
+                    override = os.environ.get('EASYQUAKE_EQT_MODEL')
+                    if not override:
+                        candidate = os.path.join(pathEQT_local, 'EqT_model.sanitized.keras')
+                        if os.path.exists(candidate):
+                            override = candidate
+                    if override:
+                        setattr(mod, '__input_model_override__', override)
+                except Exception:
+                    pass
+                if hasattr(mod, 'main'):
+                    try:
+                        import sys as _sys
+                        _old_argv = list(_sys.argv)
+                        _sys.argv = [fullpath2, '-I', infile, '-O', outfile, '-F', pathEQT_local]
+                        try:
+                            mod.main()
+                        finally:
+                            _sys.argv = _old_argv
+                    except Exception:
+                        import traceback as _tb
+                        _tb.print_exc()
+                        print('EQTransformer inline execution failed; not falling back to installed CLI')
+                else:
+                    print('workspace mseed_predictor has no main(); skipping EQTransformer inline')
+            else:
+                if fullpath_python:
+                    os.system(fullpath_python + " " + fullpath2 + " -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+                else:
+                    os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+        except Exception:
+            if fullpath_python:
+                os.system(fullpath_python + " " + fullpath2 + " -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+            else:
+                os.system("mseed_predictor -I %s -O %s -F %s" % (infile, outfile, pathEQT_local))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     elif machine == True and machine_picker == 'PhaseNet':
-        fullpath3 = pathphasenet+'/phasenet_predict.py'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        if fullpath_python:
-            print(pathphasenet)
-            #python phasenet/predict.py --model=model/190703-214543 --data_list=test_data/mseed.csv --data_dir=test_data/mseed --format=mseed --plot_figure
-            os.system(fullpath_python+" "+fullpath3+" --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
+        fullpath3 = os.path.join(pathphasenet, 'phasenet_predict.py')
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+
+        phasenet_success = False
+        try:
+            model_arg = os.path.join(pathphasenet, 'model', '190703-214543')
+            if fullpath_python:
+                cmd = f"{fullpath_python} {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+            else:
+                cmd = f"python3 {fullpath3} --model_dir={model_arg} --data_list={infile} --format=mseed --result_fname={os.path.basename(outfile)} --result_dir={os.path.abspath(dir1)}"
+
+            print('PhaseNet: running current CLI:', cmd)
+            import subprocess
+            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            print('PhaseNet CLI exit code:', res.returncode)
+            if res.stdout:
+                print('PhaseNet CLI stdout:\n', res.stdout)
+            if res.stderr:
+                print('PhaseNet CLI stderr:\n', res.stderr)
+            if res.returncode == 0:
+                phasenet_success = True
+                print('PhaseNet: current version completed successfully')
+            else:
+                print('PhaseNet: current version failed')
+        except Exception as _e:
+            print('PhaseNet: CLI invocation failed:', _e)
+
+        if not phasenet_success:
+            print('PhaseNet: current version failed; creating empty output file')
+            with open(outfile, 'w') as f:
+                pass
+
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
+    elif machine == True and machine_picker == 'Seisbench':
+        fullpath3 = pathseisbench + '/run_seisbench.py'
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        # require a model path for seisbench inline execution
+        if not seisbenchmodel:
+            try:
+                default_models_dir = Path.home() / 'easyQuake' / 'easyQuake' / 'seisbench' / 'models'
+                if default_models_dir.exists():
+                    candidates = list(default_models_dir.glob('*.pth')) + list(default_models_dir.glob('*.pt')) + list(default_models_dir.glob('*.ckpt'))
+                    if candidates:
+                        bests = [c for c in candidates if 'best_model' in c.name]
+                        selected = bests[0] if bests else candidates[0]
+                        seisbenchmodel = str(selected)
+                        print(f"Seisbench: discovered model {seisbenchmodel}")
+                    else:
+                        print('Seisbench: no model files found in default models directory; skipping Seisbench run')
+                else:
+                    print(f'Seisbench: default models directory not found: {default_models_dir}; skipping Seisbench run')
+            except Exception:
+                print('Seisbench: model discovery failed; skipping Seisbench run')
+
+        if not seisbenchmodel:
+            print('Seisbench model not provided; skipping Seisbench run (no CLI fallback because model is missing)')
+            pass
         else:
-            os.system("phasenet_predict --model=%s/model/190703-214543 --data_list=%s --format=mseed --result_fname=%s --result_dir=%s" % (pathphasenet, infile, outfile, dir1))
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+            try:
+                try:
+                    from .seisbench.run_seisbench import main as seis_main
+                except ImportError:
+                    from seisbench.run_seisbench import main as seis_main
+                try:
+                    seis_main()
+                except TypeError:
+                    if fullpath_python:
+                        os.system(fullpath_python + " " + fullpath3 + " -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                    else:
+                        os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
+            except Exception:
+                if fullpath_python:
+                    os.system(fullpath_python + " " + fullpath3 + " -I %s -O %s -M %s" % (infile, outfile, seisbenchmodel))
+                else:
+                    os.system("python3 %s -I %s -O %s -M %s" % (fullpath3, infile, outfile, seisbenchmodel))
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
     else:
         machine_picker = 'STALTA'
-        outfile = dir1+'/'+machine_picker.lower()+'_picks.out'
-        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert)
-        pick_add(dbsession=session,fileinput=outfile,inventory=inv)
+        outfile = dir1 + '/' + machine_picker.lower() + '_picks.out'
+        if os.path.exists(outfile):
+            os.remove(outfile)
+        queue_sta_lta(infile, outfile, dirname, filtmin, filtmax, t_sta, t_lta, trigger_on, trigger_off, trig_horz, trig_vert, use_multiprocessing=False)
+        try:
+            pick_add(dbsession=session, fileinput=outfile, inventory=inv)
+        except Exception:
+            pass
+    session.close()
     session.close()
 
 
@@ -2066,13 +2417,87 @@ def detection_association_event(project_folder=None, project_code=None, maxdist 
         pass
     engine_assoc.dispose()
     cat, dfs = combine_associated(project_folder=dir1, project_code=project_code, eventmode=True, machine_picker=machine_picker)
+
     if len(cat)>0:
-        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=True)
+        # Quality control: Remove bad picks and events with insufficient picks
+        print(f"Starting QC on {len(cat)} events...")
+        cleaned_events = []
+        
+        for event_idx, event in enumerate(cat):
+            origin = event.preferred_origin() or event.origins[0]
+            picks_to_remove = []
+            
+            # Check each pick for timing issues
+            for pick in event.picks:
+                # Look for waveform files to get start times
+                try:
+                    # Try multiple file patterns to find waveform data
+                    file_patterns = [
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*mseed",
+                        f"{project_folder}/{dirname}/*{pick.waveform_id.station_code}*{pick.waveform_id.channel_code}*SAC",
+                        f"{project_folder}/{dirname}/{pick.waveform_id.network_code}.{pick.waveform_id.station_code}*{pick.waveform_id.channel_code[0:2]}*mseed",
+                    ]
+                    
+                    waveform_found = False
+                    trace_start_time = None
+                    
+                    for pattern in file_patterns:
+                        matching_files = glob.glob(pattern)
+                        if matching_files:
+                            try:
+                                st = read(matching_files[0], headonly=True)  # Read header only for speed
+                                trace_start_time = st[0].stats.starttime
+                                waveform_found = True
+                                break
+                            except:
+                                continue
+                    
+                    if waveform_found and trace_start_time:
+                        # Calculate pick time relative to trace start
+                        time_diff = float(pick.time - trace_start_time)
+                        
+                        # QC check: Remove picks that are negative or within 1 second of start
+                        if time_diff < 1.0:
+                            print(f"  Removing pick {pick.phase_hint} at station {pick.waveform_id.station_code}: time diff = {time_diff:.2f}s")
+                            picks_to_remove.append(pick)
+                    else:
+                        print(f"  Warning: No waveform found for pick at station {pick.waveform_id.station_code}")
+                        
+                except Exception as e:
+                    print(f"  Error checking pick at station {pick.waveform_id.station_code}: {e}")
+            
+            # Remove bad picks from the event
+            for pick in picks_to_remove:
+                event.picks.remove(pick)
+                # Also remove corresponding arrivals
+                arrivals_to_remove = [arr for arr in origin.arrivals if arr.pick_id == pick.resource_id]
+                for arr in arrivals_to_remove:
+                    origin.arrivals.remove(arr)
+            
+            # QC check: Keep events with at least 6 picks
+            if len(event.picks) >= 6:
+                cleaned_events.append(event)
+                print(f"  Event {event_idx+1}: Kept with {len(event.picks)} picks")
+            else:
+                print(f"  Event {event_idx+1}: Removed (only {len(event.picks)} picks remaining)")
+        
+        # Create new catalog with cleaned events
+        cleaned_cat = Catalog(cleaned_events)
+        print(f"QC complete: {len(cleaned_cat)} events remain (removed {len(cat) - len(cleaned_cat)} events)")
+        cat = cleaned_cat
+        
+        # Add project_folder information as comments to each event
+        for event in cat:
+            comment = Comment(text=f"{approxorigintime}")
+            event.comments.append(comment)
+        cat = magnitude_quakeml(cat=cat, project_folder=dir1, plot_event=False,estimate_sp=False, eventmode=True, dirname=dirname)
     #cat.write('catalog_idaho.xml',format='QUAKEML')
     #single_event_xml(cat,dir1,"QUAKEML")
     for idx1, ev in enumerate(cat):
-        filename = dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
+        filename = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+".xml"
         ev.write(project_folder+'/'+filename, format='QUAKEML')
+        filename2 = 'event_'+dirname+'_'+machine_picker.lower() + "_"+str(idx1)+'_seiscomp'+".xml"
+        ev.write(project_folder+'/'+filename2, format='SC3ML')
 
 
 def simple_cat_df(cat=None, uncertainty=False):
@@ -2475,6 +2900,8 @@ def locate_hyp2000(cat=None, project_folder=None, vel_model=None, fullpath_hyp=N
         
         if os.path.exists(outfile):
             os.system('rm '+outfile)
+        if os.path.exists(phafile):
+            os.system('rm '+phafile)        
         fcur = open(phafile,'w')
         fcur.write(str(hypo71_string))
         fcur.close()

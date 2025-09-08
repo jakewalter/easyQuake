@@ -1,13 +1,12 @@
+import json
+import logging
 import os
-import numpy as np
 from collections import namedtuple
 from datetime import datetime, timedelta
-import json
-import matplotlib.pyplot as plt
-import logging
-from detect_peaks import detect_peaks
-from obspy.io.mseed.util import get_record_information
 
+import matplotlib.pyplot as plt
+import numpy as np
+from detect_peaks import detect_peaks
 
 # def extract_picks(preds, fnames=None, station_ids=None, t0=None, config=None):
 
@@ -76,7 +75,6 @@ def extract_picks(
     config=None,
     waveforms=None,
     use_amplitude=False,
-    upload_waveform=False,
 ):
     """Extract picks from prediction results.
     Args:
@@ -95,7 +93,6 @@ def extract_picks(
         for x in phases:
             mph[x] = 0.3
         mpd = 50
-        ## upload waveform
         pre_idx = int(1 / dt)
         post_idx = int(4 / dt)
     else:
@@ -107,7 +104,6 @@ def extract_picks(
         post_idx = int(config.post_sec / dt)
 
     Nb, Nt, Ns, Nc = preds.shape
-
 
     if file_names is None:
         file_names = [f"{i:04d}" for i in range(Nb)]
@@ -125,7 +121,6 @@ def extract_picks(
 
     picks = []
     for i in range(Nb):
-
         file_name = file_names[i]
         begin_time = datetime.fromisoformat(begin_times[i])
 
@@ -133,25 +128,23 @@ def extract_picks(
             if (station_ids is None) or (len(station_ids[i]) == 0):
                 station_id = f"{j:04d}"
             else:
-                station_id = station_ids[i].decode() if isinstance(station_ids[i], bytes) else station_ids[i]
+                station_id = station_ids[i][j].decode() if isinstance(station_ids[i][j], bytes) else station_ids[i][j]
 
+            if (waveforms is not None) and use_amplitude:
+                amp = np.max(np.abs(waveforms[i, :, j, :]), axis=-1)  ## amplitude over three channelspy
             for k in range(Nc - 1):  # 0-th channel noise
-                idxs, probs = detect_peaks(
-                    preds[i, :, j, k + 1], mph=mph[phases[k]], mpd=mpd, show=False
-                )
+                idxs, probs = detect_peaks(preds[i, :, j, k + 1], mph=mph[phases[k]], mpd=mpd, show=False)
                 for l, (phase_index, phase_prob) in enumerate(zip(idxs, probs)):
                     pick_time = begin_time + timedelta(seconds=phase_index * dt)
-                    net = get_record_information(file_name[2].decode("utf-8"))['network']
-                    if phases[k] == 'S':
-                        chan = get_record_information(file_name[1].decode("utf-8"))['channel']
-                    elif phases[k] == 'P':
-                        chan = get_record_information(file_name[2].decode("utf-8"))['channel']
                     pick = {
-                        "network": net,
+                        "file_name": file_name,
                         "station_id": station_id,
-                        "chan_pick": chan,
-                        "phase_type": phases[k],
+                        "begin_time": begin_time.isoformat(timespec="milliseconds"),
+                        "phase_index": int(phase_index),
                         "phase_time": pick_time.isoformat(timespec="milliseconds"),
+                        "phase_score": round(phase_prob, 3),
+                        "phase_type": phases[k],
+                        "dt": dt,
                     }
 
                     ## process waveform
@@ -165,15 +158,13 @@ def extract_picks(
                             insert_idx = -lo
                         if hi > Nt:
                             hi = Nt
-                        tmp[insert_idx:insert_idx+hi-lo, :] = waveforms[i, lo:hi, j, :]
-                        if upload_waveform:
-                            pick["waveform"] = tmp.tolist()
-                            pick["_id"] = f"{pick['station_id']}_{pick['timestamp']}_{pick['type']}"
+                        tmp[insert_idx : insert_idx + hi - lo, :] = waveforms[i, lo:hi, j, :]
                         if use_amplitude:
-                            next_pick = idxs[l+1] if l < len(idxs)-1 else (phase_index+post_idx*3)
-                            amp = np.max(np.abs(waveforms[i, :, j, :]), axis=-1) ## amplitude over three channels
-                            pick["phase_amp"] = np.max(amp[phase_index:min(phase_index+post_idx*3, next_pick)]).item() ## peak amplitude
-                        
+                            next_pick = idxs[l + 1] if l < len(idxs) - 1 else (phase_index + post_idx * 3)
+                            pick["phase_amplitude"] = np.max(
+                                amp[phase_index : min(phase_index + post_idx * 3, next_pick)]
+                            ).item()  ## peak amplitude
+
                     picks.append(pick)
 
     return picks
@@ -193,29 +184,13 @@ def extract_amplitude(data, picks, window_p=10, window_s=5, config=None):
             # amp = np.linalg.norm(da[:,j,:], axis=-1)
             tmp = []
             for k in range(len(pi.p_idx[j]) - 1):
-                tmp.append(
-                    np.max(
-                        amp[
-                            pi.p_idx[j][k] : min(
-                                pi.p_idx[j][k] + window_p, pi.p_idx[j][k + 1]
-                            )
-                        ]
-                    )
-                )
+                tmp.append(np.max(amp[pi.p_idx[j][k] : min(pi.p_idx[j][k] + window_p, pi.p_idx[j][k + 1])]))
             if len(pi.p_idx[j]) >= 1:
                 tmp.append(np.max(amp[pi.p_idx[j][-1] : pi.p_idx[j][-1] + window_p]))
             p_amp.append(tmp)
             tmp = []
             for k in range(len(pi.s_idx[j]) - 1):
-                tmp.append(
-                    np.max(
-                        amp[
-                            pi.s_idx[j][k] : min(
-                                pi.s_idx[j][k] + window_s, pi.s_idx[j][k + 1]
-                            )
-                        ]
-                    )
-                )
+                tmp.append(np.max(amp[pi.s_idx[j][k] : min(pi.s_idx[j][k] + window_s, pi.s_idx[j][k + 1])]))
             if len(pi.s_idx[j]) >= 1:
                 tmp.append(np.max(amp[pi.s_idx[j][-1] : pi.s_idx[j][-1] + window_s]))
             s_amp.append(tmp)
@@ -225,15 +200,11 @@ def extract_amplitude(data, picks, window_p=10, window_s=5, config=None):
 
 def save_picks(picks, output_dir, amps=None, fname=None):
     if fname is None:
-        fname = "phasenet_picks.out"
+        fname = "picks.csv"
 
     int2s = lambda x: ",".join(["[" + ",".join(map(str, i)) + "]" for i in x])
-    flt2s = lambda x: ",".join(
-        ["[" + ",".join(map("{:0.3f}".format, i)) + "]" for i in x]
-    )
-    sci2s = lambda x: ",".join(
-        ["[" + ",".join(map("{:0.3e}".format, i)) + "]" for i in x]
-    )
+    flt2s = lambda x: ",".join(["[" + ",".join(map("{:0.3f}".format, i)) + "]" for i in x])
+    sci2s = lambda x: ",".join(["[" + ",".join(map("{:0.3e}".format, i)) + "]" for i in x])
     if amps is None:
         if hasattr(picks[0], "ps_idx"):
             with open(os.path.join(output_dir, fname), "w") as fp:
@@ -264,9 +235,7 @@ def save_picks(picks, output_dir, amps=None, fname=None):
 
 
 def calc_timestamp(timestamp, sec):
-    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f") + timedelta(
-        seconds=sec
-    )
+    timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%f") + timedelta(seconds=sec)
     return timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
 
 
@@ -342,11 +311,11 @@ def convert_true_picks(fname, itp, its, itps=None):
 
 
 def calc_metrics(nTP, nP, nT):
-    '''
+    """
     nTP: true positive
     nP: number of positive picks
     nT: number of true picks
-    '''
+    """
     precision = nTP / nP
     recall = nTP / nT
     f1 = 2 * precision * recall / (precision + recall)
@@ -378,12 +347,8 @@ def calc_performance(picks, true_picks, tol=3.0, dt=1.0):
 
         logging.info(f"{phase}-phase:")
         logging.info(f"True={true}, Positive={positive}, True Positive={true_positive}")
-        logging.info(
-            f"Precision={metrics[phase][0]:.3f}, Recall={metrics[phase][1]:.3f}, F1={metrics[phase][2]:.3f}"
-        )
-        logging.info(
-            f"Residual mean={np.mean(residual):.4f}, std={np.std(residual):.4f}"
-        )
+        logging.info(f"Precision={metrics[phase][0]:.3f}, Recall={metrics[phase][1]:.3f}, F1={metrics[phase][2]:.3f}")
+        logging.info(f"Residual mean={np.mean(residual):.4f}, std={np.std(residual):.4f}")
 
     return metrics
 

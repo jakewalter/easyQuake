@@ -1,1 +1,1 @@
-from easyQuake.gpd_predict import gpd_predict
+from .gpd_predict import process_dayfile, main
