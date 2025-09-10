@@ -143,13 +143,16 @@ from obspy.geodetics import gps2dist_azimuth, kilometer2degrees
 
 import re
 from datetime import datetime
-
+from datetime import timedelta, date
 
 from obspy import Stream
 from obspy.core.event import Catalog, Event, Magnitude, Origin, Pick, StationMagnitude, Amplitude, Arrival, OriginUncertainty, OriginQuality, ResourceIdentifier, Comment
 
 import h5py
 
+def daterange(start_date, end_date):
+    for n in range(int ((end_date - start_date).days)):
+        yield start_date + timedelta(n)
 
 def download_mseed(dirname=None, project_folder=None, single_date=None, minlat=None, maxlat=None, minlon=None, maxlon=None, dense=False, raspberry_shake=False):
     """
