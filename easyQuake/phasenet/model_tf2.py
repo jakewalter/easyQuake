@@ -2,8 +2,17 @@ import logging
 import numpy as _np
 import tensorflow as tf
 
+# Handle keras import for different TF versions
+try:
+    from tensorflow import keras
+except ImportError:
+    try:
+        import keras
+    except ImportError:
+        from tf_keras import keras
 
-class CropAndConcat(tf.keras.layers.Layer):
+
+class CropAndConcat(keras.layers.Layer):
     """Center-crop two tensors to the same temporal length and concatenate on channels."""
 
     def __init__(self, **kwargs):

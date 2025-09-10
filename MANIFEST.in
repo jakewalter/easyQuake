@@ -1,7 +1,10 @@
 include easyQuake/gpd_predict/*.json
-include easyQuake/gpd_predict/*hdf5
+include easyQuake/gpd_predict/*.hdf5
+include easyQuake/gpd_predict/*.h5
+include easyQuake/gpd_predict/*.keras
 include easyQuake/hyp2000/*crh
-include easyQuake/EQTransformer/*h5
+include easyQuake/EQTransformer/*.h5
+include easyQuake/EQTransformer/*.keras
 include easyQuake/phasenet/model/*
 include easyQuake/phasenet/*
 include easyQuake/phasenet/model/190703-214543/*

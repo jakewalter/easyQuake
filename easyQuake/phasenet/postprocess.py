@@ -6,7 +6,15 @@ from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import numpy as np
-from detect_peaks import detect_peaks
+
+# Import detect_peaks with fallback patterns
+try:
+    from .detect_peaks import detect_peaks
+except ImportError:
+    try:
+        from detect_peaks import detect_peaks
+    except ImportError:
+        from easyQuake.phasenet.detect_peaks import detect_peaks
 
 # def extract_picks(preds, fnames=None, station_ids=None, t0=None, config=None):
 

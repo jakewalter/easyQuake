@@ -5,7 +5,17 @@ import os
 import time
 import numpy as np
 import pandas as pd
-from .data_reader import DataReader_mseed_array, DataReader_pred
+
+# Handle imports for both package and standalone usage
+try:
+    from .data_reader import DataReader_mseed_array, DataReader_pred
+except ImportError:
+    # Fallback for standalone execution or when package structure isn't recognized
+    try:
+        from data_reader import DataReader_mseed_array, DataReader_pred
+    except ImportError:
+        # If still failing, try absolute import
+        from easyQuake.phasenet.data_reader import DataReader_mseed_array, DataReader_pred
 # Conditional import: use TF2 model if H5 files exist, otherwise TF1
 import os
 import glob
@@ -25,14 +35,35 @@ def get_model_imports():
                 break
     
     if h5_files:
-        from model_tf2 import ModelConfigTF2 as ModelConfig, UNet
+        try:
+            from .model_tf2 import ModelConfigTF2 as ModelConfig, UNet
+        except ImportError:
+            try:
+                from model_tf2 import ModelConfigTF2 as ModelConfig, UNet
+            except ImportError:
+                from easyQuake.phasenet.model_tf2 import ModelConfigTF2 as ModelConfig, UNet
         return ModelConfig, UNet, True  # TF2 mode
     else:
-        from model import ModelConfig, UNet
+        try:
+            from .model import ModelConfig, UNet
+        except ImportError:
+            try:
+                from model import ModelConfig, UNet
+            except ImportError:
+                from easyQuake.phasenet.model import ModelConfig, UNet
         return ModelConfig, UNet, False  # TF1 mode
 
 ModelConfig, UNet, USE_TF2 = get_model_imports()
-from postprocess import extract_amplitude, extract_picks, save_picks, save_picks_json, save_prob_h5
+
+# Handle postprocess import
+try:
+    from .postprocess import extract_amplitude, extract_picks, save_picks, save_picks_json, save_prob_h5
+except ImportError:
+    try:
+        from postprocess import extract_amplitude, extract_picks, save_picks, save_picks_json, save_prob_h5
+    except ImportError:
+        from easyQuake.phasenet.postprocess import extract_amplitude, extract_picks, save_picks, save_picks_json, save_prob_h5
+
 from tqdm import tqdm
 
 # Configure TensorFlow for modern usage - but allow TF1 fallback
