@@ -1,4 +1,4 @@
-# easyQuake (realtime) — README ✅
+# easyQuake (realtime) — README
 
 ## Overview
 Simple instructions to run the realtime scripts in this folder on a server. These scripts typically need small parameter edits (paths, host/port, model names) for your environment.
@@ -125,12 +125,12 @@ nohup /path/to/inotify2.bash &  # or use systemd for production
 
 ---
 
-If you want, I can add a `systemd` unit for `inotify2.bash` or provide an SSH-based example to dispatch files remotely. ✅
+If you want, I can add a `systemd` unit for `inotify2.bash` or provide an SSH-based example to dispatch files remotely. 
 
 ---
 
-## Keep the SeisComP listener running (cron) ⏱️
-If you'd like the `inotify2.bash` listener to be restarted automatically by cron, add the following cron entry on the SeisComP server (runs every 2 minutes):
+## Keep the SeisComP listener running (cron) 
+If you'd like the `inotify2.bash` listener to be restarted automatically by cron, add the following cron entry on the SeisComP server (checks to make sure that it is running every 2 minutes, and restarts if it is not):
 
 ```cron
 */2 * * * * /usr/bin/bash /home/sysop/bin/cron_restart_ml_listen.bash >/dev/null 2>&1
@@ -172,6 +172,4 @@ Notes & tips:
 - Test the scripts manually before relying on cron: `/home/sysop/bin/start_MLlisten.bash` and then check `ML_listen.log` and `ps aux | grep inotifywait`.
 - To install the cron entry for the `sysop` user, run `crontab -e` as that user and paste the cron line above.
 
----
 
-Would you like me to create these two scripts in the repo and add a sample `systemd` unit as an alternative to cron? ✅
