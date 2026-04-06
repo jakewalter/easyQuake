@@ -84,10 +84,11 @@ except:
     logging.info("Mixed precision not available")
 
 
-def read_args():
+def read_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=1, type=int, help="batch size")
     parser.add_argument("--model_dir", help="Checkpoint directory (default: None)")
+    parser.add_argument("--model", dest="model_dir", help="Checkpoint directory (same as --model_dir)")
     parser.add_argument("--data_dir", default="", help="Input file directory")
     parser.add_argument("--data_list", default="", help="Input csv file")
     parser.add_argument("--hdf5_file", default="", help="Input hdf5 file")
@@ -107,7 +108,7 @@ def read_args():
     parser.add_argument("--highpass_filter", default=0.0, type=float, help="Highpass filter frequency")
     parser.add_argument("--response_xml", default=None, type=str, help="response xml file")
     parser.add_argument("--sampling_rate", default=100, type=float, help="sampling rate")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Normalize result filename: strip any extension so we append a single ".out" later
     try:
@@ -464,7 +465,11 @@ def extract_picks_from_prediction(pred, fname, t0, station_id, args, raw_amp=Non
     return picks
 
 
-def main(args):
+def main(args=None):
+
+    if args is None or isinstance(args, (list, tuple)):
+        args = read_args(args)
+
     logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO)
     logging.info(f"Using TensorFlow {tf.__version__} with Keras 3 compatibility")
 
