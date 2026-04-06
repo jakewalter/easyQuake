@@ -56,11 +56,12 @@ else:
 #        collection.insert_many(picks)
 
 
-def read_args():
+def read_args(argv=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=4, type=int, help="batch size")
     parser.add_argument("--model_dir", help="Checkpoint directory (default: None)")
+    parser.add_argument("--model", dest="model_dir", help="Checkpoint directory (same as --model_dir)")
     parser.add_argument("--data_dir", default="", help="Input file directory")
     parser.add_argument("--data_list", default="", help="Input csv file")
     parser.add_argument("--hdf5_file", default="", help="Input hdf5 file")
@@ -80,7 +81,7 @@ def read_args():
     parser.add_argument("--upload_waveform", action="store_true", help="If upload waveform to mongodb")
     parser.add_argument("--pre_sec", default=1, type=float, help="Window length before pick")
     parser.add_argument("--post_sec", default=4, type=float, help="Window length after pick")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     return args
 
@@ -242,7 +243,10 @@ def pred_fn(args, data_reader, figure_dir=None, prob_dir=None, log_dir=None):
     return 0
 
 
-def main(args):
+def main(args=None):
+
+    if args is None or isinstance(args, (list, tuple)):
+        args = read_args(args)
 
     logging.basicConfig(format="%(asctime)s %(message)s", level=logging.INFO)
 
