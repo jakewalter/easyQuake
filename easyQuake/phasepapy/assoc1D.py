@@ -98,31 +98,51 @@ class LocalAssociator():
     # Query all candidate ots
     candidate_ots=self.assoc_db.query(Candidate).filter(Candidate.assoc_id==None).order_by(Candidate.ot).all()
     L_ots=len(candidate_ots) #; print L_ots
+    
+    # Fast in-memory cluster scanning instead of N queries
     Array=[]
     for i in range(L_ots):
-      cluster=self.assoc_db.query(Candidate).filter(Candidate.assoc_id==None).filter(Candidate.ot>=candidate_ots[i].ot).filter(Candidate.ot<(candidate_ots[i].ot+dt_ot)).order_by(Candidate.ot).all()
-      cluster_sta=self.assoc_db.query(Candidate.sta).filter(Candidate.assoc_id==None).filter(Candidate.ot>=candidate_ots[i].ot).filter(Candidate.ot<(candidate_ots[i].ot+dt_ot)).order_by(Candidate.ot).all()
-      l_cluster=len(set(cluster_sta))
-      Array.append((i,l_cluster,len(cluster)))
+      base_ot = candidate_ots[i].ot
+      end_ot = base_ot + dt_ot
+      cluster_len = 0
+      cluster_sta = set()
+      for j in range(i, L_ots):
+          if candidate_ots[j].assoc_id is not None:
+              continue
+          if candidate_ots[j].ot < end_ot:
+              cluster_len += 1
+              cluster_sta.add(candidate_ots[j].sta)
+          else:
+              break
+      Array.append((i, len(cluster_sta), cluster_len))
+
     #print Array
     Array.sort(key=itemgetter(1), reverse=True)  #sort Array by l_cluster, notice Array has been changed
     #print Array
     
     #print 'cluster analysis time:', time.time()-now2, 's'
+    
+    # Preload station locations to avoid N queries per cluster
+    sta_locs = {}
+    for sta_obj in self.tt_stations_db_1D.query(Station1D).all():
+        sta_locs[sta_obj.sta] = (sta_obj.longitude, sta_obj.latitude)
           
     for i in range(len(Array)):
       index=Array[i][0]
       if Array[i][1]>=self.nsta_declare:
-        candis=self.assoc_db.query(Candidate).filter(Candidate.assoc_id == None).filter(Candidate.ot >= candidate_ots[index].ot).filter(Candidate.ot < (candidate_ots[index].ot + dt_ot)).order_by(Candidate.ot).all() 
+        base_ot = candidate_ots[index].ot
+        end_ot = base_ot + dt_ot
+        # Find candidates dynamically to respect newly associated picks
+        candis = [c for c in candidate_ots if c.assoc_id is None and base_ot <= c.ot < end_ot]
         
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # remove the candidates with the modified picks has been associated
         picks_associated_id=list(set(self.assoc_db.query(PickModified.id).filter(PickModified.assoc_id != None).all()))
         index_candis=[]
-        for id, in picks_associated_id:
-          for i,candi in enumerate(candis):
-            if candi.p_modified_id==id or candi.s_modified_id==id:
-              index_candis.append(i)        
+        for pid in picks_associated_id:
+          for j,candi in enumerate(candis):
+            if candi.p_modified_id==pid or candi.s_modified_id==pid:
+              index_candis.append(j)        
         # delete from the end
         if index_candis:
           for j in sorted(set(index_candis), reverse=True):
@@ -135,25 +155,33 @@ class LocalAssociator():
         # 1D Associator
         # store all necessary parameter in lists    
         radius=[]
-        for i,candi in enumerate(candis):
+        lon, lat = 0.0, 0.0
+        for j,candi in enumerate(candis):
           # pass in the radius for map plotting
-          try:
-            lon,lat = self.tt_stations_db_1D.query(Station1D.longitude, Station1D.latitude).filter(Station1D.sta == candi.sta).first()
-            radius.append((candi.sta, lon, lat, candi.d_km, candi.delta, i)) 
-          except:
+          if candi.sta in sta_locs:
+            lon, lat = sta_locs[candi.sta]
+            radius.append((candi.sta, lon, lat, candi.d_km, candi.delta, j))
+          else:
             print(candi.sta+' did not work')
-            pass
     
         cb = self.comb(radius)
         #print 'cb',cb
         
         rms_sort = []
+        initial_residuals = []
         for i in range(len(cb)):
+          if len(cb[i]) >= self.nsta_declare:
+            res = locating([lon, lat], *cb[i])
+            initial_residuals.append((res, i))
+            
+        initial_residuals.sort(key=itemgetter(0))
+        top_indices = [x[1] for x in initial_residuals[:15]]
+        
+        for i in top_indices:
           radius_cb = cb[i]
-          if len(radius_cb) >= self.nsta_declare: # self.nsta_declare has to be greater than or equal to 3
-            location=fmin(locating, [lon,lat], radius_cb, disp = 0) # disp = 1 disp : bool, Set to True to print convergence messages.
-            residual_minimum=residuals_minimum(location,radius_cb)
-            rms_sort.append((location, residual_minimum, i))
+          location=fmin(locating, [lon,lat], radius_cb, disp = 0) # disp = 1 disp : bool, Set to True to print convergence messages.
+          residual_minimum=residuals_minimum(location,radius_cb)
+          rms_sort.append((location, residual_minimum, i))
             
         # It is possible to have empty rms_sort
         if rms_sort:
@@ -285,27 +313,32 @@ class LocalAssociator():
               pick.locate_flag = None
       self.assoc_db.commit()
 
-            
+      # extra near-source augmentation: attach unassociated modified picks in a small event window
+      sub_window = 20  # seconds
+      for event in self.assoc_db.query(Associated).all():
+        nearby = self.assoc_db.query(PickModified).filter(PickModified.assoc_id==None).filter(PickModified.time>=event.ot-timedelta(seconds=sub_window)).filter(PickModified.time<=event.ot+timedelta(seconds=sub_window)).all()
+        for extra in nearby:
+          extra.assoc_id = event.id
+          if extra.phase is None:
+            extra.phase = 'P'
+          extra.locate_flag = False
+          for pick in self.assoc_db.query(Pick).filter(Pick.modified_id==extra.id).all():
+            if pick.phase is None:
+              pick.phase = extra.phase
+            pick.assoc_id = event.id
+            pick.locate_flag = False
+      self.assoc_db.commit()
+
   # create the combinations from different stations
   def comb(self,tt):
-    L = len(set([item[0] for item in tt]))   # length of the set(sta)
-    cb = list(combinations((tt),L))          # combinations of the array, some of them are repeated such as (sta1, sta1, sta2,...)
-    
-    # remove those combinations of repeated station
-    index = []
-    for i in range(len(cb)):
-      temp = []
-      for j in range(L):
-        temp.append(cb[i][j][0])
-      l = len(set(temp))
-      if l < L:
-        index.append(i) 
-    index.reverse()
-    for i in index:
-      del cb[i]
- 
-    # only return combinations of different stations
-    return cb   
+    from itertools import product
+    sta_dict = {}
+    for item in tt:
+      sta = item[0]
+      if sta not in sta_dict:
+        sta_dict[sta] = []
+      sta_dict[sta].append(item)
+    return list(product(*sta_dict.values()))
 
   
 def datetime_statistics(dt_list,norm='L2'):
