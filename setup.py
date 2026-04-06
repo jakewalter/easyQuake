@@ -22,7 +22,7 @@ setuptools.setup(
         'h5py==2.10.0',
         'tqdm',
         'tensorflow-gpu==2.2',
-	'protobuf==3.20.*',
+	    'protobuf==3.20.*',
         'torch==1.7.1',
         'torchmetrics==0.8.0',
         'torchvision==0.8.2',

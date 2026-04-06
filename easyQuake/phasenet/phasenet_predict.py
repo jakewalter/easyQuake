@@ -10,9 +10,9 @@ import h5py
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from data_reader import DataReader_mseed_array, DataReader_pred
-from model import ModelConfig, UNet
-from postprocess import (
+from .data_reader import DataReader_mseed_array, DataReader_pred
+from .model import ModelConfig, UNet
+from .postprocess import (
     extract_amplitude,
     extract_picks,
     save_picks,
@@ -26,8 +26,16 @@ from tqdm import tqdm
 tf.compat.v1.disable_eager_execution()
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_virtual_device_configuration(physical_devices[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=7000)])
-logical_gpus = tf.config.list_logical_devices('GPU')
+if physical_devices:
+    try:
+        tf.config.experimental.set_virtual_device_configuration(
+            physical_devices[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=6000)])
+        logical_gpus = tf.config.list_logical_devices('GPU')
+    except (RuntimeError, Exception) as e:
+        print("GPU virtual device configuration failed (another process may be using GPU memory); running on CPU:", e)
+else:
+    print("No GPU visible (CUDA_VISIBLE_DEVICES may be -1); running on CPU.")
 #username = "root"
 #password = "quakeflow123"
 # client = MongoClient(f"mongodb://{username}:{password}@127.0.0.1:27017")

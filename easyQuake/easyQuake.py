@@ -816,7 +816,7 @@ def detection_continuous(dirname=None, project_folder=None, project_code=None, l
         #picker = fbpicker.FBPicker(t_long = 5, freqmin = 1, mode = 'rms', t_ma = 20, nsigma = 7, t_up = 0.7, nr_len = 2, nr_coeff = 2, pol_len = 10, pol_coeff = 10, uncert_coeff = 3)
         #fb_pick(dbengine=engine_assoc,picker=picker,fileinput=infile)
 
-def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=4, delta_distance=1, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
+def association_continuous(dirname=None, project_folder=None, project_code=None, maxdist = None, maxkm=None, single_date=None, local=True, nsta_declare=3, delta_distance=1, assoc_ot_uncert=10, cutoff_outlier=40, loc_uncert_thresh=0.5, machine=True, machine_picker=None, latitude=None, longitude=None, max_radius=None, model=None, delete_assoc=False):
     """
     association_continuous: A function that performs association of seismic events with continuous data
     
@@ -901,7 +901,7 @@ def association_continuous(dirname=None, project_folder=None, project_code=None,
         pick_add(dbsession=session,fileinput=outfile,inventory=inventory)
 
     db_assoc='sqlite:///'+dir1+'/1dassociator_'+machine_picker.lower()+'_'+project_code+'.db'
-    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = 10, assoc_ot_uncert = 3, nsta_declare = nsta_declare, loc_uncert_thresh = 0.2)
+    assocXX=assoc1D.LocalAssociator(db_assoc, db_tt, max_km = maxkm, aggregation = 1, aggr_norm = 'L2', cutoff_outlier = cutoff_outlier, assoc_ot_uncert = assoc_ot_uncert, nsta_declare = nsta_declare, loc_uncert_thresh = loc_uncert_thresh)
     print("aggregate")
     t0=datetime.utcnow()
       # Identify candidate events (Pick Aggregation)

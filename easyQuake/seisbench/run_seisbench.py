@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/uesr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Wed May 10 13:41:19 2023
@@ -14,14 +14,9 @@ from obspy import Inventory, read_inventory
 import glob
 
 import traceback
-<<<<<<< Updated upstream
 from multiprocessing import cpu_count
 import torch
-
-=======
-
 import torch
->>>>>>> Stashed changes
 import argparse as ap
 import os
 from obspy import Stream, read
@@ -71,16 +66,11 @@ def main():
     model_path = args.M
 
     # Load the model
-    version_str = '1'  # Specify the version string of the model you want to load
-    loaded_model = sbm.GPD.load(model_path, version_str=version_str)
-    
+    version_str = None  # Specify the version string of the model you want to load
+    #loaded_model = sbm.PhaseNet.load(model_path, version_str=version_str)
+    loaded_model = sbm.PhaseNet()
+    loaded_model.load_state_dict(torch.load(model_path))
     loaded_model.cuda()
-<<<<<<< Updated upstream
-    torch.set_num_threads(2)
-=======
-    torch.set_num_threads(1)
->>>>>>> Stashed changes
-
 
     # # Set the path to the parent directory containing the subdirectories with the streams
     # #parent_directory = Path('/data/tamnet/ml')
