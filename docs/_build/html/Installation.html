@@ -3,12 +3,12 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Installation &mdash; easyQuake 1.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="About" href="About.html" />
-    <link rel="prev" title="easyQuake - simplified earthquake location" href="index.html" /> 
+    <link rel="prev" title="easyQuake - simplified machine-learning earthquake detection and location" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,7 +43,14 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#recommended-conda-environment-cpu-or-gpu">Recommended conda environment (CPU or GPU)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extras-partial-installs">Extras / partial installs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#seisbench-picker-separate-environment">SeisBench picker (separate environment)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#legacy-version-1-x-python-3-7-tf-2-2">Legacy version (1.x — Python 3.7 / TF 2.2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#smoke-test">Smoke test</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="About.html">About</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Getting_Started.html">Running easyQuake</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Additional.html">Function Reference</a></li>
@@ -75,7 +82,8 @@
              
   <section id="installation">
 <span id="id1"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
-<p>In most cases you would want to utilize this software on an NVIDIA CUDA-capable server, desktop, or laptop. The machine-learning pickers are configured to run with TensorFlow and that is the trickiest part of the installation process.</p>
+<p><strong>Version 2.0+ requires Python 3.10 or 3.11 and TensorFlow &gt;= 2.12.</strong></p>
+<p>In most cases you would want to utilize this software on an NVIDIA CUDA-capable server, desktop, or laptop. The machine-learning pickers are configured to run with TensorFlow and/or PyTorch. The event-mode can be run on a laptop CPU.</p>
 <p>On most systems you should be able to simply:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span>
 </pre></div>
@@ -90,27 +98,82 @@
 <span class="n">pip</span> <span class="n">install</span> <span class="o">.</span>
 </pre></div>
 </div>
-<p>The easiest way to install CUDA, TensorFlow, and Keras (while avoiding conflicting versions, etc.) is through installing Anaconda python and allowing conda-install to manage the dependencies. Since this has it’s own headaches in running less than current versions of Python, we suggest a new conda environment. This can be achieved with (last tested January 2022):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">easyquake</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.7</span> <span class="n">anaconda</span>
+<section id="recommended-conda-environment-cpu-or-gpu">
+<h2>Recommended conda environment (CPU or GPU)<a class="headerlink" href="#recommended-conda-environment-cpu-or-gpu" title="Link to this heading"></a></h2>
+<p>The easiest way to install CUDA, TensorFlow, and PyTorch while avoiding version conflicts is through Anaconda. Create a new environment with Python 3.11:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">easyquake</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.11</span>
 <span class="n">conda</span> <span class="n">activate</span> <span class="n">easyquake</span>
-<span class="n">conda</span> <span class="n">install</span> <span class="n">tensorflow</span><span class="o">-</span><span class="n">gpu</span><span class="o">==</span><span class="mf">2.1</span>
-<span class="n">conda</span> <span class="n">install</span> <span class="n">keras</span>
-<span class="n">conda</span> <span class="n">install</span> <span class="n">obspy</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="n">obspy</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">tensorflow</span> <span class="n">torch</span> <span class="n">torchvision</span> <span class="n">torchmetrics</span>
 <span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span>
 </pre></div>
 </div>
+<p>For GPU support, install CUDA-enabled builds instead:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">easyquake</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.11</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">easyquake</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="n">obspy</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">tensorflow</span><span class="p">[</span><span class="ow">and</span><span class="o">-</span><span class="n">cuda</span><span class="p">]</span> <span class="n">torch</span> <span class="n">torchvision</span> <span class="n">torchmetrics</span> <span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="n">url</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">download</span><span class="o">.</span><span class="n">pytorch</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">whl</span><span class="o">/</span><span class="n">cu118</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span>
+</pre></div>
+</div>
+</section>
+<section id="extras-partial-installs">
+<h2>Extras / partial installs<a class="headerlink" href="#extras-partial-installs" title="Link to this heading"></a></h2>
+<p>If you only need certain ML backends:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span><span class="p">[</span><span class="n">lite</span><span class="p">]</span>    <span class="c1"># obspy + pandas + tqdm only (no ML)</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span><span class="p">[</span><span class="n">tf</span><span class="p">]</span>      <span class="c1"># adds TensorFlow only</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span><span class="p">[</span><span class="n">torch</span><span class="p">]</span>   <span class="c1"># adds PyTorch only</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">easyQuake</span><span class="p">[</span><span class="n">ml</span><span class="p">]</span>      <span class="c1"># adds both TensorFlow and PyTorch</span>
+</pre></div>
+</div>
+</section>
+<section id="seisbench-picker-separate-environment">
+<h2>SeisBench picker (separate environment)<a class="headerlink" href="#seisbench-picker-separate-environment" title="Link to this heading"></a></h2>
+<p>The SeisBench picker must run in its own environment because its dependencies conflict with the TensorFlow environment used by GPD/EQTransformer/PhaseNet. easyQuake will call it as a subprocess automatically:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">seisbench</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.10</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">seisbench</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="n">seisbench</span> <span class="n">torch</span> <span class="n">torchvision</span> <span class="n">torchmetrics</span> <span class="n">obspy</span>
+</pre></div>
+</div>
+</section>
+<section id="legacy-version-1-x-python-3-7-tf-2-2">
+<h2>Legacy version (1.x — Python 3.7 / TF 2.2)<a class="headerlink" href="#legacy-version-1-x-python-3-7-tf-2-2" title="Link to this heading"></a></h2>
+<p>If you need to run easyQuake with the older TensorFlow 2.2 stack (e.g., on an older CUDA system), pin to the 1.4 release:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="s2">&quot;easyQuake==1.4.0&quot;</span>
+</pre></div>
+</div>
+<p>Or build from the tagged commit:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">jakewalter</span><span class="o">/</span><span class="n">easyQuake</span><span class="o">.</span><span class="n">git</span>
+<span class="n">cd</span> <span class="n">easyQuake</span>
+<span class="n">git</span> <span class="n">checkout</span> <span class="n">v1</span><span class="mf">.4.0</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p>The legacy conda environment:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">create</span> <span class="o">-</span><span class="n">n</span> <span class="n">easyquake</span> <span class="n">python</span><span class="o">=</span><span class="mf">3.7</span> <span class="n">anaconda</span>
+<span class="n">conda</span> <span class="n">activate</span> <span class="n">easyquake</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">tensorflow</span><span class="o">-</span><span class="n">gpu</span><span class="o">==</span><span class="mf">2.2</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">keras</span>
+<span class="n">conda</span> <span class="n">install</span> <span class="n">obspy</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="s2">&quot;easyQuake==1.4.0&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="smoke-test">
+<h2>Smoke test<a class="headerlink" href="#smoke-test" title="Link to this heading"></a></h2>
 <p>One simple test that everything (especially TensorFlow) is working is to run “event-mode” on a short snippet of data for an earthquake detected by OGS in Oklahoma:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">easyQuake</span> <span class="kn">import</span> <span class="n">detection_association_event</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">easyQuake</span><span class="w"> </span><span class="kn">import</span> <span class="n">detection_association_event</span>
 <span class="n">detection_association_event</span><span class="p">(</span><span class="n">project_folder</span><span class="o">=</span><span class="s1">&#39;/scratch&#39;</span><span class="p">,</span> <span class="n">project_code</span><span class="o">=</span><span class="s1">&#39;ok&#39;</span><span class="p">,</span> <span class="n">maxdist</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span> <span class="n">maxkm</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">local</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">latitude</span><span class="o">=</span><span class="mf">36.7</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=-</span><span class="mf">98.4</span><span class="p">,</span> <span class="n">max_radius</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">approxorigintime</span><span class="o">=</span><span class="s1">&#39;2021-01-27T14:03:46&#39;</span><span class="p">,</span> <span class="n">downloadwaveforms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="index.html" class="btn btn-neutral float-left" title="easyQuake - simplified earthquake location" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="index.html" class="btn btn-neutral float-left" title="easyQuake - simplified machine-learning earthquake detection and location" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="About.html" class="btn btn-neutral float-right" title="About" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

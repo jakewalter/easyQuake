@@ -3,12 +3,12 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>easyQuake - simplified earthquake location &mdash; easyQuake 1.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+  <title>easyQuake - simplified machine-learning earthquake detection and location &mdash; easyQuake 1.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -62,7 +62,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">easyQuake - simplified earthquake location</li>
+      <li class="breadcrumb-item active">easyQuake - simplified machine-learning earthquake detection and location</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -72,15 +72,24 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="easyquake-simplified-earthquake-location">
-<h1>easyQuake - simplified earthquake location<a class="headerlink" href="#easyquake-simplified-earthquake-location" title="Link to this heading"></a></h1>
+  <section id="easyquake-simplified-machine-learning-earthquake-detection-and-location">
+<h1>easyQuake - simplified machine-learning earthquake detection and location<a class="headerlink" href="#easyquake-simplified-machine-learning-earthquake-detection-and-location" title="Link to this heading"></a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#recommended-conda-environment-cpu-or-gpu">Recommended conda environment (CPU or GPU)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#extras-partial-installs">Extras / partial installs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#seisbench-picker-separate-environment">SeisBench picker (separate environment)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#legacy-version-1-x-python-3-7-tf-2-2">Legacy version (1.x — Python 3.7 / TF 2.2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#smoke-test">Smoke test</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="About.html">About</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="About.html#background">Background</a></li>
 <li class="toctree-l2"><a class="reference internal" href="About.html#detection-improvement">Detection Improvement</a></li>
-<li class="toctree-l2"><a class="reference internal" href="About.html#in-development">In Development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="About.html#quasi-realtime-mode">Quasi-Realtime Mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="About.html#seiscomp-integration">SeisComP Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="About.html#version-history">Version History</a></li>
 <li class="toctree-l2"><a class="reference internal" href="About.html#references">References</a></li>
 </ul>
 </li>
@@ -101,6 +110,16 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="Getting_Started.html#tips-for-success">Tips for Success</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Getting_Started.html#utility-modules">Utility Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="Getting_Started.html#cut-event-waveforms">Cut Event Waveforms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Getting_Started.html#convert-catalog-to-hdf5-for-ml-training">Convert Catalog to HDF5 (for ML training)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Getting_Started.html#convert-to-growclust-format">Convert to GrowClust format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Getting_Started.html#pyocto-association">PyOcto Association</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="Getting_Started.html#seisbench-picker">SeisBench Picker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Getting_Started.html#quasi-realtime-detection">Quasi-Realtime Detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Getting_Started.html#seiscomp-native-integration">SeisComP Native Integration</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Additional.html">Function Reference</a><ul>
