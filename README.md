@@ -4,7 +4,6 @@
 
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
-
 For more details, see the documentation: https://easyquake.readthedocs.io/
 
 On most systems you should be able to simply:
@@ -32,19 +31,82 @@ Letters, 92(1): 555–563, https://doi.org/10.1785/0220200226
 ```
 
 ## Requirements
-This code leverages machine-learning for earthquake detection with the choice of the GPD (https://github.com/interseismic/generalized-phase-detection), EQTransformer (https://github.com/smousavi05/EQTransformer), or PhaseNet (https://github.com/AI4EPS/PhaseNet) pickers. You should have suitable hardware to run CUDA/Tensorflow, which usually means some sort of GPU. This has been tested on servers with nvidia compute cards and modest multi-core desktop with consumer gaming nvidia card (e.g. Geforce 1050 Ti). The event-mode can be run efficiently enough on a laptop.
 
-* Most tested configuration includes nvidia-cuda-toolkit, obspy, keras, tensorflow-gpu==2.2, basemap
-* I've found that the the easiest way to install cuda, tensorflow, and keras is through installing Anaconda python and running ```conda install tensorflow-gpu==2.2```
-* Because tensorflow-gpu 2.2 requires python 3.7 (not the latest version), you might find an easier road creating a new environment:
+**Version 2.0+ (current, Python 3.10+)**
+
+This code leverages machine-learning for earthquake detection with the choice of the GPD (https://github.com/interseismic/generalized-phase-detection), EQTransformer (https://github.com/smousavi05/EQTransformer), PhaseNet (https://github.com/AI4EPS/PhaseNet), or SeisBench (https://github.com/seisbench/seisbench) pickers. Suitable GPU hardware is recommended for continuous processing, but the event-mode can be run efficiently on a laptop CPU.
+
+* **Python 3.10 or 3.11** (tested in CI on both Ubuntu and macOS)
+* **TensorFlow >= 2.12** (GPU support: install a CUDA-enabled build separately if needed)
+* **PyTorch >= 1.13**
+* **obspy >= 1.3**, **pandas >= 1.5**, **tqdm**
+
+### Recommended conda environment (current version)
+```
+conda create -n easyquake python=3.11
+conda activate easyquake
+conda install -c conda-forge obspy
+pip install tensorflow torch torchvision torchmetrics
+pip install easyQuake
+```
+
+If you have an NVIDIA GPU, install CUDA-enabled TensorFlow and PyTorch instead:
+```
+conda create -n easyquake python=3.11
+conda activate easyquake
+conda install -c conda-forge obspy
+pip install tensorflow[and-cuda] torch torchvision torchmetrics --index-url https://download.pytorch.org/whl/cu118
+pip install easyQuake
+```
+
+### Extras / partial installs
+
+If you only need certain ML backends, use the package extras:
+```
+pip install easyQuake[lite]    # obspy + pandas + tqdm only (no ML)
+pip install easyQuake[tf]      # adds TensorFlow only
+pip install easyQuake[torch]   # adds PyTorch only
+pip install easyQuake[ml]      # adds both TensorFlow and PyTorch
+```
+
+### SeisBench note
+The SeisBench picker runs in its **own separate environment** because its dependencies conflict with the TensorFlow environment used by GPD/EQTransformer/PhaseNet. easyQuake will call it as a subprocess automatically:
+```
+conda create -n seisbench python=3.10
+conda activate seisbench
+pip install seisbench torch torchvision torchmetrics obspy
+```
+
+---
+
+### Legacy version (1.x, Python 3.7–3.8)
+
+If you need to run easyQuake with the legacy TensorFlow 2.2 stack (e.g., on an older CUDA system), pin to the 1.4 release:
+```
+pip install "easyQuake==1.4.0"
+```
+
+Or build from the tagged commit:
+```
+git clone https://github.com/jakewalter/easyQuake.git
+cd easyQuake
+git checkout v1.4.0
+pip install .
+```
+
+The legacy conda environment:
 ```
 conda create -n easyquake python=3.7 anaconda
 conda activate easyquake
 conda install tensorflow-gpu==2.2
 conda install keras
 conda install obspy -c conda-forge
-pip install easyQuake
+pip install "easyQuake==1.4.0"
 ```
+
+> **Note:** Legacy installs required `keras==2.3.1`, `h5py==2.10.0`, `tensorflow-gpu==2.2`, and `protobuf==3.20.*`. These are incompatible with Python 3.9+ and are no longer installed by default.
+
+---
 
 ## Running easyQuake
 
@@ -116,6 +178,16 @@ plt.plot(catdf.index,catdf.magnitude,'.')
 
 Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
 
+**GPU memory errors:** If you see `ResourceExhaustedError` or similar GPU OOM messages, try reducing `batch_size` in the picker call, or set `CUDA_VISIBLE_DEVICES=-1` to force CPU inference.
+
+**TensorFlow warnings at startup:** TF 2.12+ is verbose about GPU discovery. These are informational only — easyQuake will automatically fall back to CPU if no compatible GPU is found.
+
+**PyTorch CUDA mismatch:** If SeisBench fails with "no kernel image is available for execution on the device", your installed PyTorch was not built for your CUDA version. Reinstall PyTorch with the correct CUDA tag from https://pytorch.org/get-started/locally/ or run with CPU (`CUDA_VISIBLE_DEVICES=-1`).
+
+**protobuf conflicts:** TensorFlow >= 2.12 requires `protobuf >= 3.20, < 4`. If you see protobuf errors, run `pip install "protobuf>=3.20,<4"`.
+
+**Import errors after upgrading from 1.x:** The 2.0 rewrite removed `keras` as a standalone dependency and dropped the `tensorflow-gpu` split package. Uninstall both and reinstall: `pip uninstall keras tensorflow-gpu tensorflow && pip install tensorflow`.
+
 ## Video intros to easyQuake
 
 Most recent updates, recorded for the 2021 SSA Annual meeting: https://www.youtube.com/watch?v=bjBqPL9pD5w
@@ -148,6 +220,8 @@ conda activate easyquake
 python idaho_example.py
 ```
 ## Version brief notes
+
+Version 2.0 (4/30/2026) = Major modernization. Requires Python 3.10+. All ML detection models (GPD, EQTransformer, PhaseNet, SeisBench) rewritten to be compatible with TensorFlow >= 2.12 and PyTorch >= 1.13. Dropped legacy `tensorflow-gpu`, `keras==2.3.1`, and `h5py==2.10.0` pinned dependencies. Added extras_require install options (`lite`, `tf`, `torch`, `ml`). CI tested on Python 3.10 and 3.11. PhaseNet entrypoint fixed to work without arguments. assoc1D import fixes.
 
 Version 1.4 (9/30/2024) = Long overdue version update, including modules for PyOcto association conversion to QuakeML file and seisbench picker integration.
 
