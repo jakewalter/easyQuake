@@ -27,6 +27,10 @@ class GPD(WaveformModel):
             "Generalized Seismic Phase Detection with Deep Learning. "
             "ArXiv:1805.01075 [Physics]. https://arxiv.org/abs/1805.01075"
         )
+        # Original Ross et al. (2018) model was trained with [N, E, Z] input order.
+        # SeisComP/seisbench defaults to ZNE; override to NEZ regardless of what
+        # saved weights JSON may specify (from_pretrained passes it via **kwargs).
+        kwargs.pop("component_order", None)
         super().__init__(
             citation=citation,
             output_type="point",
@@ -35,6 +39,9 @@ class GPD(WaveformModel):
             labels=phases,
             sampling_rate=sampling_rate,
             default_args={"stride": 10},
+            # Original Ross et al. (2018) model was trained with [N, E, Z] input order.
+            # SeisComP/seisbench defaults to ZNE; set NEZ explicitly to match training.
+            component_order="NEZ",
             **kwargs,
         )
 
