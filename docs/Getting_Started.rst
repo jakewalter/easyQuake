@@ -240,3 +240,128 @@ Most of the time it is beneficial to run jobs overnight and in the background (o
 If something goes wrong, you can inspect the nohup.out file (or just the end of it)::
 
 	> tail -n 100 nohup.out
+
+Utility Modules
+================
+
+easyQuake includes several utility modules for post-processing, format conversion, and catalog preparation.
+
+Cut Event Waveforms
+--------------------
+
+After building a catalog, you can cut event waveforms from your continuous data archive into individual event miniSEED files. This is useful for building training datasets for new ML models::
+
+        from easyQuake import cut_event_waveforms
+        cut_event_waveforms(cat=cat, project_folder=project_folder, pre_sec=5, post_sec=30)
+
+The output is organized by event in the project folder. Each event gets a subfolder with the cut waveforms.
+
+Convert Catalog to HDF5 (for ML training)
+-------------------------------------------
+
+The ``quakeML_to_hdf5`` utility converts a QuakeML-format catalog (with associated picks) into the HDF5 waveform format expected by EQTransformer and similar models for transfer learning or re-training::
+
+        from easyQuake import quakeML_to_hdf5
+        quakeML_to_hdf5(cat=cat, project_folder=project_folder, pre_sec=5, post_sec=30)
+
+This is particularly useful if you want to fine-tune a picker on your regional dataset.
+
+Convert to GrowClust format
+-----------------------------
+
+If you want to run the GrowClust relative relocation algorithm, easyQuake can output your catalog in the correct format::
+
+        from easyQuake import quakeml_to_growclust
+        quakeml_to_growclust(project_folder='.')
+
+PyOcto Association
+-------------------
+
+As an alternative to the PhasePApy 1D associator, easyQuake supports the PyOcto associator (v1.4+). PyOcto can be faster for dense networks::
+
+        from easyQuake import detection_continuous, pyocto_continuous
+        # ... (run detection_continuous as above) ...
+        pyocto_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code, single_date=single_date)
+
+SeisBench Picker
+=================
+
+Version 1.4+ includes integration with `SeisBench <https://github.com/seisbench/seisbench>`_, which provides a unified interface to many pretrained models (PhaseNet, GPD, EQTransformer, and more) along with fine-tuned regional weight sets.
+
+Because SeisBench has conflicting dependencies with the TensorFlow environment, it runs in a **separate conda environment** and easyQuake calls it as a subprocess.
+
+Setting up the SeisBench environment::
+
+        conda create -n seisbench python=3.10
+        conda activate seisbench
+        pip install seisbench torch torchvision torchmetrics obspy
+
+Running continuous detection with SeisBench::
+
+        from easyQuake import detection_continuous
+        detection_continuous(dirname=dirname, project_folder=project_folder, project_code=project_code,
+                             single_date=single_date, machine=True, local=True,
+                             machine_picker='seisbench',
+                             seisbenchmodel='/path/to/your/model.pth')
+
+The ``seisbenchmodel`` argument accepts the full path to a SeisBench-format model directory or a ``.pth`` state-dict file. If you have trained a regional model with SeisBench, point it here.
+
+Quasi-Realtime Detection
+=========================
+
+The ``realtime/`` folder contains scripts for quasi-realtime earthquake detection driven by a SeedLink stream. Instead of processing full daylong files, the realtime scripts receive short data packets from a SeedLink server and trigger the detection/association pipeline on each new snippet as it arrives.
+
+**How it works:**
+
+1. ``seedlink_connection_v5.py`` connects to your SeedLink server, receives waveform packets, and writes them into a time-windowed directory structure under your project folder. It writes an ``rt.xml`` sentinel file when a window is complete.
+2. ``rt_easyquake.py`` runs a polling loop (every 5 seconds) that detects new ``rt.xml`` files and spawns a background thread calling ``detection_association_event`` on that time window. It also performs a periodic re-scan every hour to catch any missed windows.
+3. Detected events are written as ``*_seiscomp.xml`` files in the project folder root, ready for dispatch to a SeisComP system.
+
+**Running the realtime stack:**
+
+Edit the host, port, and station list in ``seedlink_connection_v5.py`` for your network, then::
+
+        # In terminal 1 — ingest waveforms from SeedLink
+        nohup python realtime/seedlink_connection_v5.py &
+
+        # In terminal 2 — run detection on each new window
+        nohup python realtime/rt_easyquake.py /scratch/realtime PhaseNet &
+
+        # Check what's happening
+        tail -f nohup.out
+
+**Sending events to SeisComP:**
+
+On the SeisComP server, use an ``inotify``-based dispatcher to call ``scdispatch`` whenever a new XML file appears in the incoming directory (see ``realtime/README.md`` for the full script).
+
+For fully native SeisComP integration — where picks are published directly to the SC messaging bus without any file-based handoff — see the ``sceasyquake`` module in the companion repository: https://github.com/jakewalter/easyQuake_seiscomp
+
+SeisComP Native Integration
+============================
+
+The companion **sceasyquake** module provides deep integration with SeisComP 5, publishing ML picks directly to the SeisComP messaging bus as native ``Pick`` and ``Amplitude`` objects. This means picks flow into ``scautoloc`` automatically, events are formed by ``scevent``, and everything appears in ``scolv`` for analyst review — without any file-based intermediate step.
+
+See the full documentation at: https://github.com/jakewalter/easyQuake_seiscomp
+
+**Quick install:**
+
+.. code-block:: bash
+
+    git clone https://github.com/jakewalter/easyQuake_seiscomp.git
+    cd easyQuake_seiscomp/sceasyquake
+    export SC_PYTHON=$(seiscomp exec which python3)
+    $SC_PYTHON -m pip install obspy seisbench
+    bash install.sh
+    seiscomp enable sceasyquake
+    seiscomp start sceasyquake
+
+**Minimal configuration** (``$SEISCOMP_ROOT/etc/sceasyquake.cfg``)::
+
+    seedlink.host      = localhost
+    seedlink.port      = 18000
+    streams.codes      = TX.*.00.HH?
+    picker.backend     = phasenet
+    picker.device      = cuda
+    picker.threshold   = 0.5
+    picker.step_seconds = 5
+

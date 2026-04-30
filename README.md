@@ -174,6 +174,28 @@ plt.figure()
 plt.plot(catdf.index,catdf.magnitude,'.')
 ```
 
+## Quasi-realtime mode
+
+The `realtime/` folder contains scripts for quasi-realtime earthquake detection driven by a SeedLink stream. Rather than processing daylong files, these scripts watch for short data packets from a SeedLink server, write them to a rolling directory structure, and trigger `detection_association_event` on each new snippet as it arrives.
+
+**Scripts:**
+- `rt_easyquake.py` — Main realtime loop. Watches for `rt.xml` trigger files written by the SeedLink client and launches detection/association in a background thread for each new time window. Performs a periodic full re-scan (hourly) to catch any missed windows.
+- `seedlink_connection_v5.py` — SeedLink client that connects to a server, receives waveforms, and writes them into the project folder structure.
+- `seedlink_sds_connection.py` — Alternate client that writes data into an SDS (SeisComP Data Structure) archive layout.
+
+**Quick start:**
+```bash
+# Start the SeedLink data ingest (edit host/port/stations inside the script)
+nohup python realtime/seedlink_connection_v5.py &
+
+# Start realtime detection (edit project folder and picker name)
+nohup python realtime/rt_easyquake.py /scratch/realtime PhaseNet &
+```
+
+The realtime scripts write SeisComP-compatible XML event files (e.g. `*_seiscomp.xml`) to the project folder. These can be ingested into a running SeisComP system automatically — see the `realtime/README.md` for the `inotify`-based dispatcher pattern that calls `scdispatch` whenever a new XML file is detected.
+
+For fully native SeisComP integration (picks published directly to the SC messaging bus), see the **SeisComP Integration** section at the bottom of this page.
+
 ## Tips for successful outputs
 
 Within your systems, consider running driver scripts as nohup background processes ```nohup python ~/work_dir/okla_daily.py &```. In this way, one could ```cat nohup.out | grep Traceback``` to understand python errors or ```grep nohup.out | Killed``` to understand when the system runs out of memory.
@@ -236,6 +258,42 @@ Version 0.8 (7/30/2021) - Several major bug fixes and improved controls for Hypo
 Verson 0.6 (2/24/2021) - Implemented choice of GPD or EQTransformer pickers for the picking stage
 
 Version 0.5 (2/10/2021) - includes embedded hypoinverse location functionality, rather than the simple location with the associator.
+
+## SeisComP Integration
+
+For users running a SeisComP seismic network management system, easyQuake ML picks can be published directly to the SeisComP messaging bus as native `Pick` objects — making them available to `scautoloc`, `scevent`, and other SC modules as if they came from `scautopick`.
+
+This is provided by the companion module **sceasyquake**: https://github.com/jakewalter/easyQuake_seiscomp
+
+`sceasyquake` is a SeisComP 5 module that:
+- Connects to a SeedLink server and buffers incoming waveforms
+- Runs continuous ML phase picking (P and S) using any of the supported backends: PhaseNet, GPD, EQTransformer, or any SeisBench model
+- Publishes picks and SNR amplitudes to the SC messaging `PICK` group in real time
+- Works as a drop-in companion to `scautopick` — both can run simultaneously
+
+**Supported pickers:**
+
+| Backend | Model | Notes |
+|---|---|---|
+| `phasenet` | PhaseNet | easyQuake native, TF >= 2.12 |
+| `gpd` | GPD | easyQuake native, threshold default 0.994 |
+| `eqtransformer` | EQTransformer | P + S + detection confidence |
+| `seisbench` | any SeisBench model | configurable via `picker.model` |
+| `auto` | PhaseNet (SeisBench) | auto-selects best available backend |
+
+**Quick install:**
+```bash
+git clone https://github.com/jakewalter/easyQuake_seiscomp.git
+cd easyQuake_seiscomp/sceasyquake
+export SC_PYTHON=$(seiscomp exec which python3)
+$SC_PYTHON -m pip install obspy seisbench
+$SC_PYTHON -m pip install -e ~/easyQuake   # optional: bundled weights
+bash install.sh
+seiscomp enable sceasyquake
+seiscomp start sceasyquake
+```
+
+See the [easyQuake_seiscomp README](https://github.com/jakewalter/easyQuake_seiscomp) for full installation, configuration, benchmarking, and troubleshooting details.
 
 ## License
 
