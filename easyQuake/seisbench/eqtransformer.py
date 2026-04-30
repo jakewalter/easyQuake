@@ -231,6 +231,18 @@ class EQTransformer(WaveformModel):
 
         return tuple(outputs)
 
+    def annotate_batch_post(self, batch, piggyback=None, argdict=None):
+        # batch is a tuple of (det, p, s) tensors each of shape (batch_size, samples).
+        # Stack into (batch_size, samples, classes+1) and apply blinding.
+        import torch
+        stacked = torch.stack(batch, dim=-1)  # (batch_size, samples, 3)
+        prenan, postnan = (argdict or {}).get("blinding", (0, 0))
+        if prenan > 0:
+            stacked[:, :prenan, :] = float("nan")
+        if postnan > 0:
+            stacked[:, -postnan:, :] = float("nan")
+        return stacked
+
     def annotate_window_post(self, pred, piggyback=None, argdict=None):
         # Combine predictions in one array
         prenan, postnan = argdict.get("blinding", (0, 0))
