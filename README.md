@@ -1,10 +1,11 @@
 # easyQuake
 
 [![CI](https://github.com/jakewalter/easyQuake/actions/workflows/ci.yml/badge.svg)](https://github.com/jakewalter/easyQuake/actions/workflows/ci.yml)
+[![Documentation Status](https://readthedocs.org/projects/easyquake/badge/?version=latest)](https://easyquake.readthedocs.io/en/latest/?badge=latest)
 
 Simplified machine-learning driven earthquake detection, location, and analysis in one easy-to-implement python package.
 
-For more details, see the documentation: https://easyquake.readthedocs.io/
+For full documentation, including a complete function reference, see: https://easyquake.readthedocs.io/
 
 On most systems you should be able to simply:
 ```
@@ -220,6 +221,8 @@ Recorded for the fall 2020 Virtual SSA Eastern Section meeting: https://www.yout
 
 Stay up to date on the latest description of EasyQuake contents: https://easyquake.readthedocs.io/en/latest/About.html
 
+A complete **Function Reference** covering all 44+ public functions (data download, detection, association, magnitude, location, catalog utilities, format conversion, and plotting) is available at: https://easyquake.readthedocs.io/en/latest/Additional.html
+
 ## Running easyQuake with SLURM
 
 If you have access to shared computing resources that utilize SLURM, you can drive easyQuake by making a bash script to run the example code or any code (thanks to Xiaowei Chen at OU). Save the following to a drive_easyQuake.sh and then run it
@@ -243,7 +246,7 @@ python idaho_example.py
 ```
 ## Version brief notes
 
-Version 2.0 (4/30/2026) = Major modernization. Requires Python 3.10+. All ML detection models (GPD, EQTransformer, PhaseNet, SeisBench) rewritten to be compatible with TensorFlow >= 2.12 and PyTorch >= 1.13. Dropped legacy `tensorflow-gpu`, `keras==2.3.1`, and `h5py==2.10.0` pinned dependencies. Added extras_require install options (`lite`, `tf`, `torch`, `ml`). CI tested on Python 3.10 and 3.11. PhaseNet entrypoint fixed to work without arguments. assoc1D import fixes.
+Version 2.0 (4/30/2026) = Major modernization. Requires Python 3.10+. All ML detection models (GPD, EQTransformer, PhaseNet, SeisBench) rewritten to be compatible with TensorFlow >= 2.12 and PyTorch >= 1.13. Dropped legacy `tensorflow-gpu`, `keras==2.3.1`, and `h5py==2.10.0` pinned dependencies. Added extras_require install options (`lite`, `tf`, `torch`, `ml`). CI tested on Python 3.10 and 3.11. PhaseNet entrypoint fixed to work without arguments. assoc1D import fixes. Documentation overhauled: Sphinx upgraded to 7.x, ReadTheDocs builds fixed (added `.readthedocs.yaml`), complete function reference added covering all 44+ public functions.
 
 Version 1.4 (9/30/2024) = Long overdue version update, including modules for PyOcto association conversion to QuakeML file and seisbench picker integration.
 
